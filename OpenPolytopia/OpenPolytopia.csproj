@@ -42,7 +42,8 @@
     <!-- LightMoq is a Chickensoft package which makes it more like Moq. -->
     <PackageReference Include="LightMoq" Version="0.1.0" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- Production dependencies go here! -->
+  <ItemGroup><!-- Production dependencies go here! -->
+  
+    <PackageReference Include="Chickensoft.GameTools" Version="1.0.6" />
   </ItemGroup>
 </Project>
