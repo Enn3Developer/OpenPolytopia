@@ -70,10 +70,7 @@ public struct Tile {
   /// Sets the road for this tile
   /// </summary>
   /// <param name="road">1: yes road; 0: no road</param>
-  public void SetRoad(bool road) {
-    var roadValue = road ? 1ul : 0;
-    _inner |= roadValue << ROAD_POSITION;
-  }
+  public void SetRoad(bool road) => _inner |= road.ToULong() << ROAD_POSITION;
 
   /// <summary>
   /// Checks if the tile has a ruin
@@ -85,10 +82,7 @@ public struct Tile {
   /// Sets the ruin for this tile
   /// </summary>
   /// <param name="ruin">1: yes ruin; 0: no ruin</param>
-  public void SetRuin(bool ruin) {
-    var ruinValue = ruin ? 1ul : 0;
-    _inner |= ruinValue << RUIN_POSITION;
-  }
+  public void SetRuin(bool ruin) => _inner |= ruin.ToULong() << RUIN_POSITION;
 
   /// <summary>
   /// Gets the tile's type
@@ -161,4 +155,8 @@ public enum FieldTileBuildings {
   Temple = 4,
   Forge = 5,
   Altar = 6
+}
+
+public static class BooleanExtensions {
+  public static ulong ToULong(this bool value) => value ? 1ul : 0;
 }
