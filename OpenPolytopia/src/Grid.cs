@@ -1,5 +1,6 @@
 namespace OpenPolytopia;
 
+using System;
 using Godot;
 
 public struct Grid(uint size) {
@@ -20,6 +21,23 @@ public struct Tile {
   private const int THREE_BITS = 7;
   private const int FOUR_BITS = 15;
   private const int FIVE_BITS = 31;
+
+  /// <summary>
+  /// Returns the corresponding modifier enum's <see cref="Type"/> from a <see cref="TileKind"/>
+  /// </summary>
+  /// <param name="kind">the tile kind</param>
+  /// <returns>the modifier enum</returns>
+  /// <exception cref="ArgumentOutOfRangeException">if <c>kind</c> isn't valid</exception>
+  public static Type GetModifier(TileKind kind) =>
+    kind switch {
+      TileKind.Field => typeof(FieldTileModifier),
+      TileKind.Mountain => typeof(MountainTileModifier),
+      TileKind.Forest => typeof(ForestTileModifier),
+      TileKind.Water => typeof(WaterTileModifier),
+      TileKind.Ocean => typeof(OceanTileModifier),
+      TileKind.Village => typeof(VillageTileModifier),
+      _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+    };
 
   /// <summary>
   /// Inner representation of a tile.
@@ -49,11 +67,28 @@ public struct Tile {
   public bool HasRoad() => _inner >> ROAD_POSITION == 1;
 
   /// <summary>
+  /// Sets the road for this tile
+  /// </summary>
+  /// <param name="road">1: yes road; 0: no road</param>
+  public void SetRoad(bool road) {
+    var roadValue = road ? 1ul : 0;
+    _inner |= roadValue << ROAD_POSITION;
+  }
+
+  /// <summary>
   /// Checks if the tile has a ruin
   /// </summary>
   /// <returns>whether there's a ruin or not</returns>
   public bool HasRuin() => ((_inner >> RUIN_POSITION) & ONE_BIT) == 1;
 
+  /// <summary>
+  /// Sets the ruin for this tile
+  /// </summary>
+  /// <param name="ruin">1: yes ruin; 0: no ruin</param>
+  public void SetRuin(bool ruin) {
+    var ruinValue = ruin ? 1ul : 0;
+    _inner |= ruinValue << RUIN_POSITION;
+  }
 
   /// <summary>
   /// Gets the tile's type
