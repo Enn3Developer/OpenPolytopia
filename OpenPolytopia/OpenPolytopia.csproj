@@ -1,0 +1,48 @@
+<Project Sdk="Godot.NET.Sdk/4.3.0">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenPolytopia</RootNamespace>
+    <!-- Catch compiler-mismatch issues with the Introspection generator as early as possible -->
+    <WarningsAsErrors>CS9057</WarningsAsErrors>
+    <!-- Required for some nuget packages to work -->
+    <!-- godotengine/godot/issues/42271#issuecomment-751423827 -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- To show generated files -->
+    <!-- <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles> -->
+    <!--
+          <CompilerGeneratedFilesOutputPath>.generated</CompilerGeneratedFilesOutputPath>
+        -->
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Title>OpenPolytopia</Title>
+    <Version>0.1.0</Version>
+    <Description>OpenPolytopia</Description>
+    <Copyright>© 2024 Enn3DevPlayer, GamerPlayer888, Remoxx</Copyright>
+    <Authors>Enn3DevPlayer, GamerPlayer888, Remoxx</Authors>
+    <Company>Enn3DevPlayer, GamerPlayer888, Remoxx</Company>
+    <!-- Don't include unit tests in release builds. -->
+    <DefaultItemExcludes Condition="'$(Configuration)' == 'ExportRelease'">
+            $(DefaultItemExcludes);test/**/*
+        </DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'ExportDebug' ">
+    <!-- Test dependencies go here! -->
+    <!-- Dependencies added here will not be included in release builds. -->
+    <PackageReference Include="Chickensoft.GoDotTest" Version="1.6.1" />
+    <!-- Used to drive test scenes when testing visual code -->
+    <PackageReference Include="Chickensoft.GodotTestDriver" Version="3.0.2" />
+    <!-- Bring your own assertion library for tests! -->
+    <!-- We're using Shouldly for this example, but you can use anything. -->
+    <PackageReference Include="Shouldly" Version="4.3.0" />
+    <!-- LightMock is a mocking library that works without reflection. -->
+    <PackageReference Include="LightMock.Generator" Version="1.2.2" />
+    <!-- LightMoq is a Chickensoft package which makes it more like Moq. -->
+    <PackageReference Include="LightMoq" Version="0.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Production dependencies go here! -->
+  </ItemGroup>
+</Project>
