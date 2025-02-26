@@ -1,6 +1,7 @@
 namespace OpenPolytopia;
 
 using System;
+using System.Numerics;
 using Godot;
 
 /// <summary>
@@ -48,6 +49,71 @@ public struct Grid(uint size) {
   /// <param name="callback">callback function to modify the tile</param>
   public void ModifyTile(Vector2I position, ActionRef<Tile> callback) =>
     callback(ref _grid[(position.Y * size) + position.X]);
+
+  /// <summary>
+  /// Modifies multiple tiles with the same callback using SIMD if possible
+  /// </summary>
+  /// <remarks>
+  /// May be worse performance-wise than looping for every position and using ModifyTile if the array is small enough
+  /// </remarks>
+  /// <example>
+  /// <code>
+  /// var positions = [new Vector2I(0, 0), new Vector2I(1, 0), new Vector2I(0, 1), new Vector2I(1, 1)];
+  /// grid.ModifyMultipleTiles(positions, (ref tile) => tile.Owner = 1)
+  /// </code>
+  /// </example>
+  /// <param name="positions">the tile positions array</param>
+  /// <param name="callback">callback function to modify a single tile</param>
+  public void ModifyMultipleTiles(Vector2I[] positions, ActionRef<Tile> callback) {
+    var xPositions = new int[positions.Length];
+    var yPositions = new int[positions.Length];
+
+    for (var i = 0; i < positions.Length; i++) {
+      xPositions[i] = positions[i].X;
+      yPositions[i] = positions[i].Y;
+    }
+
+    ModifyMultipleTiles(xPositions, yPositions, positions, callback);
+  }
+
+  public void ModifyMultipleTiles(int[] xPositions, int[] yPositions, ActionRef<Tile> callback) {
+    var length = xPositions.Length;
+    var remaining = length % Vector<int>.Count;
+
+    for (var i = 0; i < length - remaining; i += Vector<int>.Count) {
+      var v1 = new Vector<int>(xPositions, i);
+      var v2 = new Vector<int>(yPositions, i);
+      ModifyMultipleTiles(v1, v2, callback);
+    }
+
+    for (var i = length - remaining; i < length; i++) {
+      ModifyTile(new Vector2I(xPositions[i], yPositions[i]), callback);
+    }
+  }
+
+  public void ModifyMultipleTiles(int[] xPositions, int[] yPositions, Vector2I[] positions, ActionRef<Tile> callback) {
+    var length = xPositions.Length;
+    var remaining = length % Vector<int>.Count;
+
+    for (var i = 0; i < length - remaining; i += Vector<int>.Count) {
+      var v1 = new Vector<int>(xPositions, i);
+      var v2 = new Vector<int>(yPositions, i);
+      ModifyMultipleTiles(v1, v2, callback);
+    }
+
+    for (var i = length - remaining; i < length; i++) {
+      ModifyTile(positions[i], callback);
+    }
+  }
+
+  public void ModifyMultipleTiles(Vector<int> xPositions, Vector<int> yPositions, ActionRef<Tile> callback) {
+    var indexes = (yPositions * (int)size) + xPositions;
+    var indexesArray = new int[Vector<int>.Count];
+    indexes.CopyTo(indexesArray);
+    foreach (var i in indexesArray) {
+      callback(ref _grid[i]);
+    }
+  }
 }
 
 /// <summary>
@@ -142,7 +208,7 @@ public struct Tile {
   /// <remarks>
   /// if 0, it is assumed that this tile has no owners
   /// </remarks>
-  public int TileOwner {
+  public int Owner {
     get => (int)_inner.GetBits(FOUR_BITS, TILE_OWNER_POSITION);
     set => _inner.SetBits((ulong)value, FOUR_BITS, TILE_OWNER_POSITION);
   }
