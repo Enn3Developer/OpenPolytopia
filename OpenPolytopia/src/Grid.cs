@@ -134,7 +134,7 @@ public struct Tile {
   private const int FIVE_BITS = 31;
 
   /// <summary>
-  /// Returns the corresponding modifier enum's <see cref="Type"/> from a <see cref="TileKind"/>
+  /// Returns the corresponding modifier enum's <see cref="Type"/> from a <see cref="Kind"/>
   /// </summary>
   /// <param name="kind">the tile kind</param>
   /// <returns>the modifier enum</returns>
@@ -157,7 +157,7 @@ public struct Tile {
   /// <list type="bullet">
   /// <item>0 -> 1: has road; 0 doesn't have any road; (bridge if on water)</item>
   /// <item>1 -> 1: has ancient ruin; 0 doesn't have any ruin</item>
-  /// <item>[2, 4] -> <see cref="TileKind"/></item>
+  /// <item>[2, 4] -> <see cref="Kind"/></item>
   /// <item>[5, 6] -> Tile modifier</item>
   /// <item>[7, 9] -> Tile buildings</item>
   /// <item>[10, 13] -> Tile owner; if 0 no owner</item>
@@ -184,12 +184,12 @@ public struct Tile {
   /// <summary>
   /// The type of the tile
   /// </summary>
-  public TileKind TileKind => (TileKind)_inner.GetBits(THREE_BITS, TILEKIND_POSITION);
+  public TileKind Kind => (TileKind)_inner.GetBits(THREE_BITS, TILEKIND_POSITION);
 
   /// <summary>
   /// The tile modifier castable to the corresponding enum
   /// </summary>
-  public int TileModifier {
+  public int Modifier {
     get => (int)_inner.GetBits(TWO_BITS, TILE_MODIFIER_POSITION);
     set => _inner.SetBits((ulong)value, TWO_BITS, TILE_MODIFIER_POSITION);
   }
@@ -197,7 +197,7 @@ public struct Tile {
   /// <summary>
   /// The tile building castable to the corresponding enum
   /// </summary>
-  public int TileBuilding {
+  public int Building {
     get => (int)_inner.GetBits(THREE_BITS, TILE_BUILDING_POSITION);
     set => _inner.SetBits((ulong)value, THREE_BITS, TILE_BUILDING_POSITION);
   }
@@ -214,7 +214,7 @@ public struct Tile {
   }
 
   /// <summary>
-  /// Creates a new tile from a <see cref="TileKind"/>
+  /// Creates a new tile from a <see cref="Kind"/>
   /// </summary>
   /// <param name="kind">the type of tile to create</param>
   public Tile(TileKind kind) {
@@ -226,40 +226,40 @@ public struct Tile {
   /// </summary>
   /// <typeparam name="T">The tile modifier enum</typeparam>
   /// <returns>the tile modifier as <c>T</c></returns>
-  public T GetTileModifier<T>() => (T)(object)TileModifier;
+  public T GetTileModifier<T>() => (T)(object)Modifier;
 
   /// <summary>
   /// Sets the tile modifier
   /// </summary>
   /// <param name="tileModifier">the tile modifier enum value</param>
-  public void SetTileModifier(object tileModifier) => TileModifier = (int)tileModifier;
+  public void SetTileModifier(object tileModifier) => Modifier = (int)tileModifier;
 
   /// <summary>
   /// Sets the tile modifier
   /// </summary>
   /// <param name="tileModifier">the tile modifier enum value</param>
   /// <typeparam name="T">The tile modifier enum</typeparam>
-  public void SetTileModifier<T>(T tileModifier) => TileModifier = (int)(object)tileModifier!;
+  public void SetTileModifier<T>(T tileModifier) => Modifier = (int)(object)tileModifier!;
 
   /// <summary>
   /// Returns the tile building
   /// </summary>
   /// <typeparam name="T">The tile building enum</typeparam>
   /// <returns>the tile building as <c>T</c></returns>
-  public T GetTileBuilding<T>() => (T)(object)TileBuilding;
+  public T GetTileBuilding<T>() => (T)(object)Building;
 
   /// <summary>
   /// Sets the tile building
   /// </summary>
   /// <param name="tileBuilding">the tile building enum value</param>
-  public void SetTileBuilding(object tileBuilding) => TileBuilding = (int)tileBuilding;
+  public void SetTileBuilding(object tileBuilding) => Building = (int)tileBuilding;
 
   /// <summary>
   /// Sets the tile building
   /// </summary>
   /// <param name="tileBuilding">the tile building enum value</param>
   /// <typeparam name="T">The tile building enum</typeparam>
-  public void SetTileBuilding<T>(T tileBuilding) => TileBuilding = (int)(object)tileBuilding!;
+  public void SetTileBuilding<T>(T tileBuilding) => Building = (int)(object)tileBuilding!;
 }
 
 /// <summary>
