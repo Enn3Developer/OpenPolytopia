@@ -3,8 +3,16 @@ namespace OpenPolytopia;
 using System;
 using Godot;
 
+/// <summary>
+/// Delegate function that takes a ref parameter
+/// </summary>
+/// <typeparam name="T">type of the parameter</typeparam>
 public delegate void ActionRef<T>(ref T item);
 
+/// <summary>
+/// Represents a squared grid <c>size * size</c>
+/// </summary>
+/// <param name="size">the width of the grid</param>
 public struct Grid(uint size) {
   private readonly Tile[] _grid = new Tile[size * size];
 
@@ -13,6 +21,13 @@ public struct Grid(uint size) {
   /// </summary>
   /// <remarks>
   /// Don't modify the tile returned by this because it won't be modified, use <see cref="ModifyTile"/>
+  /// or set the value back
+  /// <code>
+  /// var position = new Vector2I(0, 0);
+  /// var tile = grid[position];
+  /// tile.Roads = true;
+  /// grid[position] = tile;
+  /// </code>
   /// </remarks>
   /// <param name="position">the position where to get the tile</param>
   public Tile this[Vector2I position] {
@@ -23,18 +38,28 @@ public struct Grid(uint size) {
   /// <summary>
   /// Modifies a given tile
   /// </summary>
+  /// <example>
+  /// <code>
+  /// var position = new Vector2I(0, 0);
+  /// grid.ModifyTile(position, (ref tile) => tile.Roads = true);
+  /// </code>
+  /// </example>
   /// <param name="position">position of the tile in the grid</param>
   /// <param name="callback">callback function to modify the tile</param>
   public void ModifyTile(Vector2I position, ActionRef<Tile> callback) =>
     callback(ref _grid[(position.Y * size) + position.X]);
 }
 
+/// <summary>
+/// Represents a single tile with various setter/getter for accessing its internal data
+/// </summary>
 public struct Tile {
   private const int ROAD_POSITION = 63;
   private const int RUIN_POSITION = 62;
   private const int TILEKIND_POSITION = 59;
   private const int TILE_MODIFIER_POSITION = 57;
   private const int TILE_BUILDING_POSITION = 54;
+  private const int TILE_OWNER_POSITION = 50;
 
   private const int ONE_BIT = 1;
   private const int TWO_BITS = 3;
@@ -56,7 +81,7 @@ public struct Tile {
       TileKind.Water => typeof(WaterTileModifier),
       TileKind.Ocean => typeof(OceanTileModifier),
       TileKind.Village => typeof(VillageTileModifier),
-      _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+      _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, $"kind is invalid: {kind}")
     };
 
   /// <summary>
@@ -69,6 +94,7 @@ public struct Tile {
   /// <item>[2, 4] -> <see cref="TileKind"/></item>
   /// <item>[5, 6] -> Tile modifier</item>
   /// <item>[7, 9] -> Tile buildings</item>
+  /// <item>[10, 13] -> Tile owner; if 0 no owner</item>
   /// </list>
   /// </summary>
   private ulong _inner;
@@ -108,6 +134,17 @@ public struct Tile {
   public int TileBuilding {
     get => (int)_inner.GetBits(THREE_BITS, TILE_BUILDING_POSITION);
     set => _inner.SetBits((ulong)value, THREE_BITS, TILE_BUILDING_POSITION);
+  }
+
+  /// <summary>
+  /// The owner of the tile
+  /// </summary>
+  /// <remarks>
+  /// if 0, it is assumed that this tile has no owners
+  /// </remarks>
+  public int TileOwner {
+    get => (int)_inner.GetBits(FOUR_BITS, TILE_OWNER_POSITION);
+    set => _inner.SetBits((ulong)value, FOUR_BITS, TILE_OWNER_POSITION);
   }
 
   /// <summary>
@@ -241,7 +278,7 @@ public enum VillageTileBuilding {
 
 public static class BooleanExtensions {
   /// <summary>
-  /// Converts the bool to a <see cref="ulong"/>
+  /// Converts the bool to a <see langword="ulong"/>
   /// </summary>
   /// <param name="value">the bool to convert</param>
   /// <returns>1 if value else 0</returns>
