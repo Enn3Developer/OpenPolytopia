@@ -46,4 +46,10 @@
   
     <PackageReference Include="Chickensoft.GameTools" Version="1.0.6" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove=".github\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove=".github\**" />
+  </ItemGroup>
 </Project>
