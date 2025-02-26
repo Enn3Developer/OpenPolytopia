@@ -160,12 +160,27 @@ public struct Tile {
   private const int TILE_MODIFIER_POSITION = 57;
   private const int TILE_BUILDING_POSITION = 54;
   private const int TILE_OWNER_POSITION = 50;
+  private const int TILE_BIOME_POSITION = 45;
+  private const int CITY_POSITION = 37;
+  private const int WONDER_POSITION = 33;
+  private const int CUSTOM_DATA_POSITION = 0;
 
   private const int ONE_BIT = 1;
   private const int TWO_BITS = 3;
   private const int THREE_BITS = 7;
   private const int FOUR_BITS = 15;
   private const int FIVE_BITS = 31;
+  private const int SIX_BITS = 63;
+  private const int SEVEN_BITS = 127;
+  private const int EIGHT_BITS = 255;
+
+  /// <summary>
+  /// Max bits available for custom data for tiles
+  /// </summary>
+  /// <remarks>
+  /// This is represented as the number of bits set to 1, not as the number itself
+  /// </remarks>
+  public const ulong MAX_CUSTOM_DATA_BITS = 8_589_934_591;
 
   /// <summary>
   /// Returns the corresponding modifier enum's <see cref="Type"/> from a <see cref="Kind"/>
@@ -195,6 +210,9 @@ public struct Tile {
   /// <item>[5, 6] -> Tile modifier</item>
   /// <item>[7, 9] -> Tile buildings</item>
   /// <item>[10, 13] -> Tile owner; if 0 no owner</item>
+  /// <item>[14, 18] -> Tribe biome</item>
+  /// <item>[19, 26] -> City ID; if 0 no city</item>
+  /// <item>[27, 30] -> Wonder</item>
   /// </list>
   /// </summary>
   private ulong _inner;
@@ -248,6 +266,33 @@ public struct Tile {
   }
 
   /// <summary>
+  /// Biome of the tile based on the tribes available in the game
+  /// </summary>
+  public Tribe Biome {
+    get => (Tribe)_inner.GetBits(FIVE_BITS, TILE_BIOME_POSITION);
+    set => _inner.SetBits((ulong)value, FIVE_BITS, TILE_BIOME_POSITION);
+  }
+
+  /// <summary>
+  /// City that owns this tile
+  /// </summary>
+  /// <remarks>
+  /// If 0, it is assumed that no city owns this tile
+  /// </remarks>
+  public int City {
+    get => (int)_inner.GetBits(EIGHT_BITS, CITY_POSITION);
+    set => _inner.SetBits((ulong)value, EIGHT_BITS, CITY_POSITION);
+  }
+
+  /// <summary>
+  /// The wonder that has been built on this tile
+  /// </summary>
+  public Wonder Wonder {
+    get => (Wonder)_inner.GetBits(FOUR_BITS, WONDER_POSITION);
+    set => _inner.SetBits((ulong)value, FOUR_BITS, WONDER_POSITION);
+  }
+
+  /// <summary>
   /// Creates a new tile from a <see cref="Kind"/>
   /// </summary>
   /// <param name="kind">the type of tile to create</param>
@@ -294,6 +339,27 @@ public struct Tile {
   /// <param name="tileBuilding">the tile building enum value</param>
   /// <typeparam name="T">The tile building enum</typeparam>
   public void SetTileBuilding<T>(T tileBuilding) => Building = (int)(object)tileBuilding!;
+
+  /// <summary>
+  /// Returns the custom data to be saved in this tile
+  /// </summary>
+  /// <typeparam name="T">The type of the custom data to cast from; must implement <see cref="ITileCustomData"/> and have a constructor without parameters</typeparam>
+  /// <returns>the custom data</returns>
+  public T GetCustomData<T>() where T : ITileCustomData, new() {
+    var t = new T();
+    t.FromULong(_inner.GetBits(MAX_CUSTOM_DATA_BITS, CUSTOM_DATA_POSITION));
+    return t;
+  }
+
+  /// <summary>
+  /// Sets the custom data for this tile
+  /// </summary>
+  /// <param name="data">the data to set for this tile</param>
+  /// <typeparam name="T">the type of the data</typeparam>
+  public void SetCustomData<T>(T data) where T : ITileCustomData {
+    var value = data.ToULong();
+    _inner.SetBits(value, MAX_CUSTOM_DATA_BITS, CUSTOM_DATA_POSITION);
+  }
 }
 
 /// <summary>
@@ -326,12 +392,14 @@ public enum ForestTileModifier {
 
 public enum WaterTileModifier {
   Normal = 0,
-  Fish = 1
+  Fish = 1,
+  Star = 2
 }
 
 public enum OceanTileModifier {
   Normal = 0,
-  Fish = 1
+  Fish = 1,
+  Star = 2
 }
 
 public enum VillageTileModifier {
@@ -346,7 +414,8 @@ public enum FieldTileBuilding {
   Market = 3,
   Temple = 4,
   Forge = 5,
-  Altar = 6
+  Altar = 6,
+  Farm = 7
 }
 
 public enum ForestTileBuilding {
@@ -376,6 +445,11 @@ public enum VillageTileBuilding {
   None = 0
 }
 
+public interface ITileCustomData {
+  public void FromULong(ulong value);
+  public ulong ToULong();
+}
+
 public static class BooleanExtensions {
   /// <summary>
   /// Converts the bool to a <see langword="ulong"/>
@@ -393,7 +467,7 @@ public static class ULongExtensions {
   /// <param name="value">the number to clear bits</param>
   /// <param name="bits">number of bits to clear; must be all ones</param>
   /// <param name="position">the position where to start clearing bits starting from the right</param>
-  public static ulong ClearBits(this ulong value, int bits, int position) => value & ~((ulong)bits << position);
+  public static ulong ClearBits(this ulong value, ulong bits, int position) => value & ~(bits << position);
 
   /// <summary>
   /// Clear bits and set them
@@ -402,7 +476,7 @@ public static class ULongExtensions {
   /// <param name="data">the bits to be set</param>
   /// <param name="bits">number of bits to set; must be all ones</param>
   /// <param name="position">the position where to set bits starting from the right</param>
-  public static void SetBits(this ref ulong value, ulong data, int bits, int position) =>
+  public static void SetBits(this ref ulong value, ulong data, ulong bits, int position) =>
     value = value.ClearBits(bits, position) | (data << position);
 
   /// <summary>
@@ -412,5 +486,5 @@ public static class ULongExtensions {
   /// <param name="bits">number of bits to get; must be all ones</param>
   /// <param name="position">the position where to get bits starting from the right</param>
   /// <returns></returns>
-  public static ulong GetBits(this ulong value, int bits, int position) => (value >> position) & (ulong)bits;
+  public static ulong GetBits(this ulong value, ulong bits, int position) => (value >> position) & bits;
 }
