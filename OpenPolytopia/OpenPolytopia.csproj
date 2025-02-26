@@ -45,22 +45,13 @@
   <ItemGroup><!-- Production dependencies go here! -->
 
     <PackageReference Include="Chickensoft.GameTools" Version="1.0.6"/>
+
+    <PackageReference Include="System.Numerics.Vectors" Version="4.6.0"/>
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove=".github\**"/>
+    <Compile Remove=".github\**" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Remove=".github\**"/>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="badges\.gdignore"/>
-    <Content Include="badges\branch_coverage.svg"/>
-    <Content Include="badges\line_coverage.svg"/>
-    <Content Include="coverage.ps1"/>
-    <Content Include="coverage.sh"/>
-    <Content Include="coverage\.gdignore"/>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="coverage\report\"/>
+    <EmbeddedResource Remove=".github\**" />
   </ItemGroup>
 </Project>
