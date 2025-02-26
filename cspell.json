@@ -5,11 +5,11 @@
   "ignorePaths": [
     "**/*.tscn",
     "**/*.import",
-    "badges/**/*.*",
-    "coverage/**/*.*",
-    ".godot/**/*.*",
+    "**/badges/**/*.*",
+    "**/coverage/**/*.*",
+    "**/.godot/**/*.*",
     "**/*.tres",
-    "addons/**/*.*"
+    "**/addons/**/*.*"
   ],
   "words": [
     "animatable",
@@ -82,6 +82,8 @@
     "voxel",
     "vulkan",
     "XRIP",
-    "Xunit"
+    "Xunit",
+    "Remoxx",
+    "Polytopia"
   ]
 }
