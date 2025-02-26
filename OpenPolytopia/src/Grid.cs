@@ -3,10 +3,30 @@ namespace OpenPolytopia;
 using System;
 using Godot;
 
+public delegate void ActionRef<T>(ref T item);
+
 public struct Grid(uint size) {
   private readonly Tile[] _grid = new Tile[size * size];
 
-  public Tile GetTile(Vector2I position) => _grid[(position.Y * size) + position.X];
+  /// <summary>
+  /// Returns a <see cref="Tile"/> in the given position.
+  /// </summary>
+  /// <remarks>
+  /// Don't modify the tile returned by this because it won't be modified, use <see cref="ModifyTile"/>
+  /// </remarks>
+  /// <param name="position">the position where to get the tile</param>
+  public Tile this[Vector2I position] {
+    get => _grid[(position.Y * size) + position.X];
+    set => _grid[(position.Y * size) + position.X] = value;
+  }
+
+  /// <summary>
+  /// Modifies a given tile
+  /// </summary>
+  /// <param name="position">position of the tile in the grid</param>
+  /// <param name="callback">callback function to modify the tile</param>
+  public void ModifyTile(Vector2I position, ActionRef<Tile> callback) =>
+    callback(ref _grid[(position.Y * size) + position.X]);
 }
 
 public struct Tile {
