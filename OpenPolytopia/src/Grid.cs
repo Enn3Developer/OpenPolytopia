@@ -5,16 +5,10 @@ using System.Numerics;
 using Godot;
 
 /// <summary>
-/// Delegate function that takes a ref parameter
-/// </summary>
-/// <typeparam name="T">type of the parameter</typeparam>
-public delegate void ActionRef<T>(ref T item);
-
-/// <summary>
 /// Represents a squared grid <c>size * size</c>
 /// </summary>
 /// <param name="size">the width of the grid</param>
-public struct Grid(uint size) {
+public class Grid(uint size) {
   private readonly Tile[] _grid = new Tile[size * size];
 
   /// <summary>
@@ -63,7 +57,7 @@ public struct Grid(uint size) {
   /// <example>
   /// <code>
   /// var position = new Vector2I(0, 0);
-  /// grid.ModifyTile(position, (ref tile) => tile.Roads = true);
+  /// grid.ModifyTile(position, (ref Tile tile) => tile.Roads = true);
   /// </code>
   /// </example>
   /// <param name="position">position of the tile in the grid</param>
@@ -76,7 +70,7 @@ public struct Grid(uint size) {
   /// </summary>
   /// <example>
   /// <code>
-  /// grid.ModifyTile(0, (ref tile) => tile.Roads = true);
+  /// grid.ModifyTile(0, (ref Tile tile) => tile.Roads = true);
   /// </code>
   /// </example>
   /// <param name="index">index of the tile</param>
@@ -93,7 +87,7 @@ public struct Grid(uint size) {
   /// <example>
   /// <code>
   /// var positions = [new Vector2I(0, 0), new Vector2I(1, 0), new Vector2I(0, 1), new Vector2I(1, 1)];
-  /// grid.ModifyMultipleTiles(positions, (ref tile) => tile.Owner = 1)
+  /// grid.ModifyMultipleTiles(positions, (ref Tile tile) => tile.Owner = 1)
   /// </code>
   /// </example>
   /// <param name="positions">the tile positions array</param>
@@ -448,43 +442,4 @@ public enum VillageTileBuilding {
 public interface ITileCustomData {
   public void FromULong(ulong value);
   public ulong ToULong();
-}
-
-public static class BooleanExtensions {
-  /// <summary>
-  /// Converts the bool to a <see langword="ulong"/>
-  /// </summary>
-  /// <param name="value">the bool to convert</param>
-  /// <returns>1 if value else 0</returns>
-  public static ulong ToULong(this bool value) => value ? 1ul : 0;
-}
-
-public static class ULongExtensions {
-  /// <summary>
-  /// Clear the bits in the specified position by the specified length.
-  /// Ex. value == 3 (...011); value.ClearBits(1, 1); value == 1 (...001)
-  /// </summary>
-  /// <param name="value">the number to clear bits</param>
-  /// <param name="bits">number of bits to clear; must be all ones</param>
-  /// <param name="position">the position where to start clearing bits starting from the right</param>
-  public static ulong ClearBits(this ulong value, ulong bits, int position) => value & ~(bits << position);
-
-  /// <summary>
-  /// Clear bits and set them
-  /// </summary>
-  /// <param name="value">the number where to set bits</param>
-  /// <param name="data">the bits to be set</param>
-  /// <param name="bits">number of bits to set; must be all ones</param>
-  /// <param name="position">the position where to set bits starting from the right</param>
-  public static void SetBits(this ref ulong value, ulong data, ulong bits, int position) =>
-    value = value.ClearBits(bits, position) | (data << position);
-
-  /// <summary>
-  /// Get the bits
-  /// </summary>
-  /// <param name="value">the number where to get bits</param>
-  /// <param name="bits">number of bits to get; must be all ones</param>
-  /// <param name="position">the position where to get bits starting from the right</param>
-  /// <returns></returns>
-  public static ulong GetBits(this ulong value, ulong bits, int position) => (value >> position) & bits;
 }
