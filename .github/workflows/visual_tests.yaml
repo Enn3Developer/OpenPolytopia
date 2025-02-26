@@ -73,6 +73,7 @@ jobs:
 
       - name: 🌋 Run Tests in Godot
         run: |
+          cd OpenPolytopia
           xvfb-run godot --audio-driver Dummy --rendering-driver ${{ matrix.render-driver }} --run-tests --quit-on-finish --coverage
 
           # The --coverage flag is used by GoDotTest to control the exit code
