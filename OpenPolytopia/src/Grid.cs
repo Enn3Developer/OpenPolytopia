@@ -21,7 +21,7 @@ public struct Grid(uint size) {
   /// Returns a <see cref="Tile"/> in the given position.
   /// </summary>
   /// <remarks>
-  /// Don't modify the tile returned by this because it won't be modified, use <see cref="ModifyTile"/>
+  /// Don't modify the tile returned by this because it won't be modified, use <see cref="ModifyTile(Vector2I, ActionRef&lt;Tile&gt;)"/>
   /// or set the value back
   /// <code>
   /// var position = new Vector2I(0, 0);
@@ -37,6 +37,27 @@ public struct Grid(uint size) {
   }
 
   /// <summary>
+  /// Returns a <see cref="Tile"/> in the given position.
+  /// </summary>
+  /// <remarks>
+  /// Don't modify the tile returned by this because it won't be modified, use <see cref="ModifyTile(uint, ActionRef&lt;Tile&gt;)"/>
+  /// or set the value back
+  /// <code>
+  /// var tile = grid[0];
+  /// tile.Roads = true;
+  /// grid[0] = tile;
+  /// </code>
+  /// </remarks>
+  /// <param name="index">index of the tile</param>
+  public Tile this[uint index] {
+    get => _grid[index];
+    set => _grid[index] = value;
+  }
+
+  public uint GridPositionToIndex(Vector2I position) => (uint)((position.Y * size) + position.X);
+  public uint GridPositionToIndex(int x, int y) => (uint)((y * size) + x);
+
+  /// <summary>
   /// Modifies a given tile
   /// </summary>
   /// <example>
@@ -49,6 +70,19 @@ public struct Grid(uint size) {
   /// <param name="callback">callback function to modify the tile</param>
   public void ModifyTile(Vector2I position, ActionRef<Tile> callback) =>
     callback(ref _grid[(position.Y * size) + position.X]);
+
+  /// <summary>
+  /// Modifies a given tile
+  /// </summary>
+  /// <example>
+  /// <code>
+  /// grid.ModifyTile(0, (ref tile) => tile.Roads = true);
+  /// </code>
+  /// </example>
+  /// <param name="index">index of the tile</param>
+  /// <param name="callback">callback function to modify the tile</param>
+  public void ModifyTile(uint index, ActionRef<Tile> callback) =>
+    callback(ref _grid[index]);
 
   /// <summary>
   /// Modifies multiple tiles with the same callback using SIMD if possible
@@ -87,7 +121,7 @@ public struct Grid(uint size) {
     }
 
     for (var i = length - remaining; i < length; i++) {
-      ModifyTile(new Vector2I(xPositions[i], yPositions[i]), callback);
+      ModifyTile(GridPositionToIndex(xPositions[i], yPositions[i]), callback);
     }
   }
 
