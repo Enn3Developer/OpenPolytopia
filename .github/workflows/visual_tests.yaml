@@ -67,7 +67,9 @@ jobs:
           version: global.json
 
       - name: 🧑‍🔬 Generate .NET Bindings
-        run: godot --headless --build-solutions --quit || exit 0
+        run: |
+          cd OpenPolytopia
+          godot --headless --build-solutions --quit || exit 0
 
       - name: 🌋 Run Tests in Godot
         run: |
