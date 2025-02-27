@@ -5,13 +5,7 @@ using Chickensoft.GoDotTest;
 using Godot;
 using Shouldly;
 
-public class TileTest : TestClass {
-  public TileTest(Node testScene) : base(testScene) { }
-
-  [SetupAll]
-  public async Task Setup() {
-  }
-
+public class TileTest(Node testScene) : TestClass(testScene) {
   [Test]
   public void TestTileCreation() {
     const TileKind kind = TileKind.Mountain;
