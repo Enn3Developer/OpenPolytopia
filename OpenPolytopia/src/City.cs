@@ -12,7 +12,7 @@ public class CityManager(Grid grid) {
   /// Access to the <see cref="CityData"/>
   /// </summary>
   /// <remarks>
-  /// Exactly as <see cref="Grid.this[Vector2I]"/> you can't modify directly the <see cref="CityData"/> that this getter returns,
+  /// Exactly as <see cref="Grid.this[Vector2I]"/>, you can't modify directly the <see cref="CityData"/> that this getter returns,
   /// use <see cref="ModifyCity"/> for that
   /// </remarks>
   /// <param name="id">id of the city</param>
