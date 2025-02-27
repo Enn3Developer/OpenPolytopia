@@ -89,6 +89,7 @@ public struct CityData : ITileCustomData {
   private const int WALL_POSITION = 6;
   private const int FORGE_POSITION = 5;
   private const int CAPITAL_POSITION = 4;
+  private const int CONNECTED_POSITION = 3;
 
   private const int ONE_BIT = 1;
   private const int TWO_BITS = 3;
@@ -113,6 +114,7 @@ public struct CityData : ITileCustomData {
   /// <item>25 -> Has wall</item>
   /// <item>26 -> Has forge</item>
   /// <item>27 -> Is capital</item>
+  /// <item>28 -> Is connected</item>
   /// </list>
   /// </summary>
   private uint _inner;
@@ -206,6 +208,16 @@ public struct CityData : ITileCustomData {
     get => _inner.GetBits(ONE_BIT, CAPITAL_POSITION) == 1;
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits(value.ToUInt(), ONE_BIT, CAPITAL_POSITION);
+  }
+
+  /// <summary>
+  /// Whether this city is connected
+  /// </summary>
+  public bool Connected {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => _inner.GetBits(ONE_BIT, CONNECTED_POSITION) == 1;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    set => _inner.SetBits(value.ToUInt(), ONE_BIT, CONNECTED_POSITION);
   }
 
   /// <summary>

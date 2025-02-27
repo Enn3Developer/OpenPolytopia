@@ -87,6 +87,15 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
   }
 
   [Test]
+  public void TestConnected() {
+    const bool connected = true;
+    var cityData = new CityData();
+    cityData.Connected.ShouldBe(false);
+    cityData.Connected = connected;
+    cityData.Connected.ShouldBe(connected);
+  }
+
+  [Test]
   public void TestStars() {
     const int level = 2;
     var cityData = new CityData();
