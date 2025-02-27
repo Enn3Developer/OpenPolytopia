@@ -54,7 +54,7 @@ public class TechTree {
       _ => throw new ArgumentOutOfRangeException(nameof(branch), branch, "branch is invalid")
     };
 
-  public TechTree(StartingTech? startingTech) {
+  public TechTree(StartingTech? startingTech = null) {
     if (startingTech == null) {
       return;
     }
