@@ -24,6 +24,13 @@ public class CityManager(Grid grid) {
   }
 
   /// <summary>
+  /// Returns the grid id for a city
+  /// </summary>
+  /// <param name="id">the id of the city</param>
+  /// <returns>the id of the tile in the grid</returns>
+  public uint GetIndex(uint id) => _cities[(int)(id - 1)];
+
+  /// <summary>
   /// Registers a tile as a city
   /// </summary>
   /// <param name="position">position of the tile in the grid</param>
