@@ -2,19 +2,14 @@ namespace OpenPolytopia;
 
 using System;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Godot;
-
-/// <summary>
-/// Delegate function that takes a ref parameter
-/// </summary>
-/// <typeparam name="T">type of the parameter</typeparam>
-public delegate void ActionRef<T>(ref T item);
 
 /// <summary>
 /// Represents a squared grid <c>size * size</c>
 /// </summary>
 /// <param name="size">the width of the grid</param>
-public struct Grid(uint size) {
+public class Grid(uint size) {
   private readonly Tile[] _grid = new Tile[size * size];
 
   /// <summary>
@@ -32,7 +27,9 @@ public struct Grid(uint size) {
   /// </remarks>
   /// <param name="position">the position where to get the tile</param>
   public Tile this[Vector2I position] {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => _grid[(position.Y * size) + position.X];
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _grid[(position.Y * size) + position.X] = value;
   }
 
@@ -50,11 +47,16 @@ public struct Grid(uint size) {
   /// </remarks>
   /// <param name="index">index of the tile</param>
   public Tile this[uint index] {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => _grid[index];
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _grid[index] = value;
   }
 
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public uint GridPositionToIndex(Vector2I position) => (uint)((position.Y * size) + position.X);
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public uint GridPositionToIndex(int x, int y) => (uint)((y * size) + x);
 
   /// <summary>
@@ -63,11 +65,12 @@ public struct Grid(uint size) {
   /// <example>
   /// <code>
   /// var position = new Vector2I(0, 0);
-  /// grid.ModifyTile(position, (ref tile) => tile.Roads = true);
+  /// grid.ModifyTile(position, (ref Tile tile) => tile.Roads = true);
   /// </code>
   /// </example>
   /// <param name="position">position of the tile in the grid</param>
   /// <param name="callback">callback function to modify the tile</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void ModifyTile(Vector2I position, ActionRef<Tile> callback) =>
     callback(ref _grid[(position.Y * size) + position.X]);
 
@@ -76,11 +79,12 @@ public struct Grid(uint size) {
   /// </summary>
   /// <example>
   /// <code>
-  /// grid.ModifyTile(0, (ref tile) => tile.Roads = true);
+  /// grid.ModifyTile(0, (ref Tile tile) => tile.Roads = true);
   /// </code>
   /// </example>
   /// <param name="index">index of the tile</param>
   /// <param name="callback">callback function to modify the tile</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void ModifyTile(uint index, ActionRef<Tile> callback) =>
     callback(ref _grid[index]);
 
@@ -93,7 +97,7 @@ public struct Grid(uint size) {
   /// <example>
   /// <code>
   /// var positions = [new Vector2I(0, 0), new Vector2I(1, 0), new Vector2I(0, 1), new Vector2I(1, 1)];
-  /// grid.ModifyMultipleTiles(positions, (ref tile) => tile.Owner = 1)
+  /// grid.ModifyMultipleTiles(positions, (ref Tile tile) => tile.Owner = 1)
   /// </code>
   /// </example>
   /// <param name="positions">the tile positions array</param>
@@ -188,6 +192,7 @@ public struct Tile {
   /// <param name="kind">the tile kind</param>
   /// <returns>the modifier enum</returns>
   /// <exception cref="ArgumentOutOfRangeException">if <c>kind</c> isn't valid</exception>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public static Type GetModifier(TileKind kind) =>
     kind switch {
       TileKind.Field => typeof(FieldTileModifier),
@@ -213,6 +218,7 @@ public struct Tile {
   /// <item>[14, 18] -> Tribe biome</item>
   /// <item>[19, 26] -> City ID; if 0 no city</item>
   /// <item>[27, 30] -> Wonder</item>
+  /// <item>[31, 63] -> Custom data</item>
   /// </list>
   /// </summary>
   private ulong _inner;
@@ -221,7 +227,9 @@ public struct Tile {
   /// Roads/bridge on top of this tile
   /// </summary>
   public bool Roads {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => _inner.GetBits(ONE_BIT, ROAD_POSITION) == 1;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits(value.ToULong(), ONE_BIT, ROAD_POSITION);
   }
 
@@ -229,7 +237,9 @@ public struct Tile {
   /// Ruin on top of this tile
   /// </summary>
   public bool Ruin {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => _inner.GetBits(ONE_BIT, RUIN_POSITION) == 1;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits(value.ToULong(), ONE_BIT, RUIN_POSITION);
   }
 
@@ -242,7 +252,9 @@ public struct Tile {
   /// The tile modifier castable to the corresponding enum
   /// </summary>
   public int Modifier {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => (int)_inner.GetBits(TWO_BITS, TILE_MODIFIER_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, TWO_BITS, TILE_MODIFIER_POSITION);
   }
 
@@ -250,7 +262,9 @@ public struct Tile {
   /// The tile building castable to the corresponding enum
   /// </summary>
   public int Building {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => (int)_inner.GetBits(THREE_BITS, TILE_BUILDING_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, THREE_BITS, TILE_BUILDING_POSITION);
   }
 
@@ -261,7 +275,9 @@ public struct Tile {
   /// if 0, it is assumed that this tile has no owners
   /// </remarks>
   public int Owner {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => (int)_inner.GetBits(FOUR_BITS, TILE_OWNER_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, FOUR_BITS, TILE_OWNER_POSITION);
   }
 
@@ -269,7 +285,9 @@ public struct Tile {
   /// Biome of the tile based on the tribes available in the game
   /// </summary>
   public Tribe Biome {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => (Tribe)_inner.GetBits(FIVE_BITS, TILE_BIOME_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, FIVE_BITS, TILE_BIOME_POSITION);
   }
 
@@ -280,7 +298,9 @@ public struct Tile {
   /// If 0, it is assumed that no city owns this tile
   /// </remarks>
   public int City {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => (int)_inner.GetBits(EIGHT_BITS, CITY_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, EIGHT_BITS, CITY_POSITION);
   }
 
@@ -288,7 +308,9 @@ public struct Tile {
   /// The wonder that has been built on this tile
   /// </summary>
   public Wonder Wonder {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => (Wonder)_inner.GetBits(FOUR_BITS, WONDER_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, FOUR_BITS, WONDER_POSITION);
   }
 
@@ -296,6 +318,7 @@ public struct Tile {
   /// Creates a new tile from a <see cref="Kind"/>
   /// </summary>
   /// <param name="kind">the type of tile to create</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public Tile(TileKind kind) {
     _inner = (ulong)kind << TILEKIND_POSITION;
   }
@@ -305,12 +328,14 @@ public struct Tile {
   /// </summary>
   /// <typeparam name="T">The tile modifier enum</typeparam>
   /// <returns>the tile modifier as <c>T</c></returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public T GetTileModifier<T>() => (T)(object)Modifier;
 
   /// <summary>
   /// Sets the tile modifier
   /// </summary>
   /// <param name="tileModifier">the tile modifier enum value</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void SetTileModifier(object tileModifier) => Modifier = (int)tileModifier;
 
   /// <summary>
@@ -318,6 +343,7 @@ public struct Tile {
   /// </summary>
   /// <param name="tileModifier">the tile modifier enum value</param>
   /// <typeparam name="T">The tile modifier enum</typeparam>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void SetTileModifier<T>(T tileModifier) => Modifier = (int)(object)tileModifier!;
 
   /// <summary>
@@ -325,12 +351,14 @@ public struct Tile {
   /// </summary>
   /// <typeparam name="T">The tile building enum</typeparam>
   /// <returns>the tile building as <c>T</c></returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public T GetTileBuilding<T>() => (T)(object)Building;
 
   /// <summary>
   /// Sets the tile building
   /// </summary>
   /// <param name="tileBuilding">the tile building enum value</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void SetTileBuilding(object tileBuilding) => Building = (int)tileBuilding;
 
   /// <summary>
@@ -338,6 +366,7 @@ public struct Tile {
   /// </summary>
   /// <param name="tileBuilding">the tile building enum value</param>
   /// <typeparam name="T">The tile building enum</typeparam>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void SetTileBuilding<T>(T tileBuilding) => Building = (int)(object)tileBuilding!;
 
   /// <summary>
@@ -345,6 +374,7 @@ public struct Tile {
   /// </summary>
   /// <typeparam name="T">The type of the custom data to cast from; must implement <see cref="ITileCustomData"/> and have a constructor without parameters</typeparam>
   /// <returns>the custom data</returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public T GetCustomData<T>() where T : ITileCustomData, new() {
     var t = new T();
     t.FromULong(_inner.GetBits(MAX_CUSTOM_DATA_BITS, CUSTOM_DATA_POSITION));
@@ -356,6 +386,7 @@ public struct Tile {
   /// </summary>
   /// <param name="data">the data to set for this tile</param>
   /// <typeparam name="T">the type of the data</typeparam>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void SetCustomData<T>(T data) where T : ITileCustomData {
     var value = data.ToULong();
     _inner.SetBits(value, MAX_CUSTOM_DATA_BITS, CUSTOM_DATA_POSITION);
@@ -446,45 +477,9 @@ public enum VillageTileBuilding {
 }
 
 public interface ITileCustomData {
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void FromULong(ulong value);
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public ulong ToULong();
-}
-
-public static class BooleanExtensions {
-  /// <summary>
-  /// Converts the bool to a <see langword="ulong"/>
-  /// </summary>
-  /// <param name="value">the bool to convert</param>
-  /// <returns>1 if value else 0</returns>
-  public static ulong ToULong(this bool value) => value ? 1ul : 0;
-}
-
-public static class ULongExtensions {
-  /// <summary>
-  /// Clear the bits in the specified position by the specified length.
-  /// Ex. value == 3 (...011); value.ClearBits(1, 1); value == 1 (...001)
-  /// </summary>
-  /// <param name="value">the number to clear bits</param>
-  /// <param name="bits">number of bits to clear; must be all ones</param>
-  /// <param name="position">the position where to start clearing bits starting from the right</param>
-  public static ulong ClearBits(this ulong value, ulong bits, int position) => value & ~(bits << position);
-
-  /// <summary>
-  /// Clear bits and set them
-  /// </summary>
-  /// <param name="value">the number where to set bits</param>
-  /// <param name="data">the bits to be set</param>
-  /// <param name="bits">number of bits to set; must be all ones</param>
-  /// <param name="position">the position where to set bits starting from the right</param>
-  public static void SetBits(this ref ulong value, ulong data, ulong bits, int position) =>
-    value = value.ClearBits(bits, position) | (data << position);
-
-  /// <summary>
-  /// Get the bits
-  /// </summary>
-  /// <param name="value">the number where to get bits</param>
-  /// <param name="bits">number of bits to get; must be all ones</param>
-  /// <param name="position">the position where to get bits starting from the right</param>
-  /// <returns></returns>
-  public static ulong GetBits(this ulong value, ulong bits, int position) => (value >> position) & bits;
 }
