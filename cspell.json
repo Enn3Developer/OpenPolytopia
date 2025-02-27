@@ -9,7 +9,8 @@
     "**/coverage/**/*.*",
     "**/.godot/**/*.*",
     "**/*.tres",
-    "**/addons/**/*.*"
+    "**/addons/**/*.*",
+    "**/*.DotSettings.*"
   ],
   "words": [
     "animatable",
@@ -84,6 +85,13 @@
     "XRIP",
     "Xunit",
     "Remoxx",
-    "Polytopia"
+    "Polytopia",
+    "TILEKIND",
+    "Elyrion",
+    "Imperius",
+    "Kickoo",
+    "Vengir",
+    "Bardur",
+    "Oumaji"
   ]
 }
