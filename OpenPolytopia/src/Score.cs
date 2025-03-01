@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 /// Score for a single player
 /// </summary>
 public class Score {
-  private int _value { get; set; }
+  private int _value;
 
   public int ScoreValue {
     get => _value;
