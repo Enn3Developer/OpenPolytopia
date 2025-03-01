@@ -19,6 +19,9 @@ public partial class Lobby : Control {
 
   public PackedScene? GameScene;
 
+  private uint _playersInLobby;
+  private uint _playersStarted;
+
   public override void _Ready() {
     Instance = this;
 
@@ -37,8 +40,8 @@ public partial class Lobby : Control {
     }
   }
 
-  [Rpc(CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-  public void StartGame() {
+  [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+  private void StartGame() {
     if (GameScene == null) {
       GD.PrintErr("GameScene is null");
       return;
@@ -48,13 +51,16 @@ public partial class Lobby : Control {
   }
 
   [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-  public void PlayerLoaded() {
+  private void PlayerLoaded() {
     if (Multiplayer.IsServer()) {
-      GetNode<PolyGame>("/root/PolyGame").StartGame();
+      _playersStarted++;
+      if (_playersStarted == _playersInLobby) {
+        GetNode<PolyGame>("/root/PolyGame").StartGame();
+      }
     }
   }
 
-  public void JoinGame() {
+  private void JoinGame() {
     var peer = new ENetMultiplayerPeer();
     var error = peer.CreateClient(ADDRESS, PORT);
 
@@ -65,7 +71,7 @@ public partial class Lobby : Control {
     Multiplayer.MultiplayerPeer = peer;
   }
 
-  public void CreateGame() {
+  private void CreateGame() {
     var peer = new ENetMultiplayerPeer();
     var error = peer.CreateServer(PORT);
 
@@ -83,9 +89,15 @@ public partial class Lobby : Control {
     EmitSignal(SignalName.PlayerConnected, id);
   }
 
-  private void OnPlayerConnected(long id) => RpcId(id, MethodName.RegisterPlayer);
+  private void OnPlayerConnected(long id) {
+    _playersInLobby++;
+    RpcId(id, MethodName.RegisterPlayer);
+  }
 
-  private void OnPlayerDisconnected(long id) => EmitSignal(SignalName.PlayerDisconnected, id);
+  private void OnPlayerDisconnected(long id) {
+    _playersInLobby--;
+    EmitSignal(SignalName.PlayerDisconnected, id);
+  }
 
   private void OnConnectOk() {
     var id = Multiplayer.GetUniqueId();
