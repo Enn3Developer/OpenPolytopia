@@ -37,6 +37,18 @@ public class TroopManager(uint size) {
     get => _grid[index];
   }
 
+  /// <summary>
+  /// Gets the troop type
+  /// </summary>
+  /// <param name="type">the type of the troop</param>
+  /// <remarks>
+  /// Remember to register troop <see cref="TroopType"/>
+  /// </remarks>
+  public Troop this[TroopType type] {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => _troops[type];
+  }
+
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public uint GridPositionToIndex(Vector2I position) => (uint)((position.Y * size) + position.X);
 
