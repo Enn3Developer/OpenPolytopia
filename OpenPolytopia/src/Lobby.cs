@@ -6,6 +6,8 @@ public partial class Lobby : Control {
   private const string ADDRESS = "enn3.ovh";
   private const int PORT = 6969;
 
+  public static Lobby Instance = null!;
+
   [Signal]
   public delegate void PlayerConnectedEventHandler(int id);
 
@@ -18,6 +20,8 @@ public partial class Lobby : Control {
   public PackedScene? GameScene;
 
   public override void _Ready() {
+    Instance = this;
+
     Multiplayer.PeerConnected += OnPlayerConnected;
     Multiplayer.PeerDisconnected += OnPlayerDisconnected;
     Multiplayer.ConnectedToServer += OnConnectOk;
@@ -28,6 +32,7 @@ public partial class Lobby : Control {
       CreateGame();
     }
     else {
+      // TODO: choose tribe before joining game
       JoinGame();
     }
   }
@@ -40,6 +45,13 @@ public partial class Lobby : Control {
     }
 
     GetTree().ChangeSceneToPacked(GameScene);
+  }
+
+  [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+  public void PlayerLoaded() {
+    if (Multiplayer.IsServer()) {
+      GetNode<PolyGame>("/root/PolyGame").StartGame();
+    }
   }
 
   public void JoinGame() {
