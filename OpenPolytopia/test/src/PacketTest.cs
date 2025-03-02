@@ -36,4 +36,18 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     deserializedPacket.Deserialize(bytes.ToArray());
     deserializedPacket.Captcha.ShouldBe(20u);
   }
+
+  [Test]
+  public void TestGetLobbiesResponse() {
+    var lobby = new Common.Lobby();
+    lobby.AddPlayer(new Common.PlayerData { PlayerName = "Test" });
+    var packet = new GetLobbiesResponsePacket { Lobbies = [lobby] };
+    List<byte> bytes = [];
+    packet.Serialize(bytes);
+    var deserializedPacket = GetLobbiesResponsePacket.Default();
+    deserializedPacket.Deserialize(bytes.ToArray());
+    deserializedPacket.Lobbies.Count.ShouldBe(1);
+    deserializedPacket.Lobbies[0].GetPlayers().Count.ShouldBe(1);
+    deserializedPacket.Lobbies[0].GetPlayers()[0].PlayerName.ShouldBe("Test");
+  }
 }
