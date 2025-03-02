@@ -49,9 +49,10 @@
     <PackageReference Include="System.Numerics.Vectors" Version="4.6.0"/>
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove=".github\**" />
+    <Compile Remove=".github\**"/>
+    <None Include="src\ScoreType.fsx"/>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Remove=".github\**" />
+    <EmbeddedResource Remove=".github\**"/>
   </ItemGroup>
 </Project>
