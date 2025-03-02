@@ -1,5 +1,9 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
+/// <summary>
+/// Result of the registration
+/// </summary>
+/// <seealso cref="RegisterUserPacket"/>
 public class RegisterUserResponsePacket : IPacket {
   public static RegisterUserResponsePacket Default() => new() { Ok = false };
 

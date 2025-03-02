@@ -1,5 +1,9 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
+/// <summary>
+/// Result of the lobbies query
+/// </summary>
+/// <seealso cref="GetLobbiesPacket"/>
 public class GetLobbiesResponsePacket : IPacket {
   public static GetLobbiesResponsePacket Default() => new() { Lobbies = [] };
 

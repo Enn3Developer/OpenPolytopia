@@ -1,5 +1,8 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
+/// <summary>
+/// Register a new user on the server
+/// </summary>
 public class RegisterUserPacket : IPacket {
   public static RegisterUserPacket Default() => new() { Name = "" };
 

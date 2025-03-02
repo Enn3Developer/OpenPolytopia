@@ -1,5 +1,8 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
+/// <summary>
+/// Keep alive packet
+/// </summary>
 public class KeepAlivePacket : IPacket {
   public static KeepAlivePacket Default() => new() { Captcha = 0u };
 
