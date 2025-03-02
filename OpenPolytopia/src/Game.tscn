@@ -46,3 +46,4 @@ theme_override_font_sizes/font_size = 32
 text = "Play"
 
 [connection signal="text_changed" from="CenterContainer/VBoxContainer/LineEdit" to="." method="OnNameChanged"]
+[connection signal="pressed" from="CenterContainer/VBoxContainer/Button" to="." method="OnPlayPressed"]
