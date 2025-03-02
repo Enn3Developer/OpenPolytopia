@@ -10,6 +10,26 @@ public class ServerConnection(int port) {
   private Atomic.Boolean _run = new(true);
 
   /// <summary>
+  /// Event handler for receiving handshake packets
+  /// </summary>
+  /// <remarks>
+  /// Handshake packet -> packet that fired this event
+  /// <br/>
+  /// NetworkStream stream -> stream with the client that sent this packet
+  /// <br/>
+  /// List&lt;byte&gt; bytes -> list to use with <see cref="NetworkStreamExtension.WritePacketAsync"/>
+  /// </remarks>
+  public delegate bool HandshakePacketReceivedEventHandler(HandshakePacket packet, NetworkStream stream,
+    List<byte> bytes);
+
+  /// <summary>
+  /// Event fired when receiving handshake packets
+  /// </summary>
+  /// <seealso cref="HandshakePacketReceivedEventHandler"/>
+  public event HandshakePacketReceivedEventHandler? HandshakePacketReceived;
+
+
+  /// <summary>
   /// Starts the server
   /// </summary>
   public void Start() => _tcpListener.Start();
@@ -110,7 +130,7 @@ public class ServerConnection(int port) {
 
       // else, deserialize it and manage it
       packet.Deserialize(contentBytes);
-      if (await ManagePacket(packet, stream, responseBytes)) {
+      if (await ManagePacketAsync(packet, stream, responseBytes)) {
         break;
       }
     }
@@ -119,13 +139,15 @@ public class ServerConnection(int port) {
     client.Close();
   }
 
-  public async Task<bool> ManagePacket(IPacket packet, NetworkStream stream, List<byte> responseBytes) {
-    // if the packet is a handshake, we should close the connection only if the version is invalid
+  private async Task<bool> ManagePacketAsync(IPacket packet, NetworkStream stream, List<byte> responseBytes) {
     if (packet is HandshakePacket handshakePacket) {
-      var response = new HandshakeResponsePacket { Ok = handshakePacket.Version == "0.1.0" };
-      response.Serialize(responseBytes);
-      await stream.WriteAsync(responseBytes.ToArray());
-      return !response.Ok;
+      var result = HandshakePacketReceived?.BeginInvoke(handshakePacket, stream, responseBytes, null, null);
+      if (result == null) {
+        return false;
+      }
+
+      var close = await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue);
+      return close;
     }
 
     // Default: don't close the connection

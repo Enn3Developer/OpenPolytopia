@@ -1,5 +1,8 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
+using System.Net.Sockets;
+using System.Runtime.CompilerServices;
+
 /// <summary>
 /// Interface to declare a packet
 /// </summary>
@@ -88,6 +91,14 @@ public static class StringExtension {
     }
 
     return str;
+  }
+}
+
+public static class NetworkStreamExtension {
+  public static async Task WritePacketAsync(this NetworkStream stream, IPacket packet, List<byte> bytes) {
+    packet.Serialize(bytes);
+    await stream.WriteAsync(bytes.ToArray());
+    bytes.Clear();
   }
 }
 
