@@ -10,7 +10,9 @@
     "**/.godot/**/*.*",
     "**/*.tres",
     "**/addons/**/*.*",
-    "**/*.DotSettings.*"
+    "**/*.DotSettings.*",
+    "**/*.godot",
+    "**/.cfg"
   ],
   "words": [
     "animatable",
