@@ -1,7 +1,6 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
 using System.Net.Sockets;
-using System.Runtime.CompilerServices;
 
 /// <summary>
 /// Interface to declare a packet
