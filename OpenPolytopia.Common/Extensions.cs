@@ -89,3 +89,36 @@ public static class UIntExtensions {
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public static uint GetBits(this uint value, uint bits, int position) => (value >> position) & bits;
 }
+
+public static class IntExtensions {
+  /// <summary>
+  /// Clear the bits in the specified position by the specified length.
+  /// Ex. value == 3 (...011); value.ClearBits(1, 1); value == 1 (...001)
+  /// </summary>
+  /// <param name="value">the number to clear bits</param>
+  /// <param name="bits">number of bits to clear; must be all ones</param>
+  /// <param name="position">the position where to start clearing bits starting from the right</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static int ClearBits(this int value, int bits, int position) => value & ~(bits << position);
+
+  /// <summary>
+  /// Clear bits and set them
+  /// </summary>
+  /// <param name="value">the number where to set bits</param>
+  /// <param name="data">the bits to be set</param>
+  /// <param name="bits">number of bits to set; must be all ones</param>
+  /// <param name="position">the position where to set bits starting from the right</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static void SetBits(this ref int value, int data, int bits, int position) =>
+    value = value.ClearBits(bits, position) | (data << position);
+
+  /// <summary>
+  /// Get the bits
+  /// </summary>
+  /// <param name="value">the number where to get bits</param>
+  /// <param name="bits">number of bits to get; must be all ones</param>
+  /// <param name="position">the position where to get bits starting from the right</param>
+  /// <returns></returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static int GetBits(this int value, int bits, int position) => (value >> position) & bits;
+}
