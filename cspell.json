@@ -12,7 +12,7 @@
     "**/addons/**/*.*",
     "**/*.DotSettings.*",
     "**/*.godot",
-    "**/.cfg"
+    "**/*.cfg"
   ],
   "words": [
     "animatable",
