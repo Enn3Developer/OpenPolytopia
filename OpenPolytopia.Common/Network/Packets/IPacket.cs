@@ -1,5 +1,7 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
+using System.Reflection.Metadata.Ecma335;
+
 /// <summary>
 /// Interface to declare a packet
 /// </summary>
@@ -79,13 +81,15 @@ public static class StringExtension {
     bytes.AddRange(str.Select(c => (byte)c));
   }
 
-  public static void Deserialize(this string str, byte[] bytes, ref uint index) {
+  public static string Deserialize(this string str, byte[] bytes, ref uint index) {
     var length = 0;
     length.Deserialize(bytes, ref index);
 
     for (var i = 0; i < length; i++) {
       str = str.Insert(i, ((char)bytes[index++]).ToString());
     }
+
+    return str;
   }
 }
 

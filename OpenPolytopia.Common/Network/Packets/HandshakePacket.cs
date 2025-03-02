@@ -9,6 +9,6 @@ public class HandshakePacket : IPacket {
 
   public void Deserialize(byte[] bytes) {
     var index = 0u;
-    Version.Deserialize(bytes, ref index);
+    Version = Version.Deserialize(bytes, ref index);
   }
 }
