@@ -23,7 +23,7 @@ public partial class Game : Control {
   /// Sets the new name for the player
   /// </summary>
   /// <param name="name">the new player's name</param>
-  private void OnNameChanged(string name) => PlayerData.Instance.PlayerName = name;
+  private void OnNameChanged(string name) => PlayerData.Instance.Data.PlayerName = name;
 
   /// <summary>
   /// Waits until the player press the play button, creates a new random name if the player hasn't chosen one
@@ -32,9 +32,9 @@ public partial class Game : Control {
   private void OnPlayPressed() {
     var playerData = PlayerData.Instance;
     // Generate player's name if missing
-    if (playerData.PlayerName == null) {
+    if (playerData.Data.PlayerName == null) {
       var rng = new RandomNumberGenerator();
-      playerData.PlayerName = $"Player{rng.Randi()}";
+      playerData.Data.PlayerName = $"Player{rng.Randi()}";
     }
 
     GetTree().ChangeSceneToPacked(LobbyScene);

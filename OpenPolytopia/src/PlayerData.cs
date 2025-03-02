@@ -12,7 +12,7 @@ public partial class PlayerData : Node {
   public static PlayerData Instance => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<PlayerData>("/root/PlayerData");
 
   /// <summary>
-  /// Name of the player
+  /// Internal data to use to read/modify the player's data
   /// </summary>
-  public string? PlayerName { get; set; }
+  public Common.PlayerData Data { get; } = new();
 }
