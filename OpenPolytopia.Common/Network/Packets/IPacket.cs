@@ -39,6 +39,15 @@ public static class UIntExtension {
     bytes.Add((byte)value.GetBits(EIGHT_BITS, FIRST_BYTE));
   }
 
+  public static byte[] Serialize(this uint value) {
+    var bytes = new byte[4];
+    bytes[0] = (byte)value.GetBits(EIGHT_BITS, FOURTH_BYTE);
+    bytes[1] = (byte)value.GetBits(EIGHT_BITS, THIRD_BYTE);
+    bytes[2] = (byte)value.GetBits(EIGHT_BITS, SECOND_BYTE);
+    bytes[3] = (byte)value.GetBits(EIGHT_BITS, FIRST_BYTE);
+    return bytes;
+  }
+
   public static void Deserialize(this ref uint value, byte[] bytes, ref uint index) {
     value.SetBits(bytes[index++], EIGHT_BITS, FOURTH_BYTE);
     value.SetBits(bytes[index++], EIGHT_BITS, THIRD_BYTE);
@@ -96,8 +105,19 @@ public static class StringExtension {
 
 public static class NetworkStreamExtension {
   public static async Task WritePacketAsync(this NetworkStream stream, IPacket packet, List<byte> bytes) {
+    // get the packet id
+    var id = PacketRegistrar.GetPacketId(packet);
+    // serialize the id
+    id.Serialize(bytes);
+    // serialize the packet
     packet.Serialize(bytes);
+    // get the bytes count and serialize it to a temp byte array
+    var contentLength = ((uint)bytes.Count).Serialize();
+    // insert the temp byte array at the start of the bytes to send
+    bytes.InsertRange(0, contentLength);
+    // send the bytes
     await stream.WriteAsync(bytes.ToArray());
+    // clear the list
     bytes.Clear();
   }
 }
