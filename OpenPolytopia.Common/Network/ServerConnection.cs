@@ -103,7 +103,7 @@ public class ServerConnection(int port) : IDisposable {
         while (stream.DataAvailable || (contentLength != 0u && bytes.Count < contentLength)) {
           // Read data from stream
           var bufferBytes = new byte[256];
-          var read = await stream.ReadAsync(bufferBytes.AsMemory());
+          var read = await stream.ReadAsync(bufferBytes.AsMemory(), ct);
 
           // Offset of where to start reading in the buffer
           var offset = 0;
@@ -142,7 +142,7 @@ public class ServerConnection(int port) : IDisposable {
 
         // else, deserialize it and manage it
         packet.Deserialize(contentBytes);
-        if (await ManagePacketAsync(packet, stream, responseBytes)) {
+        if (await ManagePacketAsync(packet, stream, responseBytes, ct)) {
           break;
         }
       }
@@ -185,14 +185,15 @@ public class ServerConnection(int port) : IDisposable {
     }
   }
 
-  private async Task<bool> ManagePacketAsync(IPacket packet, NetworkStream stream, List<byte> responseBytes) {
+  private async Task<bool> ManagePacketAsync(IPacket packet, NetworkStream stream, List<byte> responseBytes,
+    CancellationToken ct) {
     if (packet is HandshakePacket handshakePacket) {
       var result = HandshakePacketReceived?.BeginInvoke(handshakePacket, stream, responseBytes, null, null);
       if (result == null) {
         return false;
       }
 
-      var close = await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue);
+      var close = await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue, token: ct);
       return close;
     }
     else if (packet is KeepAlivePacket keepAlivePacket) {
