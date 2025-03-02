@@ -50,9 +50,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove=".github\**"/>
-    <None Include="src\ScoreType.fsx"/>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Remove=".github\**"/>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FSharpLibrary\FSharpLibrary.fsproj"/>
   </ItemGroup>
 </Project>
