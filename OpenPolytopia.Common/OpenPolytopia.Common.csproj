@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="DotNext.Threading" Version="5.18.1"/>
+  </ItemGroup>
+
 </Project>

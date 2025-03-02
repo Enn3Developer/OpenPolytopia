@@ -1,7 +1,5 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
-using System.Reflection.Metadata.Ecma335;
-
 /// <summary>
 /// Interface to declare a packet
 /// </summary>
