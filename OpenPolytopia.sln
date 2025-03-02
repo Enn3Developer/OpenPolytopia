@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenPolytopia", "OpenPolyto
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpLibrary", "FSharpLibrary\FSharpLibrary.fsproj", "{6260C6E1-129A-46DC-B46F-29B5B45B9158}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenPolytopia.Common", "OpenPolytopia.Common\OpenPolytopia.Common.csproj", "{07BAA3DA-9489-4A3A-85AD-92C16108241D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,5 +25,11 @@ Global
 		{6260C6E1-129A-46DC-B46F-29B5B45B9158}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
 		{6260C6E1-129A-46DC-B46F-29B5B45B9158}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
 		{6260C6E1-129A-46DC-B46F-29B5B45B9158}.ExportRelease|Any CPU.Build.0 = Debug|Any CPU
+		{07BAA3DA-9489-4A3A-85AD-92C16108241D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07BAA3DA-9489-4A3A-85AD-92C16108241D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07BAA3DA-9489-4A3A-85AD-92C16108241D}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07BAA3DA-9489-4A3A-85AD-92C16108241D}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{07BAA3DA-9489-4A3A-85AD-92C16108241D}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
+		{07BAA3DA-9489-4A3A-85AD-92C16108241D}.ExportRelease|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal
