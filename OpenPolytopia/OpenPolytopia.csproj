@@ -49,9 +49,12 @@
     <PackageReference Include="System.Numerics.Vectors" Version="4.6.0"/>
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove=".github\**" />
+    <Compile Remove=".github\**"/>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Remove=".github\**" />
+    <EmbeddedResource Remove=".github\**"/>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FSharpLibrary\FSharpLibrary.fsproj"/>
   </ItemGroup>
 </Project>
