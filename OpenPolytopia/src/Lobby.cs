@@ -1,6 +1,7 @@
 namespace OpenPolytopia;
 
 using Godot;
+using Godot.Collections;
 
 public partial class Lobby : Control {
   private const string ADDRESS = "enn3.ovh";
@@ -9,7 +10,7 @@ public partial class Lobby : Control {
   public static Lobby Instance = null!;
 
   [Signal]
-  public delegate void PlayerConnectedEventHandler(int id);
+  public delegate void PlayerConnectedEventHandler(int id, PlayerData playerData);
 
   [Signal]
   public delegate void PlayerDisconnectedEventHandler(int id);
@@ -21,6 +22,7 @@ public partial class Lobby : Control {
 
   private uint _playersInLobby;
   private uint _playersStarted;
+  private Dictionary<long, PlayerData> _playerData = new();
 
   public override void _Ready() {
     Instance = this;
@@ -52,11 +54,12 @@ public partial class Lobby : Control {
 
   [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
   private void PlayerLoaded() {
-    if (Multiplayer.IsServer()) {
-      _playersStarted++;
-      if (_playersStarted == _playersInLobby) {
-        GetNode<PolyGame>("/root/PolyGame").StartGame();
-      }
+    if (!Multiplayer.IsServer()) {
+      return;
+    }
+
+    if (++_playersStarted == _playersInLobby) {
+      GetNode<PolyGame>("/root/PolyGame").StartGame();
     }
   }
 
@@ -84,30 +87,52 @@ public partial class Lobby : Control {
   }
 
   [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-  private void RegisterPlayer() {
+  private void RegisterPlayer(PlayerData playerData) {
     var id = Multiplayer.GetRemoteSenderId();
+    if (id == 1) {
+      return;
+    }
+
+    _playerData[id] = playerData;
     EmitSignal(SignalName.PlayerConnected, id);
   }
 
   private void OnPlayerConnected(long id) {
     _playersInLobby++;
-    RpcId(id, MethodName.RegisterPlayer);
+
+    if (id == 1) {
+      return;
+    }
+
+    RpcId(id, MethodName.RegisterPlayer, PlayerData.Instance);
   }
 
   private void OnPlayerDisconnected(long id) {
     _playersInLobby--;
+
+    if (id == 1) {
+      return;
+    }
+
+    _playerData.Remove(id);
     EmitSignal(SignalName.PlayerDisconnected, id);
   }
 
   private void OnConnectOk() {
     var id = Multiplayer.GetUniqueId();
-    EmitSignal(SignalName.PlayerConnected, id);
+    if (id == 1) {
+      return;
+    }
+
+    _playerData[id] = PlayerData.Instance;
+    EmitSignal(SignalName.PlayerConnected, id, PlayerData.Instance);
   }
 
   private void OnConnectionFail() => Multiplayer.MultiplayerPeer = null;
 
   private void OnServerDisconnected() {
     Multiplayer.MultiplayerPeer = null;
+    _playerData.Clear();
     EmitSignal(SignalName.ServerDisconnected);
   }
 }

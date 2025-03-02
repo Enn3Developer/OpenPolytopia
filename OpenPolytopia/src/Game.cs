@@ -10,8 +10,16 @@ public partial class Game : Control {
       return;
     }
 
-    if (OS.HasFeature("dedicated_server")) {
-      GetTree().ChangeSceneToPacked(LobbyScene);
+    if (!OS.HasFeature("dedicated_server")) {
+      return;
     }
+
+    var playerData = PlayerData.Instance;
+    if (playerData.PlayerName == null) {
+      var rng = new RandomNumberGenerator();
+      playerData.PlayerName = $"Player{rng.Randi()}";
+    }
+
+    GetTree().ChangeSceneToPacked(LobbyScene);
   }
 }

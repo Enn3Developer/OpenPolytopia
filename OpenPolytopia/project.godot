@@ -16,6 +16,10 @@ run/main_scene="res://src/Main.tscn"
 config/features=PackedStringArray("4.3", "C#", "Mobile")
 config/icon="res://icon.png"
 
+[autoload]
+
+PlayerData="*res://src/PlayerData.cs"
+
 [dotnet]
 
 project/assembly_name="OpenPolytopia"
