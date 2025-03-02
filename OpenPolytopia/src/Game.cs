@@ -32,7 +32,7 @@ public partial class Game : Control {
   private void OnPlayPressed() {
     var playerData = PlayerData.Instance;
     // Generate player's name if missing
-    if (playerData.Data.PlayerName == null) {
+    if (playerData.Data.PlayerName.Length == 0) {
       var rng = new RandomNumberGenerator();
       playerData.Data.PlayerName = $"Player{rng.Randi()}";
     }

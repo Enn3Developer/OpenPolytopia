@@ -102,6 +102,82 @@ public static class StringExtension {
   }
 }
 
+public static class ListExtension {
+  public static void Serialize<T>(this List<T> list, List<byte> bytes) {
+    list.Count.Serialize(bytes);
+    foreach (var element in list) {
+      switch (element) {
+        case uint uintValue:
+          uintValue.Serialize(bytes);
+          break;
+        case int intValue:
+          intValue.Serialize(bytes);
+          break;
+        case bool boolValue:
+          boolValue.Serialize(bytes);
+          break;
+        case string str:
+          str.Serialize(bytes);
+          break;
+        case INetworkSerializable networkSerializable:
+          networkSerializable.Serialize(bytes);
+          break;
+      }
+    }
+  }
+
+  public static void Deserialize(this List<uint> list, byte[] bytes, ref uint index) {
+    var length = 0;
+    length.Deserialize(bytes, ref index);
+    for (var i = 0; i < length; i++) {
+      var value = 0u;
+      value.Deserialize(bytes, ref index);
+      list.Add(value);
+    }
+  }
+
+  public static void Deserialize(this List<int> list, byte[] bytes, ref uint index) {
+    var length = 0;
+    length.Deserialize(bytes, ref index);
+    for (var i = 0; i < length; i++) {
+      var value = 0;
+      value.Deserialize(bytes, ref index);
+      list.Add(value);
+    }
+  }
+
+  public static void Deserialize(this List<bool> list, byte[] bytes, ref uint index) {
+    var length = 0;
+    length.Deserialize(bytes, ref index);
+    for (var i = 0; i < length; i++) {
+      var value = false;
+      value.Deserialize(bytes, ref index);
+      list.Add(value);
+    }
+  }
+
+  public static void Deserialize(this List<string> list, byte[] bytes, ref uint index) {
+    var length = 0;
+    length.Deserialize(bytes, ref index);
+    for (var i = 0; i < length; i++) {
+      var str = "";
+      str = str.Deserialize(bytes, ref index);
+      list.Add(str);
+    }
+  }
+
+  public static void Deserialize<T>(this List<T> list, byte[] bytes, ref uint index)
+    where T : INetworkSerializable, new() {
+    var length = 0;
+    length.Deserialize(bytes, ref index);
+    for (var i = 0; i < length; i++) {
+      var value = new T();
+      value.Deserialize(bytes, ref index);
+      list.Add(value);
+    }
+  }
+}
+
 public static class NetworkStreamExtension {
   public static async Task WritePacketAsync(this NetworkStream stream, IPacket packet, List<byte> bytes) {
     // get the packet id
