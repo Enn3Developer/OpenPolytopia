@@ -22,4 +22,6 @@ public partial class Game : Control {
 
     GetTree().ChangeSceneToPacked(LobbyScene);
   }
+
+  private void OnNameChanged(string name) => PlayerData.Instance.PlayerName = name;
 }
