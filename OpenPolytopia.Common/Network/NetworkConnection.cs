@@ -8,23 +8,23 @@ public abstract class NetworkConnection {
   private Func<NetworkStream, CancellationTokenSource, Task>? _callback;
 
   /// <summary>
-  /// Event handler for receiving handshake packets
+  /// Event handler for receiving packets
   /// </summary>
   /// <remarks>
-  /// Handshake packet -> packet that fired this event
+  /// IPacket packet -> packet that fired this event
   /// <br/>
   /// NetworkStream stream -> stream with the client that sent this packet
   /// <br/>
   /// List&lt;byte&gt; bytes -> list to use with <see cref="NetworkStreamExtension.WritePacketAsync"/>
   /// </remarks>
-  public delegate bool HandshakePacketReceived(uint id, HandshakePacket packet, NetworkStream stream,
+  public delegate bool PacketReceived(uint id, IPacket packet, NetworkStream stream,
     List<byte> bytes);
 
   /// <summary>
-  /// Event fired when receiving handshake packets
+  /// Event fired when receiving packets
   /// </summary>
-  /// <seealso cref="HandshakePacketReceived"/>
-  public event HandshakePacketReceived? OnHandshakePacketReceived;
+  /// <seealso cref="PacketReceived"/>
+  public event PacketReceived? OnPacketReceived;
 
   /// <summary>
   /// How to manage the receiving of the <see cref="KeepAlivePacket"/>
@@ -144,21 +144,17 @@ public abstract class NetworkConnection {
 
   private async Task<bool> ManagePacketAsync(uint id, IPacket packet, NetworkStream stream, List<byte> responseBytes,
     CancellationToken ct) {
-    if (packet is HandshakePacket handshakePacket) {
-      var result = OnHandshakePacketReceived?.BeginInvoke(id, handshakePacket, stream, responseBytes, null, null);
-      if (result == null) {
-        return false;
-      }
-
-      return await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue, token: ct);
-    }
-    else if (packet is KeepAlivePacket keepAlivePacket) {
+    if (packet is KeepAlivePacket keepAlivePacket) {
       await ManageKeepAlivePacketAsync(keepAlivePacket, stream, responseBytes);
 
       return false;
     }
 
-    // Default: don't close the connection
-    return false;
+    var result = OnPacketReceived?.BeginInvoke(id, packet, stream, responseBytes, null, null);
+    if (result == null) {
+      return false;
+    }
+
+    return await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue, token: ct);
   }
 }
