@@ -150,8 +150,7 @@ public abstract class NetworkConnection {
         return false;
       }
 
-      var close = await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue, token: ct);
-      return close;
+      return await result.AsyncWaitHandle.WaitAsync(TimeSpan.MaxValue, token: ct);
     }
     else if (packet is KeepAlivePacket keepAlivePacket) {
       await ManageKeepAlivePacketAsync(keepAlivePacket, stream, responseBytes);
