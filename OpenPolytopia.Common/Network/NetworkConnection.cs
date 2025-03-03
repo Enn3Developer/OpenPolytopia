@@ -11,13 +11,15 @@ public abstract class NetworkConnection {
   /// Event handler for receiving packets
   /// </summary>
   /// <remarks>
+  /// uint id -> id of the client that sent the packet
+  /// <br/>
   /// IPacket packet -> packet that fired this event
   /// <br/>
   /// NetworkStream stream -> stream with the client that sent this packet
   /// <br/>
   /// List&lt;byte&gt; bytes -> list to use with <see cref="NetworkStreamExtension.WritePacketAsync"/>
   /// </remarks>
-  public delegate bool PacketReceived(uint id, IPacket packet, NetworkStream stream,
+  public delegate Task<bool> PacketReceived(uint id, IPacket packet, NetworkStream stream,
     List<byte> bytes);
 
   /// <summary>
