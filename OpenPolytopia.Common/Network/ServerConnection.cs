@@ -7,7 +7,7 @@ using Packets;
 
 public class ServerConnection(int port) : NetworkConnection, IDisposable {
   private readonly TcpListener _tcpListener = TcpListener.Create(port);
-  private readonly ConcurrentStack<Task> _clientTasks = [];
+  private readonly ConcurrentDictionary<uint, Task> _clientTasks = [];
   private readonly CancellationTokenSource _cts = new();
   private readonly ConcurrentDictionary<uint, CancellationTokenSource> _timerCancellationTokens = new();
 
@@ -30,7 +30,7 @@ public class ServerConnection(int port) : NetworkConnection, IDisposable {
     _cts.Cancel();
 
     // Wait for all tasks to complete
-    foreach (var task in _clientTasks) {
+    foreach (var task in _clientTasks.Values) {
       task.Wait();
     }
 
@@ -46,9 +46,10 @@ public class ServerConnection(int port) : NetworkConnection, IDisposable {
   /// </remarks>
   public async Task ListenAsync() {
     var client = await _tcpListener.AcceptTcpClientAsync();
-    var task = ManageClientAsync(client, _cts.Token);
+    var id = (uint)RandomNumberGenerator.GetInt32(0, short.MaxValue);
+    var task = ManageClientAsync(id, client, _cts.Token);
     task.Start();
-    _clientTasks.Push(task);
+    _clientTasks.TryAdd(id, task);
   }
 
   /// <summary>
@@ -57,7 +58,15 @@ public class ServerConnection(int port) : NetworkConnection, IDisposable {
   public void Update() => RemoveCompletedTasks();
 
   private void RemoveCompletedTasks() {
-    // TODO: implement cleaning of completed tasks
+    foreach (var id in _clientTasks.Keys) {
+      if (!_clientTasks[id].IsCompleted) {
+        continue;
+      }
+
+      if (_clientTasks.TryRemove(id, out var task)) {
+        task.Dispose();
+      }
+    }
   }
 
   protected override async Task ManageKeepAlivePacketAsync(KeepAlivePacket packet, NetworkStream stream,
@@ -99,12 +108,9 @@ public class ServerConnection(int port) : NetworkConnection, IDisposable {
     }
   }
 
-  ~ServerConnection() {
-    Dispose();
-  }
-
   public void Dispose() {
     _tcpListener.Dispose();
     _cts.Dispose();
+    GC.SuppressFinalize(this);
   }
 }

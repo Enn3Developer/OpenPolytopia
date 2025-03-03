@@ -16,21 +16,21 @@ public abstract class NetworkConnection {
   /// <br/>
   /// List&lt;byte&gt; bytes -> list to use with <see cref="NetworkStreamExtension.WritePacketAsync"/>
   /// </remarks>
-  public delegate bool HandshakePacketReceivedEventHandler(HandshakePacket packet, NetworkStream stream,
+  public delegate bool HandshakePacketReceived(uint id, HandshakePacket packet, NetworkStream stream,
     List<byte> bytes);
 
   /// <summary>
   /// Event fired when receiving handshake packets
   /// </summary>
-  /// <seealso cref="HandshakePacketReceivedEventHandler"/>
-  public event HandshakePacketReceivedEventHandler? HandshakePacketReceived;
+  /// <seealso cref="HandshakePacketReceived"/>
+  public event HandshakePacketReceived? OnHandshakePacketReceived;
 
   protected abstract Task ManageKeepAlivePacketAsync(KeepAlivePacket packet, NetworkStream stream, List<byte> bytes);
 
   protected void RegisterCustomStreamHandler(Func<NetworkStream, CancellationTokenSource, Task> callback) =>
     _callback = callback;
 
-  protected async Task ManageClientAsync(TcpClient client, CancellationToken ct) {
+  protected async Task ManageClientAsync(uint id, TcpClient client, CancellationToken ct) {
     // Get the stream for the client
     await using var stream = client.GetStream();
     // Prepare data
@@ -64,7 +64,7 @@ public abstract class NetworkConnection {
           if (newPacket) {
             newPacket = false;
             var indexContentLength = 0u;
-            contentLength.Deserialize(bufferBytes, ref indexContentLength);
+            contentLength = UIntExtension.Deserialize(contentLength, bufferBytes, ref indexContentLength);
             // Set offset to 4 because we read an uint
             offset += 4;
           }
@@ -94,7 +94,7 @@ public abstract class NetworkConnection {
 
         // else, deserialize it and manage it
         packet.Deserialize(contentBytes);
-        if (await ManagePacketAsync(packet, stream, responseBytes, ct)) {
+        if (await ManagePacketAsync(id, packet, stream, responseBytes, ct)) {
           break;
         }
       }
@@ -115,10 +115,10 @@ public abstract class NetworkConnection {
     }
   }
 
-  protected async Task<bool> ManagePacketAsync(IPacket packet, NetworkStream stream, List<byte> responseBytes,
+  private async Task<bool> ManagePacketAsync(uint id, IPacket packet, NetworkStream stream, List<byte> responseBytes,
     CancellationToken ct) {
     if (packet is HandshakePacket handshakePacket) {
-      var result = HandshakePacketReceived?.BeginInvoke(handshakePacket, stream, responseBytes, null, null);
+      var result = OnHandshakePacketReceived?.BeginInvoke(id, handshakePacket, stream, responseBytes, null, null);
       if (result == null) {
         return false;
       }

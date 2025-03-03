@@ -53,6 +53,14 @@ public static class UIntExtension {
     value.SetBits(bytes[index++], EIGHT_BITS, SECOND_BYTE);
     value.SetBits(bytes[index++], EIGHT_BITS, FIRST_BYTE);
   }
+
+  public static uint Deserialize(uint value, byte[] bytes, ref uint index) {
+    value.SetBits(bytes[index++], EIGHT_BITS, FOURTH_BYTE);
+    value.SetBits(bytes[index++], EIGHT_BITS, THIRD_BYTE);
+    value.SetBits(bytes[index++], EIGHT_BITS, SECOND_BYTE);
+    value.SetBits(bytes[index++], EIGHT_BITS, FIRST_BYTE);
+    return value;
+  }
 }
 
 public static class IntExtension {
@@ -91,8 +99,7 @@ public static class StringExtension {
   }
 
   public static string Deserialize(this string str, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
 
     for (var i = 0; i < length; i++) {
       str = str.Insert(i, ((char)bytes[index++]).ToString());
@@ -127,8 +134,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<uint> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = 0u;
       value.Deserialize(bytes, ref index);
@@ -137,8 +144,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<int> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = 0;
       value.Deserialize(bytes, ref index);
@@ -147,8 +154,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<bool> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = false;
       value.Deserialize(bytes, ref index);
@@ -157,8 +164,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<string> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var str = "";
       str = str.Deserialize(bytes, ref index);
@@ -168,8 +175,8 @@ public static class ListExtension {
 
   public static void Deserialize<T>(this List<T> list, byte[] bytes, ref uint index)
     where T : INetworkSerializable, new() {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = new T();
       value.Deserialize(bytes, ref index);
