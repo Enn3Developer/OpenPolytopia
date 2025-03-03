@@ -12,7 +12,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     var packet = new HandshakePacket { Version = "0.1.0" };
     List<byte> bytes = [];
     packet.Serialize(bytes);
-    var deserializedPacket = HandshakePacket.Default();
+    var deserializedPacket = new HandshakePacket();
     deserializedPacket.Deserialize(bytes.ToArray());
     deserializedPacket.Version.ShouldBe("0.1.0");
   }
@@ -22,7 +22,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     var packet = new HandshakeResponsePacket { Ok = true };
     List<byte> bytes = [];
     packet.Serialize(bytes);
-    var deserializedPacket = HandshakeResponsePacket.Default();
+    var deserializedPacket = new HandshakeResponsePacket();
     deserializedPacket.Deserialize(bytes.ToArray());
     deserializedPacket.Ok.ShouldBeTrue();
   }
@@ -32,7 +32,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     var packet = new KeepAlivePacket { Captcha = 20u };
     List<byte> bytes = [];
     packet.Serialize(bytes);
-    var deserializedPacket = KeepAlivePacket.Default();
+    var deserializedPacket = new KeepAlivePacket();
     deserializedPacket.Deserialize(bytes.ToArray());
     deserializedPacket.Captcha.ShouldBe(20u);
   }
@@ -44,7 +44,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     var packet = new GetLobbiesResponsePacket { Lobbies = [lobby] };
     List<byte> bytes = [];
     packet.Serialize(bytes);
-    var deserializedPacket = GetLobbiesResponsePacket.Default();
+    var deserializedPacket = new GetLobbiesResponsePacket();
     deserializedPacket.Deserialize(bytes.ToArray());
     deserializedPacket.Lobbies.Count.ShouldBe(1);
     deserializedPacket.Lobbies[0].GetPlayers().Count.ShouldBe(1);

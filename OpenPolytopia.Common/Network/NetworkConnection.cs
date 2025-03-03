@@ -1,7 +1,8 @@
-namespace OpenPolytopia.Common.Network.Packets;
+namespace OpenPolytopia.Common.Network;
 
 using System.Net.Sockets;
 using DotNext.Threading;
+using Packets;
 
 public abstract class NetworkConnection {
   private Func<NetworkStream, CancellationTokenSource, Task>? _callback;
@@ -85,7 +86,7 @@ public abstract class NetworkConnection {
         // Now we get the packet type from the registered packets and call the Default method to initialize it
         var contentBytes = bytes.ToArray();
         var packetType = PacketRegistrar.GetPacket(packetId);
-        var packet = (IPacket?)packetType.GetMethod("Default")?.Invoke(null, null);
+        var packet = (IPacket?)Activator.CreateInstance(packetType);
 
         // if packet wasn't registered, skip this packet
         if (packet == null) {

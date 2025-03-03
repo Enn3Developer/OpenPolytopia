@@ -1,9 +1,7 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
 public class HandshakeResponsePacket : IPacket {
-  public static HandshakeResponsePacket Default() => new() { Ok = false };
-
-  public required bool Ok;
+  public bool Ok;
 
   public void Serialize(List<byte> bytes) => Ok.Serialize(bytes);
 

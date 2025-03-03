@@ -5,9 +5,7 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// </summary>
 /// <seealso cref="RegisterUserPacket"/>
 public class RegisterUserResponsePacket : IPacket {
-  public static RegisterUserResponsePacket Default() => new() { Ok = false };
-
-  public required bool Ok;
+  public bool Ok;
 
   public void Serialize(List<byte> bytes) => Ok.Serialize(bytes);
 
