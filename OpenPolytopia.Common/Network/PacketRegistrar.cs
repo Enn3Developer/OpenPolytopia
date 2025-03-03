@@ -30,4 +30,28 @@ public static class PacketRegistrar {
   /// <typeparam name="T">the packet type</typeparam>
   /// <returns>the packet ID</returns>
   public static uint GetPacketId<T>(T packet) where T : IPacket => _packetIds[typeof(T)];
+
+  /// <summary>
+  /// Requests a new ID from the registrar
+  /// </summary>
+  /// <returns>a new usable id to register a packet</returns>
+  public static uint RequestNewId() => (uint)_packets.Count;
+
+  /// <summary>
+  /// Register all known packets
+  /// </summary>
+  public static void RegisterAllPackets() {
+    RegisterPacket<KeepAlivePacket>(0);
+    RegisterPacket<HandshakePacket>(1);
+    RegisterPacket<HandshakeResponsePacket>(2);
+    RegisterPacket<RegisterUserPacket>(3);
+    RegisterPacket<RegisterUserResponsePacket>(4);
+    RegisterPacket<GetLobbiesPacket>(5);
+    RegisterPacket<GetLobbiesResponsePacket>(6);
+    RegisterPacket<ConnectToLobbyPacket>(7);
+    RegisterPacket<ConnectToLobbyResponsePacket>(8);
+    RegisterPacket<LobbyUpdatePacket>(9);
+    RegisterPacket<CreateLobbyPacket>(10);
+    RegisterPacket<CreateLobbyResponsePacket>(11);
+  }
 }

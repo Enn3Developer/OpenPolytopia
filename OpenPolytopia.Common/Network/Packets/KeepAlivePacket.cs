@@ -4,9 +4,7 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// Keep alive packet
 /// </summary>
 public class KeepAlivePacket : IPacket {
-  public static KeepAlivePacket Default() => new() { Captcha = 0u };
-
-  public required uint Captcha;
+  public uint Captcha;
 
   public void Serialize(List<byte> bytes) => Captcha.Serialize(bytes);
 

@@ -5,9 +5,7 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// </summary>
 /// <seealso cref="GetLobbiesPacket"/>
 public class GetLobbiesResponsePacket : IPacket {
-  public static GetLobbiesResponsePacket Default() => new() { Lobbies = [] };
-
-  public required List<Lobby> Lobbies;
+  public List<Lobby> Lobbies = [];
 
   public void Serialize(List<byte> bytes) => Lobbies.Serialize(bytes);
 
