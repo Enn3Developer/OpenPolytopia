@@ -26,11 +26,35 @@ public abstract class NetworkConnection {
   /// <seealso cref="HandshakePacketReceived"/>
   public event HandshakePacketReceived? OnHandshakePacketReceived;
 
+  /// <summary>
+  /// How to manage the receiving of the <see cref="KeepAlivePacket"/>
+  /// </summary>
+  /// <param name="packet">the keep alive packet</param>
+  /// <param name="stream">the stream from the client that sent it</param>
+  /// <param name="bytes">the bytes where to write the response, if needed</param>
+  /// <returns>a completable task; use async if possible</returns>
   protected abstract Task ManageKeepAlivePacketAsync(KeepAlivePacket packet, NetworkStream stream, List<byte> bytes);
 
+  /// <summary>
+  /// Registers a new callback to use for client connections.
+  /// <br/>
+  /// It starts executing before trying to read the first packet from the client and passes the stream of the client
+  /// and the cancellation token that <see cref="NetworkConnection.ManageClientAsync"/> uses
+  /// </summary>
+  /// <param name="callback">the callback function</param>
+  /// <remarks>
+  /// Used in <see cref="ServerConnection"/> to send <see cref="KeepAlivePacket"/>s to client and close the connection
+  /// if a certain amount of time have passed without the client sending it back
+  /// </remarks>
   protected void RegisterCustomStreamHandler(Func<NetworkStream, CancellationTokenSource, Task> callback) =>
     _callback = callback;
 
+  /// <summary>
+  /// Manages a connected client
+  /// </summary>
+  /// <param name="id">the id of the client</param>
+  /// <param name="client">the client object</param>
+  /// <param name="ct">the cancellation token</param>
   protected async Task ManageClientAsync(uint id, TcpClient client, CancellationToken ct) {
     // Get the stream for the client
     await using var stream = client.GetStream();
@@ -103,10 +127,12 @@ public abstract class NetworkConnection {
     catch (OperationCanceledException) {
     }
     finally {
+      // Check if the cancellation token of the callback wasn't already signalled, if so signal to cancel
       if (!cts.IsCancellationRequested) {
         await cts.CancelAsync();
       }
 
+      // Check if a task was registered, if so waits for its completion
       if (task != null) {
         await task;
       }
