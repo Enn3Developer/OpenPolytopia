@@ -11,6 +11,16 @@ public class Lobby : INetworkSerializable {
   private readonly List<PlayerData> _players = [];
 
   /// <summary>
+  /// ID of the lobby
+  /// </summary>
+  public uint Id;
+
+  /// <summary>
+  /// Returns all the players in the lobby as a read-only list
+  /// </summary>
+  public ReadOnlyCollection<PlayerData> Players => _players.AsReadOnly();
+
+  /// <summary>
   /// Returns the player data from a given name
   /// </summary>
   /// <param name="name">the player's name</param>
@@ -22,13 +32,13 @@ public class Lobby : INetworkSerializable {
   /// <param name="player">the player to add</param>
   public void AddPlayer(PlayerData player) => _players.Add(player);
 
-  /// <summary>
-  /// Returns all the players in the lobby
-  /// </summary>
-  /// <returns>the players in the lobby as a read-only list</returns>
-  public ReadOnlyCollection<PlayerData> GetPlayers() => _players.AsReadOnly();
+  public void Serialize(List<byte> bytes) {
+    Id.Serialize(bytes);
+    _players.Serialize(bytes);
+  }
 
-  public void Serialize(List<byte> bytes) => _players.Serialize(bytes);
-
-  public void Deserialize(byte[] bytes, ref uint index) => _players.Deserialize(bytes, ref index);
+  public void Deserialize(byte[] bytes, ref uint index) {
+    Id.Deserialize(bytes, ref index);
+    _players.Deserialize(bytes, ref index);
+  }
 }

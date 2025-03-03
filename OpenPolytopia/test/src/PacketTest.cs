@@ -39,7 +39,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
 
   [Test]
   public void TestGetLobbiesResponse() {
-    var lobby = new Common.Lobby();
+    var lobby = new Common.Lobby { Id = 123 };
     lobby.AddPlayer(new Common.PlayerData { PlayerName = "Test" });
     var packet = new GetLobbiesResponsePacket { Lobbies = [lobby] };
     List<byte> bytes = [];
@@ -47,7 +47,8 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     var deserializedPacket = new GetLobbiesResponsePacket();
     deserializedPacket.Deserialize(bytes.ToArray());
     deserializedPacket.Lobbies.Count.ShouldBe(1);
-    deserializedPacket.Lobbies[0].GetPlayers().Count.ShouldBe(1);
-    deserializedPacket.Lobbies[0].GetPlayers()[0].PlayerName.ShouldBe("Test");
+    deserializedPacket.Lobbies[0].Id.ShouldBe(123u);
+    deserializedPacket.Lobbies[0].Players.Count.ShouldBe(1);
+    deserializedPacket.Lobbies[0].Players[0].PlayerName.ShouldBe("Test");
   }
 }

@@ -32,6 +32,12 @@ public static class PacketRegistrar {
   public static uint GetPacketId<T>(T packet) where T : IPacket => _packetIds[typeof(T)];
 
   /// <summary>
+  /// Requests a new ID from the registrar
+  /// </summary>
+  /// <returns>a new usable id to register a packet</returns>
+  public static uint RequestNewId() => (uint)_packets.Count;
+
+  /// <summary>
   /// Register all known packets
   /// </summary>
   public static void RegisterAllPackets() {
@@ -42,5 +48,8 @@ public static class PacketRegistrar {
     RegisterPacket<RegisterUserResponsePacket>(4);
     RegisterPacket<GetLobbiesPacket>(5);
     RegisterPacket<GetLobbiesResponsePacket>(6);
+    RegisterPacket<ConnectToLobbyPacket>(7);
+    RegisterPacket<ConnectToLobbyResponsePacket>(8);
+    RegisterPacket<LobbyUpdatePacket>(9);
   }
 }
