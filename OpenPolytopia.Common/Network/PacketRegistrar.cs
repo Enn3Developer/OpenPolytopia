@@ -51,5 +51,7 @@ public static class PacketRegistrar {
     RegisterPacket<ConnectToLobbyPacket>(7);
     RegisterPacket<ConnectToLobbyResponsePacket>(8);
     RegisterPacket<LobbyUpdatePacket>(9);
+    RegisterPacket<CreateLobbyPacket>(10);
+    RegisterPacket<CreateLobbyResponsePacket>(11);
   }
 }
