@@ -4,7 +4,7 @@ using System.Net.Sockets;
 using Common.Network;
 using Common.Network.Packets;
 
-public class GameServer {
+public class GameServer : IDisposable {
   private readonly ServerConnection _server;
 
   public GameServer(int port) {
@@ -27,5 +27,10 @@ public class GameServer {
     }
 
     _server.Stop();
+  }
+
+  public void Dispose() {
+    _server.Dispose();
+    GC.SuppressFinalize(this);
   }
 }
