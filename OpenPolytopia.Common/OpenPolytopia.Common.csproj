@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <PackageReference Include="DotNext.Threading" Version="5.18.1"/>
+    <PackageReference Include="GodotSharp" Version="4.3.0"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FSharpLibrary\FSharpLibrary.fsproj"/>
   </ItemGroup>
 
 </Project>
