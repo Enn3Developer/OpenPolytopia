@@ -39,7 +39,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
 
   [Test]
   public void TestGetLobbiesResponse() {
-    var lobby = new Common.Lobby { Id = 123 };
+    var lobby = new Common.Lobby { Id = 123, MaxPlayers = 4 };
     lobby.AddPlayer(new Common.PlayerData { PlayerName = "Test" });
     var packet = new GetLobbiesResponsePacket { Lobbies = [lobby] };
     List<byte> bytes = [];
