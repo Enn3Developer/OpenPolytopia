@@ -1,4 +1,4 @@
-namespace OpenPolytopia;
+namespace OpenPolytopia.Common;
 
 /// <summary>
 /// Tribes enum

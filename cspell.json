@@ -12,7 +12,8 @@
     "**/addons/**/*.*",
     "**/*.DotSettings.*",
     "**/*.godot",
-    "**/*.cfg"
+    "**/*.cfg",
+    "**/*.csproj"
   ],
   "words": [
     "animatable",
