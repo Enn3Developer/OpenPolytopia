@@ -48,10 +48,12 @@ public static class PacketRegistrar {
     RegisterPacket<RegisterUserResponsePacket>(4);
     RegisterPacket<GetLobbiesPacket>(5);
     RegisterPacket<GetLobbiesResponsePacket>(6);
-    RegisterPacket<ConnectToLobbyPacket>(7);
-    RegisterPacket<ConnectToLobbyResponsePacket>(8);
+    RegisterPacket<LobbyConnectPacket>(7);
+    RegisterPacket<LobbyConnectResponsePacket>(8);
     RegisterPacket<LobbyUpdatePacket>(9);
     RegisterPacket<CreateLobbyPacket>(10);
     RegisterPacket<CreateLobbyResponsePacket>(11);
+    RegisterPacket<LobbyDisconnectPacket>(12);
+    RegisterPacket<LobbyDisconnectResponsePacket>(13);
   }
 }

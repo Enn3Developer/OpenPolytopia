@@ -1,6 +1,6 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
-public class ConnectToLobbyResponsePacket : IPacket {
+public class LobbyConnectResponsePacket : IPacket {
   public bool Ok;
   public void Serialize(List<byte> bytes) => Ok.Serialize(bytes);
 

@@ -50,6 +50,13 @@ public class Lobby : INetworkSerializable {
     return true;
   }
 
+  public void RemovePlayer(string name) {
+    var index = _players.FindIndex(player => player.PlayerName == name);
+    if (index != -1) {
+      _players.RemoveAt(index);
+    }
+  }
+
   public void Serialize(List<byte> bytes) {
     Id.Serialize(bytes);
     MaxPlayers.Serialize(bytes);

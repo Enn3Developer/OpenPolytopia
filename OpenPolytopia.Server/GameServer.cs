@@ -26,13 +26,13 @@ public class GameServer : IDisposable {
         _playerNames[id] = registerUserPacket.Name;
         await stream.WritePacketAsync(new RegisterUserResponsePacket { Ok = true }, bytes);
         break;
-      case ConnectToLobbyPacket connectToLobbyPacket:
-        var ok = _lobbyManager.AddPlayer(connectToLobbyPacket.Id, _playerNames[id]);
+      case LobbyConnectPacket lobbyConnectPacket:
+        var ok = _lobbyManager.AddPlayer(lobbyConnectPacket.Id, _playerNames[id]);
         if (ok) {
           Broadcast(new LobbyUpdatePacket { Lobby = _lobbyManager[id]! });
         }
 
-        await stream.WritePacketAsync(new ConnectToLobbyResponsePacket { Ok = ok }, bytes);
+        await stream.WritePacketAsync(new LobbyConnectResponsePacket { Ok = ok }, bytes);
         break;
       case CreateLobbyPacket createLobbyPacket:
         var lobby = _lobbyManager.NewLobby(createLobbyPacket.MaxPlayers);
@@ -41,6 +41,10 @@ public class GameServer : IDisposable {
         break;
       case GetLobbiesPacket:
         await stream.WritePacketAsync(new GetLobbiesResponsePacket { Lobbies = _lobbyManager.Lobbies }, bytes);
+        break;
+      case LobbyDisconnectPacket lobbyDisconnectPacket:
+        _lobbyManager.RemovePlayer(lobbyDisconnectPacket.Id, _playerNames[id]);
+        await stream.WritePacketAsync(new LobbyDisconnectResponsePacket { Ok = true }, bytes);
         break;
     }
 

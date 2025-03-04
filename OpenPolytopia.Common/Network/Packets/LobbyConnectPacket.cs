@@ -1,6 +1,6 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
-public class ConnectToLobbyPacket : IPacket {
+public class LobbyConnectPacket : IPacket {
   public uint Id;
   public void Serialize(List<byte> bytes) => Id.Serialize(bytes);
 
