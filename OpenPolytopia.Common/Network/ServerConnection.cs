@@ -76,7 +76,7 @@ public class ServerConnection(int port) : NetworkConnection, IDisposable {
     }
   }
 
-  private async Task SendKeepAliveAsync(NetworkStream stream, CancellationTokenSource cts) {
+  private async Task SendKeepAliveAsync(NetworkStream stream, CancellationTokenSource cts, uint id) {
     try {
       var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
       List<byte> bytes = [];
@@ -99,6 +99,7 @@ public class ServerConnection(int port) : NetworkConnection, IDisposable {
           await timer.WaitForNextTickAsync(ct.Token);
           if (!cts.IsCancellationRequested) {
             await cts.CancelAsync();
+            await FireClientDisconnected(id);
           }
         }
         catch (OperationCanceledException) { }

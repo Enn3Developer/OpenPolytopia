@@ -1,7 +1,7 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
 public class LobbyUpdatePacket : IPacket {
-  public readonly Lobby Lobby = new();
+  public Lobby Lobby = new();
   public void Serialize(List<byte> bytes) => Lobby.Serialize(bytes);
 
   public void Deserialize(byte[] bytes) {

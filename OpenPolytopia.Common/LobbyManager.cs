@@ -9,7 +9,9 @@ public class LobbyManager {
 
   public bool AddPlayer(uint id, string name) => this[id]?.AddPlayer(new PlayerData { PlayerName = name }) ?? false;
 
-  public void NewLobby(uint maxPlayers) => Lobbies.Add(new Lobby {
-    MaxPlayers = maxPlayers, Id = (uint)RandomNumberGenerator.GetInt32(0, short.MaxValue)
-  });
+  public Lobby NewLobby(uint maxPlayers) {
+    var lobby = new Lobby { MaxPlayers = maxPlayers, Id = (uint)RandomNumberGenerator.GetInt32(0, short.MaxValue) };
+    Lobbies.Add(lobby);
+    return lobby;
+  }
 }

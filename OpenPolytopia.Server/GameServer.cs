@@ -1,5 +1,6 @@
 namespace OpenPolytopia.Server;
 
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using Common;
 using Common.Network;
@@ -8,7 +9,7 @@ using Common.Network.Packets;
 public class GameServer : IDisposable {
   private readonly ServerConnection _server;
   private readonly LobbyManager _lobbyManager = new();
-  private readonly Dictionary<uint, string> _playerNames = new(32);
+  private readonly ConcurrentDictionary<uint, string> _playerNames = new();
 
   public GameServer(int port) {
     _server = new ServerConnection(port);
@@ -27,10 +28,15 @@ public class GameServer : IDisposable {
         break;
       case ConnectToLobbyPacket connectToLobbyPacket:
         var ok = _lobbyManager.AddPlayer(connectToLobbyPacket.Id, _playerNames[id]);
+        if (ok) {
+          Broadcast(new LobbyUpdatePacket { Lobby = _lobbyManager[id]! });
+        }
+
         await stream.WritePacketAsync(new ConnectToLobbyResponsePacket { Ok = ok }, bytes);
         break;
       case CreateLobbyPacket createLobbyPacket:
-        _lobbyManager.NewLobby(createLobbyPacket.MaxPlayers);
+        var lobby = _lobbyManager.NewLobby(createLobbyPacket.MaxPlayers);
+        Broadcast(new LobbyUpdatePacket { Lobby = lobby });
         await stream.WritePacketAsync(new CreateLobbyResponsePacket { Ok = true }, bytes);
         break;
       case GetLobbiesPacket:
@@ -39,6 +45,18 @@ public class GameServer : IDisposable {
     }
 
     return false;
+  }
+
+  private void Broadcast(IPacket packet) {
+    foreach (var clientId in _playerNames.Keys) {
+      _server.Channels[clientId].Enqueue(packet);
+    }
+  }
+
+  private void BroadcastTo(uint[] ids, IPacket packet) {
+    foreach (var id in ids) {
+      _server.Channels[id].Enqueue(packet);
+    }
   }
 
   public async Task Run() {

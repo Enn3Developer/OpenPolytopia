@@ -6,7 +6,7 @@ using DotNext.Threading;
 using Packets;
 
 public abstract class NetworkConnection {
-  private Func<NetworkStream, CancellationTokenSource, Task>? _callback;
+  private Func<NetworkStream, CancellationTokenSource, uint, Task>? _callback;
 
   public readonly ConcurrentDictionary<uint, ConcurrentQueue<IPacket>> Channels = new();
 
@@ -25,11 +25,15 @@ public abstract class NetworkConnection {
   public delegate Task<bool> PacketReceived(uint id, IPacket packet, NetworkStream stream,
     List<byte> bytes);
 
+  public delegate Task ClientDisconnected(uint id);
+
   /// <summary>
   /// Event fired when receiving packets
   /// </summary>
   /// <seealso cref="PacketReceived"/>
   public event PacketReceived? OnPacketReceived;
+
+  public event ClientDisconnected? OnClientDisconnected;
 
   /// <summary>
   /// How to manage the receiving of the <see cref="KeepAlivePacket"/>
@@ -51,8 +55,17 @@ public abstract class NetworkConnection {
   /// Used in <see cref="ServerConnection"/> to send <see cref="KeepAlivePacket"/>s to client and close the connection
   /// if a certain amount of time have passed without the client sending it back
   /// </remarks>
-  protected void RegisterCustomStreamHandler(Func<NetworkStream, CancellationTokenSource, Task> callback) =>
+  protected void RegisterCustomStreamHandler(Func<NetworkStream, CancellationTokenSource, uint, Task> callback) =>
     _callback = callback;
+
+  protected async Task FireClientDisconnected(uint id) {
+    var result = OnClientDisconnected?.BeginInvoke(id, null, null);
+    if (result == null) {
+      return;
+    }
+
+    await result.AsyncWaitHandle.WaitAsync();
+  }
 
   /// <summary>
   /// Manages a connected client
@@ -74,7 +87,7 @@ public abstract class NetworkConnection {
     var cts = new CancellationTokenSource();
     Task? task = null;
     if (_callback != null) {
-      task = _callback(stream, cts);
+      task = _callback(stream, cts, id);
       task.Start();
     }
 
