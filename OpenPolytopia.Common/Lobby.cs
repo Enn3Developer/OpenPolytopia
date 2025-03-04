@@ -21,6 +21,11 @@ public class Lobby : INetworkSerializable {
   public uint MaxPlayers;
 
   /// <summary>
+  /// If the game in the lobby has started
+  /// </summary>
+  public bool Started;
+
+  /// <summary>
   /// Returns all the players in the lobby as a read-only list
   /// </summary>
   public ReadOnlyCollection<PlayerData> Players => _players.AsReadOnly();

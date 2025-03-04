@@ -1,11 +1,14 @@
 namespace OpenPolytopia.Common.Network;
 
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using DotNext.Threading;
 using Packets;
 
 public abstract class NetworkConnection {
   private Func<NetworkStream, CancellationTokenSource, Task>? _callback;
+
+  public readonly ConcurrentDictionary<uint, ConcurrentQueue<IPacket>> Channels = new();
 
   /// <summary>
   /// Event handler for receiving packets
@@ -60,6 +63,10 @@ public abstract class NetworkConnection {
   protected async Task ManageClientAsync(uint id, TcpClient client, CancellationToken ct) {
     // Get the stream for the client
     await using var stream = client.GetStream();
+
+    // initialize the channel
+    Channels[id] = new ConcurrentQueue<IPacket>();
+
     // Prepare data
     List<byte> responseBytes = [];
     List<byte> bytes = [];
@@ -80,8 +87,14 @@ public abstract class NetworkConnection {
 
         // Read incoming packet if data available or while missing bytes
         while (stream.DataAvailable || (contentLength != 0u && bytes.Count < contentLength)) {
+          // compute buffer size to read exactly one packet
+          var bufferSize = 4L;
+          if (contentLength != 0u) {
+            bufferSize = contentLength - bytes.Count;
+          }
+
           // Read data from stream
-          var bufferBytes = new byte[256];
+          var bufferBytes = new byte[bufferSize];
           var read = await stream.ReadAsync(bufferBytes.AsMemory(), ct);
 
           // Offset of where to start reading in the buffer
@@ -114,6 +127,14 @@ public abstract class NetworkConnection {
         var packetType = PacketRegistrar.GetPacket(packetId);
         var packet = (IPacket?)Activator.CreateInstance(packetType);
 
+        // check if channel has data
+        if (!Channels[id].IsEmpty) {
+          var channel = Channels[id];
+          while (channel.TryDequeue(out var channelPacket)) {
+            stream.PreparePacket(channelPacket, responseBytes);
+          }
+        }
+
         // if packet wasn't registered, skip this packet
         if (packet == null) {
           continue;
@@ -123,6 +144,10 @@ public abstract class NetworkConnection {
         packet.Deserialize(contentBytes);
         if (await ManagePacketAsync(id, packet, stream, responseBytes, ct)) {
           break;
+        }
+
+        if (responseBytes.Count > 0) {
+          await stream.SendPacketsAsync(responseBytes);
         }
       }
     }
@@ -138,6 +163,9 @@ public abstract class NetworkConnection {
       if (task != null) {
         await task;
       }
+
+      // remove the channel
+      Channels.Remove(id, out _);
 
       // Connection should be closed now
       client.Close();
