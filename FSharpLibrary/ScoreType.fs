@@ -29,13 +29,11 @@ module ScoreTypeModule =
     | ClaimedTile -> 20
     | TroopSpawned(number, stars) -> int (number * (stars * 5u + 5u))
     | CityLevelUp numberOfLevels -> int (50u * numberOfLevels)
-    | VillageConquered -> 100
-    | TemplesBuilt -> 100
-    | DiscoveredNewTech -> 100
+    | VillageConquered | TemplesBuilt | DiscoveredNewTech -> 100
     | ParkBuilt -> 200
     | MonumentsBuilt -> 400
-    | TemplesDestroyed -> -100
+    | TemplesDestroyed -> -ScoreTypeToInt TemplesBuilt
     | LoseTroop stars -> ScoreTypeToInt(TroopSpawned(1u, stars))
-    | ParkDestroyed -> -200
-    | MonumentsDestroyed -> -400
+    | ParkDestroyed -> -ScoreTypeToInt ParkBuilt
+    | MonumentsDestroyed -> -ScoreTypeToInt MonumentsBuilt
     | LoseCity cityLevel -> -(ScoreTypeToInt VillageConquered + ScoreTypeToInt(CityLevelUp cityLevel))
