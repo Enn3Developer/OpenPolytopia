@@ -44,7 +44,7 @@
   </ItemGroup>
   <ItemGroup><!-- Production dependencies go here! -->
 
-    <PackageReference Include="Chickensoft.GameTools" Version="1.0.6"/>
+    <PackageReference Include="Chickensoft.GameTools" Version="2.0.3"/>
 
     <PackageReference Include="System.Numerics.Vectors" Version="4.6.0"/>
   </ItemGroup>
