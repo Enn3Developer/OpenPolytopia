@@ -4,9 +4,7 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// Register a new user on the server
 /// </summary>
 public class RegisterUserPacket : IPacket {
-  public static RegisterUserPacket Default() => new() { Name = "" };
-
-  public required string Name;
+  public string Name = "";
 
   public void Serialize(List<byte> bytes) => Name.Serialize(bytes);
 

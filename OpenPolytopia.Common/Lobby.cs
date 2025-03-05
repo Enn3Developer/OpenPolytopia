@@ -11,6 +11,26 @@ public class Lobby : INetworkSerializable {
   private readonly List<PlayerData> _players = [];
 
   /// <summary>
+  /// ID of the lobby
+  /// </summary>
+  public uint Id;
+
+  /// <summary>
+  /// Number of max players that can join this lobby
+  /// </summary>
+  public uint MaxPlayers;
+
+  /// <summary>
+  /// If the game in the lobby has started
+  /// </summary>
+  public bool Started;
+
+  /// <summary>
+  /// Returns all the players in the lobby as a read-only list
+  /// </summary>
+  public ReadOnlyCollection<PlayerData> Players => _players.AsReadOnly();
+
+  /// <summary>
   /// Returns the player data from a given name
   /// </summary>
   /// <param name="name">the player's name</param>
@@ -20,15 +40,32 @@ public class Lobby : INetworkSerializable {
   /// Adds a player to the lobby
   /// </summary>
   /// <param name="player">the player to add</param>
-  public void AddPlayer(PlayerData player) => _players.Add(player);
+  /// <returns>true if the player can be added to the lobby, false otherwise</returns>
+  public bool AddPlayer(PlayerData player) {
+    if (_players.Count == MaxPlayers) {
+      return false;
+    }
 
-  /// <summary>
-  /// Returns all the players in the lobby
-  /// </summary>
-  /// <returns>the players in the lobby as a read-only list</returns>
-  public ReadOnlyCollection<PlayerData> GetPlayers() => _players.AsReadOnly();
+    _players.Add(player);
+    return true;
+  }
 
-  public void Serialize(List<byte> bytes) => _players.Serialize(bytes);
+  public void RemovePlayer(string name) {
+    var index = _players.FindIndex(player => player.PlayerName == name);
+    if (index != -1) {
+      _players.RemoveAt(index);
+    }
+  }
 
-  public void Deserialize(byte[] bytes, ref uint index) => _players.Deserialize(bytes, ref index);
+  public void Serialize(List<byte> bytes) {
+    Id.Serialize(bytes);
+    MaxPlayers.Serialize(bytes);
+    _players.Serialize(bytes);
+  }
+
+  public void Deserialize(byte[] bytes, ref uint index) {
+    Id.Deserialize(bytes, ref index);
+    MaxPlayers.Deserialize(bytes, ref index);
+    _players.Deserialize(bytes, ref index);
+  }
 }

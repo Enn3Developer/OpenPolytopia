@@ -53,6 +53,14 @@ public static class UIntExtension {
     value.SetBits(bytes[index++], EIGHT_BITS, SECOND_BYTE);
     value.SetBits(bytes[index++], EIGHT_BITS, FIRST_BYTE);
   }
+
+  public static uint Deserialize(uint value, byte[] bytes, ref uint index) {
+    value.SetBits(bytes[index++], EIGHT_BITS, FOURTH_BYTE);
+    value.SetBits(bytes[index++], EIGHT_BITS, THIRD_BYTE);
+    value.SetBits(bytes[index++], EIGHT_BITS, SECOND_BYTE);
+    value.SetBits(bytes[index++], EIGHT_BITS, FIRST_BYTE);
+    return value;
+  }
 }
 
 public static class IntExtension {
@@ -91,8 +99,7 @@ public static class StringExtension {
   }
 
   public static string Deserialize(this string str, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
 
     for (var i = 0; i < length; i++) {
       str = str.Insert(i, ((char)bytes[index++]).ToString());
@@ -127,8 +134,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<uint> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = 0u;
       value.Deserialize(bytes, ref index);
@@ -137,8 +144,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<int> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = 0;
       value.Deserialize(bytes, ref index);
@@ -147,8 +154,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<bool> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = false;
       value.Deserialize(bytes, ref index);
@@ -157,8 +164,8 @@ public static class ListExtension {
   }
 
   public static void Deserialize(this List<string> list, byte[] bytes, ref uint index) {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var str = "";
       str = str.Deserialize(bytes, ref index);
@@ -168,8 +175,8 @@ public static class ListExtension {
 
   public static void Deserialize<T>(this List<T> list, byte[] bytes, ref uint index)
     where T : INetworkSerializable, new() {
-    var length = 0;
-    length.Deserialize(bytes, ref index);
+    var length = UIntExtension.Deserialize(0u, bytes, ref index);
+
     for (var i = 0; i < length; i++) {
       var value = new T();
       value.Deserialize(bytes, ref index);
@@ -179,9 +186,11 @@ public static class ListExtension {
 }
 
 public static class NetworkStreamExtension {
-  public static async Task WritePacketAsync(this NetworkStream stream, IPacket packet, List<byte> bytes) {
+  public static void PreparePacket(this NetworkStream stream, IPacket packet, List<byte> bytes) {
     // get the packet id
     var id = PacketRegistrar.GetPacketId(packet);
+    // compute the start index of the packet
+    var startIndex = bytes.Count;
     // serialize the id
     id.Serialize(bytes);
     // serialize the packet
@@ -189,11 +198,19 @@ public static class NetworkStreamExtension {
     // get the bytes count and serialize it to a temp byte array
     var contentLength = ((uint)bytes.Count).Serialize();
     // insert the temp byte array at the start of the bytes to send
-    bytes.InsertRange(0, contentLength);
+    bytes.InsertRange(startIndex, contentLength);
+  }
+
+  public static async Task SendPacketsAsync(this NetworkStream stream, List<byte> bytes) {
     // send the bytes
     await stream.WriteAsync(bytes.ToArray());
     // clear the list
     bytes.Clear();
+  }
+
+  public static async Task WritePacketAsync(this NetworkStream stream, IPacket packet, List<byte> bytes) {
+    PreparePacket(stream, packet, bytes);
+    await SendPacketsAsync(stream, bytes);
   }
 }
 
