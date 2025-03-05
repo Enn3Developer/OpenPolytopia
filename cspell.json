@@ -13,7 +13,8 @@
     "**/*.DotSettings.*",
     "**/*.godot",
     "**/*.cfg",
-    "**/*.csproj"
+    "**/*.csproj",
+    "**/*.uid"
   ],
   "words": [
     "animatable",

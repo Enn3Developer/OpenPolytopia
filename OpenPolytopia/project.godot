@@ -13,12 +13,19 @@ config_version=5
 config/name="OpenPolytopia"
 config/version="0.1.0"
 run/main_scene="res://src/Main.tscn"
-config/features=PackedStringArray("4.3", "C#", "Mobile")
+config/features=PackedStringArray("4.4", "C#", "Mobile")
 config/icon="res://icon.png"
 
 [autoload]
 
 PlayerData="*res://src/PlayerData.cs"
+
+[debug]
+
+settings/stdout/print_fps=true
+settings/stdout/print_gpu_profile=true
+file_logging/enable_file_logging=true
+shader_language/warnings/treat_warnings_as_errors=true
 
 [dotnet]
 
@@ -26,5 +33,4 @@ project/assembly_name="OpenPolytopia"
 
 [rendering]
 
-renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
