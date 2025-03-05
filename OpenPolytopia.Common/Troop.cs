@@ -321,12 +321,29 @@ public enum Skill {
   Stiff,
   Stomp,
   Surprise,
-  Water
+  Water,
+  Detect
 }
 
 public enum TroopType {
   Warrior,
-  Archer
+  Archer,
+  Defender,
+  Rider,
+  Cloak,
+  Dagger,
+  MindBender,
+  Swordsman,
+  Catapult,
+  Knight,
+  Giant,
+  Raft,
+  Scout,
+  Rammer,
+  Bomber,
+  Juggernaut,
+  Dinghy,
+  Pirate
 }
 
 #region Troop implementations
@@ -338,6 +355,161 @@ public class WarriorTroop : Troop {
   public override uint Movement => 1;
   public override uint Range => 1;
   public override Skill[] Skills => [Skill.Dash, Skill.Fortify];
+}
+
+public class ArcherTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 2;
+  public override uint Defense => 1;
+  public override uint Movement => 1;
+  public override uint Range => 2;
+  public override Skill[] Skills => [Skill.Dash, Skill.Fortify];
+}
+
+public class DefenderTroop : Troop {
+  public override uint MaxHp => 15;
+  public override uint Attack => 1;
+  public override uint Defense => 3;
+  public override uint Movement => 1;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Fortify];
+}
+
+public class RiderTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 2;
+  public override uint Defense => 1;
+  public override uint Movement => 2;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Fortify, Skill.Dash, Skill.Escape];
+}
+
+public class CloakTroop : Troop {
+  public override uint MaxHp => 5;
+  public override uint Attack => 0;
+  public override uint Defense => 1;
+  public override uint Movement => 2;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Hide, Skill.Sneak, Skill.Infiltrate, Skill.Dash];
+}
+
+public class DaggerTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 2;
+  public override uint Defense => 2;
+  public override uint Movement => 1;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Dash, Skill.Surprise, Skill.Independent];
+}
+
+public class MindBenderTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 0;
+  public override uint Defense => 1;
+  public override uint Movement => 1;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Heal, Skill.Convert, Skill.Detect];
+}
+
+public class SwordsmanTroop : Troop {
+  public override uint MaxHp => 15;
+  public override uint Attack => 3;
+  public override uint Defense => 3;
+  public override uint Movement => 1;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Dash, Skill.Fortify];
+}
+
+public class CatapultTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 4;
+  public override uint Defense => 0;
+  public override uint Movement => 1;
+  public override uint Range => 3;
+  public override Skill[] Skills => [];
+}
+
+public class KnightTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 4;
+  public override uint Defense => 1;
+  public override uint Movement => 3;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Dash, Skill.Fortify, Skill.Persist];
+}
+
+public class GiantTroop : Troop {
+  public override uint MaxHp => 40;
+  public override uint Attack => 5;
+  public override uint Defense => 4;
+  public override uint Movement => 1;
+  public override uint Range => 1;
+  public override Skill[] Skills => [];
+}
+
+public class RaftTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 0;
+  public override uint Defense => 1;
+  public override uint Movement => 2;
+  public override uint Range => 0;
+  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water];
+}
+
+public class ScoutTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 2;
+  public override uint Defense => 2;
+  public override uint Movement => 3;
+  public override uint Range => 2;
+  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Dash, Skill.Scout];
+}
+
+public class RammerTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 3;
+  public override uint Defense => 3;
+  public override uint Movement => 3;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Dash];
+}
+
+public class BomberTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 3;
+  public override uint Defense => 2;
+  public override uint Movement => 2;
+  public override uint Range => 3;
+  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Splash, Skill.Stiff];
+}
+
+public class JuggernautTroop : Troop {
+  public override uint MaxHp => 40;
+  public override uint Attack => 4;
+  public override uint Defense => 4;
+  public override uint Movement => 2;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Stomp, Skill.Stiff];
+}
+
+public class DinghyTroop : Troop {
+  public override uint MaxHp => 5;
+  public override uint Attack => 0;
+  public override uint Defense => 1;
+  public override uint Movement => 2;
+  public override uint Range => 1;
+
+  public override Skill[] Skills =>
+    [Skill.Carry, Skill.Floating, Skill.Water, Skill.Hide, Skill.Sneak, Skill.Infiltrate];
+}
+
+public class PirateTroop : Troop {
+  public override uint MaxHp => 10;
+  public override uint Attack => 2;
+  public override uint Defense => 2;
+  public override uint Movement => 1;
+  public override uint Range => 1;
+  public override Skill[] Skills => [Skill.Water, Skill.Surprise, Skill.Independent, Skill.Dash];
 }
 
 #endregion
