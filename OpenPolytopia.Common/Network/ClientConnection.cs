@@ -15,6 +15,8 @@ public class ClientConnection : NetworkConnection {
 
   public delegate Task LobbyConnectResponse(bool result);
 
+  public delegate Task LobbyUpdate(Lobby lobby);
+
   public event HandshakeResponse? OnHandshakeResponse;
 
   /// <summary>
@@ -27,6 +29,8 @@ public class ClientConnection : NetworkConnection {
   public event LobbyDeleted? OnLobbyDeleted;
 
   public event LobbyConnectResponse? OnLobbyConnect;
+
+  public event LobbyUpdate? OnLobbyUpdate;
 
   private readonly string _address;
   private readonly int _port;
@@ -87,6 +91,14 @@ public class ClientConnection : NetworkConnection {
         }
 
         await lobbyConnectResult.AsyncWaitHandle.WaitAsync(_ct);
+        break;
+      case LobbyUpdatePacket lobbyUpdatePacket:
+        var lobbyUpdateResult = OnLobbyUpdate?.BeginInvoke(lobbyUpdatePacket.Lobby, null, null);
+        if (lobbyUpdateResult == null) {
+          break;
+        }
+
+        await lobbyUpdateResult.AsyncWaitHandle.WaitAsync(_ct);
         break;
     }
 

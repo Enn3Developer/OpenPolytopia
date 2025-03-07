@@ -61,4 +61,11 @@ public class Client {
       await ClientConnection.Stream.WritePacketAsync(new LobbyConnectPacket { Id = lobbyId }, bytes);
     }
   }
+
+  public async Task LobbyDisconnectAsync(uint lobbyId, List<byte>? bytes = null) {
+    bytes ??= new List<byte>(16);
+    if (ClientConnection.Stream != null) {
+      await ClientConnection.Stream.WritePacketAsync(new LobbyDisconnectPacket { Id = lobbyId }, bytes);
+    }
+  }
 }
