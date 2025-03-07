@@ -8,6 +8,12 @@ using Common.Network.Packets;
 using DotNext.Threading;
 
 public class Client {
+  /// <summary>
+  /// Public instance of the client
+  /// </summary>
+  /// <remarks>
+  /// Remember to initialize the client at least once
+  /// </remarks>
   public static Client Instance { get; private set; }
 
   public delegate Task Connected();
@@ -17,6 +23,9 @@ public class Client {
   /// </summary>
   public event Connected? OnConnected;
 
+  /// <summary>
+  /// The underlying connection which manages messages to/from the server
+  /// </summary>
   public ClientConnection ClientConnection { get; }
 
   public Client(string address, int port, CancellationToken ct) {
@@ -32,8 +41,16 @@ public class Client {
     Instance = this;
   }
 
+  /// <summary>
+  /// Initializes the connection to the server
+  /// </summary>
   public async Task ConnectAsync() => await ClientConnection.ConnectAsync();
 
+  /// <summary>
+  /// Registers the user on the server
+  /// </summary>
+  /// <param name="name">name of the player</param>
+  /// <param name="bytes">optional list to use instead of allocating a new one</param>
   public async Task RegisterUserAsync(string name, List<byte>? bytes = null) {
     bytes ??= new List<byte>(16);
     if (ClientConnection.Stream != null) {
@@ -41,6 +58,10 @@ public class Client {
     }
   }
 
+  /// <summary>
+  /// Query the server for all the lobbies
+  /// </summary>
+  /// <param name="bytes">optional list to use instead of allocating a new one</param>
   public async Task GetLobbiesAsync(List<byte>? bytes = null) {
     bytes ??= new List<byte>(16);
     if (ClientConnection.Stream != null) {
@@ -48,6 +69,11 @@ public class Client {
     }
   }
 
+  /// <summary>
+  /// Creates a new lobby on the server
+  /// </summary>
+  /// <param name="maxPlayer">the number of players</param>
+  /// <param name="bytes">optional list to use instead of allocating a new one</param>
   public async Task CreateLobbyAsync(uint maxPlayer, List<byte>? bytes = null) {
     bytes ??= new List<byte>(16);
     if (ClientConnection.Stream != null) {
@@ -55,6 +81,11 @@ public class Client {
     }
   }
 
+  /// <summary>
+  /// Connects to the lobby
+  /// </summary>
+  /// <param name="lobbyId">the id of the lobby to connect to</param>
+  /// <param name="bytes">optional list to use instead of allocating a new one</param>
   public async Task LobbyConnectAsync(uint lobbyId, List<byte>? bytes = null) {
     bytes ??= new List<byte>(16);
     if (ClientConnection.Stream != null) {
@@ -62,6 +93,11 @@ public class Client {
     }
   }
 
+  /// <summary>
+  /// Disconnects from a lobby
+  /// </summary>
+  /// <param name="lobbyId">the id of the lobby to disconnect from</param>
+  /// <param name="bytes">optional list to use instead of allocating a new one</param>
   public async Task LobbyDisconnectAsync(uint lobbyId, List<byte>? bytes = null) {
     bytes ??= new List<byte>(16);
     if (ClientConnection.Stream != null) {

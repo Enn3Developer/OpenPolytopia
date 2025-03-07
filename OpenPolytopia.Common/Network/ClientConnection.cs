@@ -24,12 +24,24 @@ public class ClientConnection : NetworkConnection {
   /// </summary>
   public event LobbiesResponse? OnLobbiesResponse;
 
+  /// <summary>
+  /// Fired after asking the server to create a lobby
+  /// </summary>
   public event CreateLobbyResponse? OnCreateLobbyResponse;
 
+  /// <summary>
+  /// Fired when a lobby gets deleted
+  /// </summary>
   public event LobbyDeleted? OnLobbyDeleted;
 
+  /// <summary>
+  /// Fired after asking the server to join a lobby
+  /// </summary>
   public event LobbyConnectResponse? OnLobbyConnect;
 
+  /// <summary>
+  /// Fired when a lobby gets modified
+  /// </summary>
   public event LobbyUpdate? OnLobbyUpdate;
 
   private readonly string _address;
@@ -38,6 +50,9 @@ public class ClientConnection : NetworkConnection {
   private readonly TcpClient _tcpClient;
   private Task? _clientTask;
 
+  /// <summary>
+  /// Underlying stream with the server
+  /// </summary>
   public NetworkStream? Stream { get; private set; }
 
   public ClientConnection(string address, int port, CancellationToken ct) {
@@ -45,10 +60,10 @@ public class ClientConnection : NetworkConnection {
     _port = port;
     _ct = ct;
     _tcpClient = new TcpClient(address, port);
-    OnPacketReceived += PacketReceived;
+    OnPacketReceived += PacketReceivedAsync;
   }
 
-  private async Task<bool> PacketReceived(uint id, IPacket packet, NetworkStream stream, List<byte> bytes) {
+  private async Task<bool> PacketReceivedAsync(uint id, IPacket packet, NetworkStream stream, List<byte> bytes) {
     Stream ??= stream;
 
     switch (packet) {
@@ -105,6 +120,9 @@ public class ClientConnection : NetworkConnection {
     return false;
   }
 
+  /// <summary>
+  /// Initializes the connection to the server
+  /// </summary>
   public async Task ConnectAsync() {
     await _tcpClient.ConnectAsync(_address, _port, _ct);
     _clientTask = ManageClientAsync(0, _tcpClient, _ct);
