@@ -49,7 +49,7 @@ public class GameServer : IDisposable {
       case CreateLobbyPacket createLobbyPacket:
         var lobby = _lobbyManager.NewLobby(createLobbyPacket.MaxPlayers);
         Broadcast(new LobbyUpdatePacket { Lobby = lobby });
-        await stream.WritePacketAsync(new CreateLobbyResponsePacket { Ok = true }, bytes);
+        await stream.WritePacketAsync(new CreateLobbyResponsePacket { Ok = true, Id = lobby.Id }, bytes);
         break;
       // Respond with the lobbies currently available
       case GetLobbiesPacket:
