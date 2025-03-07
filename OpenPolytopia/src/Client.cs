@@ -14,7 +14,7 @@ public class Client {
   /// <remarks>
   /// Remember to initialize the client at least once
   /// </remarks>
-  public static Client Instance { get; private set; } = null!;
+  public static Client? Instance { get; private set; }
 
   public delegate Task Connected();
 
@@ -38,7 +38,7 @@ public class Client {
       var result = OnConnected.BeginInvoke(null, null);
       await result.AsyncWaitHandle.WaitAsync();
     };
-    Instance = this;
+    Instance ??= this;
   }
 
   /// <summary>
