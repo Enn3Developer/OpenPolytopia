@@ -14,7 +14,7 @@ public class Client {
   /// <remarks>
   /// Remember to initialize the client at least once
   /// </remarks>
-  public static Client Instance { get; private set; }
+  public static Client Instance { get; private set; } = null!;
 
   public delegate Task Connected();
 
