@@ -58,7 +58,4 @@
     <ProjectReference Include="..\FSharpLibrary\FSharpLibrary.fsproj"/>
     <ProjectReference Include="..\OpenPolytopia.Common\OpenPolytopia.Common.csproj"/>
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="data\troops.json"/>
-  </ItemGroup>
 </Project>

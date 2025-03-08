@@ -15,4 +15,11 @@
     <ProjectReference Include="..\FSharpLibrary\FSharpLibrary.fsproj"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="resources\troops.json"/>
+    <EmbeddedResource Include="resources\troops.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

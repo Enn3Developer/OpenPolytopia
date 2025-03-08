@@ -9,20 +9,19 @@ using Godot;
 using Shouldly;
 
 public class TroopManagerTest(Node testScene) : TestClass(testScene) {
+  private static readonly JsonSerializerOptions _options = new() {
+    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
+    TypeInfoResolver = TroopGenerationContext.Default,
+    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+  };
+
   private TroopManager _troopManager = null!;
 
   [Setup]
   public void Setup() {
     _troopManager = new TroopManager(10);
-    var file = FileAccess.Open("res://data/troops.json", FileAccess.ModeFlags.Read);
-    var content = file.GetAsText();
-    content.ShouldNotBeNull();
-    var troops = JsonSerializer.Deserialize<TroopsSerializedData>(content,
-      new JsonSerializerOptions {
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
-        TypeInfoResolver = TroopGenerationContext.Default,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-      });
+    var content = EmbeddedResources.GetTroopsData();
+    var troops = JsonSerializer.Deserialize<TroopsSerializedData>(content, _options);
     troops.ShouldNotBeNull();
     _troopManager.RegisterTroops(troops);
   }
