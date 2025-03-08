@@ -3,6 +3,8 @@ namespace OpenPolytopia.Common;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 using Godot;
 
 /// <summary>
@@ -47,9 +49,20 @@ public class TroopManager(uint size) {
   /// Registers a new type of troop
   /// </summary>
   /// <param name="type">the troop type</param>
-  /// <typeparam name="T">the troop class that extends <see cref="Troop"/></typeparam>
+  /// <param name="troop">the troop instance</param>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public void RegisterTroop<T>(TroopType type) where T : Troop, new() => _troops.Add(type, new T());
+  public void RegisterTroop(TroopType type, Troop troop) => _troops.Add(type, troop);
+
+  /// <summary>
+  /// Registers all the troops
+  /// </summary>
+  /// <param name="troopsSerializedData">the troops deserialized</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void RegisterTroops(TroopsSerializedData troopsSerializedData) {
+    foreach (var troopSerializedData in troopsSerializedData.Troops) {
+      RegisterTroop(troopSerializedData.Type, troopSerializedData.Troop);
+    }
+  }
 
   /// <summary>
   /// Spawns a new troop
@@ -263,253 +276,102 @@ public struct TroopData {
   public void Delete() => _inner = 0;
 }
 
-public abstract class Troop {
+public class Troop {
   /// <summary>
   /// Max hp of the troop
   /// </summary>
-  public abstract uint MaxHp { get; }
+  public required uint MaxHp { get; init; }
 
   /// <summary>
   /// Attack of the troop
   /// </summary>
-  public abstract uint Attack { get; }
+  public required uint Attack { get; init; }
 
   /// <summary>
   /// Defense of the troop
   /// </summary>
-  public abstract uint Defense { get; }
+  public required uint Defense { get; init; }
 
   /// <summary>
   /// Movement of the troop in tiles
   /// </summary>
-  public abstract uint Movement { get; }
+  public required uint Movement { get; init; }
 
   /// <summary>
   /// Attack range of the troop in tiles
   /// </summary>
-  public abstract uint Range { get; }
+  public required uint Range { get; init; }
 
   /// <summary>
   /// List of skills this troop has
   /// </summary>
-  public abstract Skill[] Skills { get; }
+  public required Skill[] Skills { get; init; }
 }
 
 /// <summary>
 /// Possible skills that troops can have
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<Skill>))]
 public enum Skill {
-  Amphibious,
-  Carry,
-  Convert,
-  Dash,
-  Escape,
-  Floating,
-  Fly,
-  Fortify,
-  Grow,
-  Heal,
-  Hide,
-  Independent,
-  Infiltrate,
-  Navigate,
-  Persist,
-  Static,
-  Scout,
-  Sneak,
-  Splash,
-  Stiff,
-  Stomp,
-  Surprise,
-  Water,
-  Detect
+  [EnumMember(Value = "amphibious")] Amphibious,
+  [EnumMember(Value = "carry")] Carry,
+  [EnumMember(Value = "convert")] Convert,
+  [EnumMember(Value = "dash")] Dash,
+  [EnumMember(Value = "escape")] Escape,
+  [EnumMember(Value = "floating")] Floating,
+  [EnumMember(Value = "fly")] Fly,
+  [EnumMember(Value = "fortify")] Fortify,
+  [EnumMember(Value = "grow")] Grow,
+  [EnumMember(Value = "heal")] Heal,
+  [EnumMember(Value = "hide")] Hide,
+  [EnumMember(Value = "independent")] Independent,
+  [EnumMember(Value = "infiltrate")] Infiltrate,
+  [EnumMember(Value = "navigate")] Navigate,
+  [EnumMember(Value = "persist")] Persist,
+  [EnumMember(Value = "static")] Static,
+  [EnumMember(Value = "scout")] Scout,
+  [EnumMember(Value = "sneak")] Sneak,
+  [EnumMember(Value = "splash")] Splash,
+  [EnumMember(Value = "stiff")] Stiff,
+  [EnumMember(Value = "stomp")] Stomp,
+  [EnumMember(Value = "surprise")] Surprise,
+  [EnumMember(Value = "water")] Water,
+  [EnumMember(Value = "detect")] Detect
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<TroopType>))]
 public enum TroopType {
-  Warrior,
-  Archer,
-  Defender,
-  Rider,
-  Cloak,
-  Dagger,
-  MindBender,
-  Swordsman,
-  Catapult,
-  Knight,
-  Giant,
-  Raft,
-  Scout,
-  Rammer,
-  Bomber,
-  Juggernaut,
-  Dinghy,
-  Pirate
+  [EnumMember(Value = "warrior")] Warrior,
+  [EnumMember(Value = "archer")] Archer,
+  [EnumMember(Value = "defender")] Defender,
+  [EnumMember(Value = "rider")] Rider,
+  [EnumMember(Value = "cloak")] Cloak,
+  [EnumMember(Value = "dagger")] Dagger,
+  [EnumMember(Value = "mindBender")] MindBender,
+  [EnumMember(Value = "swordsman")] Swordsman,
+  [EnumMember(Value = "catapult")] Catapult,
+  [EnumMember(Value = "knight")] Knight,
+  [EnumMember(Value = "giant")] Giant,
+  [EnumMember(Value = "raft")] Raft,
+  [EnumMember(Value = "scout")] Scout,
+  [EnumMember(Value = "rammer")] Rammer,
+  [EnumMember(Value = "bomber")] Bomber,
+  [EnumMember(Value = "juggernaut")] Juggernaut,
+  [EnumMember(Value = "dinghy")] Dinghy,
+  [EnumMember(Value = "pirate")] Pirate
 }
 
-#region Troop implementations
-
-public class WarriorTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 2;
-  public override uint Defense => 2;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Dash, Skill.Fortify];
+public class TroopsSerializedData {
+  public required List<TroopSerializedData> Troops { get; init; }
 }
 
-public class ArcherTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 2;
-  public override uint Defense => 1;
-  public override uint Movement => 1;
-  public override uint Range => 2;
-  public override Skill[] Skills => [Skill.Dash, Skill.Fortify];
+public class TroopSerializedData {
+  public required TroopType Type { get; init; }
+  public required Troop Troop { get; init; }
 }
 
-public class DefenderTroop : Troop {
-  public override uint MaxHp => 15;
-  public override uint Attack => 1;
-  public override uint Defense => 3;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Fortify];
-}
-
-public class RiderTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 2;
-  public override uint Defense => 1;
-  public override uint Movement => 2;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Fortify, Skill.Dash, Skill.Escape];
-}
-
-public class CloakTroop : Troop {
-  public override uint MaxHp => 5;
-  public override uint Attack => 0;
-  public override uint Defense => 1;
-  public override uint Movement => 2;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Hide, Skill.Sneak, Skill.Infiltrate, Skill.Dash];
-}
-
-public class DaggerTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 2;
-  public override uint Defense => 2;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Dash, Skill.Surprise, Skill.Independent];
-}
-
-public class MindBenderTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 0;
-  public override uint Defense => 1;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Heal, Skill.Convert, Skill.Detect];
-}
-
-public class SwordsmanTroop : Troop {
-  public override uint MaxHp => 15;
-  public override uint Attack => 3;
-  public override uint Defense => 3;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Dash, Skill.Fortify];
-}
-
-public class CatapultTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 4;
-  public override uint Defense => 0;
-  public override uint Movement => 1;
-  public override uint Range => 3;
-  public override Skill[] Skills => [];
-}
-
-public class KnightTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 4;
-  public override uint Defense => 1;
-  public override uint Movement => 3;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Dash, Skill.Fortify, Skill.Persist];
-}
-
-public class GiantTroop : Troop {
-  public override uint MaxHp => 40;
-  public override uint Attack => 5;
-  public override uint Defense => 4;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [];
-}
-
-public class RaftTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 0;
-  public override uint Defense => 1;
-  public override uint Movement => 2;
-  public override uint Range => 0;
-  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water];
-}
-
-public class ScoutTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 2;
-  public override uint Defense => 2;
-  public override uint Movement => 3;
-  public override uint Range => 2;
-  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Dash, Skill.Scout];
-}
-
-public class RammerTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 3;
-  public override uint Defense => 3;
-  public override uint Movement => 3;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Dash];
-}
-
-public class BomberTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 3;
-  public override uint Defense => 2;
-  public override uint Movement => 2;
-  public override uint Range => 3;
-  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Splash, Skill.Stiff];
-}
-
-public class JuggernautTroop : Troop {
-  public override uint MaxHp => 40;
-  public override uint Attack => 4;
-  public override uint Defense => 4;
-  public override uint Movement => 2;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Carry, Skill.Floating, Skill.Water, Skill.Stomp, Skill.Stiff];
-}
-
-public class DinghyTroop : Troop {
-  public override uint MaxHp => 5;
-  public override uint Attack => 0;
-  public override uint Defense => 1;
-  public override uint Movement => 2;
-  public override uint Range => 1;
-
-  public override Skill[] Skills =>
-    [Skill.Carry, Skill.Floating, Skill.Water, Skill.Hide, Skill.Sneak, Skill.Infiltrate];
-}
-
-public class PirateTroop : Troop {
-  public override uint MaxHp => 10;
-  public override uint Attack => 2;
-  public override uint Defense => 2;
-  public override uint Movement => 1;
-  public override uint Range => 1;
-  public override Skill[] Skills => [Skill.Water, Skill.Surprise, Skill.Independent, Skill.Dash];
-}
-
-#endregion
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(Troop))]
+[JsonSerializable(typeof(TroopSerializedData))]
+[JsonSerializable(typeof(TroopsSerializedData))]
+public partial class TroopGenerationContext : JsonSerializerContext;

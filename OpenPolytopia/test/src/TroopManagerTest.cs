@@ -1,5 +1,8 @@
 namespace OpenPolytopia;
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Unicode;
 using Chickensoft.GoDotTest;
 using Common;
 using Godot;
@@ -11,7 +14,17 @@ public class TroopManagerTest(Node testScene) : TestClass(testScene) {
   [Setup]
   public void Setup() {
     _troopManager = new TroopManager(10);
-    _troopManager.RegisterTroop<WarriorTroop>(TroopType.Warrior);
+    var file = FileAccess.Open("res://data/troops.json", FileAccess.ModeFlags.Read);
+    var content = file.GetAsText();
+    content.ShouldNotBeNull();
+    var troops = JsonSerializer.Deserialize<TroopsSerializedData>(content,
+      new JsonSerializerOptions {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
+        TypeInfoResolver = TroopGenerationContext.Default,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+      });
+    troops.ShouldNotBeNull();
+    _troopManager.RegisterTroops(troops);
   }
 
   [Test]
