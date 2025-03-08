@@ -284,9 +284,9 @@ public struct Tile {
   /// <summary>
   /// Biome of the tile based on the tribes available in the game
   /// </summary>
-  public Tribe Biome {
+  public TribeType Biome {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    get => (Tribe)_inner.GetBits(FIVE_BITS, TILE_BIOME_POSITION);
+    get => (TribeType)_inner.GetBits(FIVE_BITS, TILE_BIOME_POSITION);
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     set => _inner.SetBits((ulong)value, FIVE_BITS, TILE_BIOME_POSITION);
   }
