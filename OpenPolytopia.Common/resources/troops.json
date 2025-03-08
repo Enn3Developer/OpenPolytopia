@@ -1,0 +1,274 @@
+{
+  "troops": [
+    {
+      "type": "warrior",
+      "troop": {
+        "max_hp": 10,
+        "attack": 2,
+        "defense": 2,
+        "movement": 1,
+        "range": 1,
+        "skills": [
+          "dash",
+          "fortify"
+        ]
+      }
+    },
+    {
+      "type": "archer",
+      "troop": {
+        "max_hp": 10,
+        "attack": 2,
+        "defense": 1,
+        "movement": 1,
+        "range": 2,
+        "skills": [
+          "dash",
+          "fortify"
+        ]
+      }
+    },
+    {
+      "type": "defender",
+      "troop": {
+        "max_hp": 15,
+        "attack": 1,
+        "defense": 3,
+        "movement": 1,
+        "range": 1,
+        "skills": [
+          "fortify"
+        ]
+      }
+    },
+    {
+      "type": "rider",
+      "troop": {
+        "max_hp": 10,
+        "attack": 2,
+        "defense": 1,
+        "movement": 2,
+        "range": 1,
+        "skills": [
+          "dash",
+          "fortify",
+          "escape"
+        ]
+      }
+    },
+    {
+      "type": "cloak",
+      "troop": {
+        "max_hp": 5,
+        "attack": 0,
+        "defense": 1,
+        "movement": 2,
+        "range": 1,
+        "skills": [
+          "hide",
+          "sneak",
+          "infiltrate",
+          "dash",
+          "scout"
+        ]
+      }
+    },
+    {
+      "type": "dagger",
+      "troop": {
+        "max_hp": 10,
+        "attack": 2,
+        "defense": 2,
+        "movement": 1,
+        "range": 1,
+        "skills": [
+          "dash",
+          "surprise",
+          "independent"
+        ]
+      }
+    },
+    {
+      "type": "mindBender",
+      "troop": {
+        "max_hp": 10,
+        "attack": 0,
+        "defense": 1,
+        "movement": 1,
+        "range": 1,
+        "skills": [
+          "heal",
+          "convert",
+          "detect"
+        ]
+      }
+    },
+    {
+      "type": "swordsman",
+      "troop": {
+        "max_hp": 15,
+        "attack": 3,
+        "defense": 3,
+        "movement": 1,
+        "range": 1,
+        "skills": [
+          "dash"
+        ]
+      }
+    },
+    {
+      "type": "catapult",
+      "troop": {
+        "max_hp": 10,
+        "attack": 4,
+        "defense": 0,
+        "movement": 1,
+        "range": 3,
+        "skills": []
+      }
+    },
+    {
+      "type": "knight",
+      "troop": {
+        "max_hp": 10,
+        "attack": 4,
+        "defense": 1,
+        "movement": 3,
+        "range": 1,
+        "skills": [
+          "dash",
+          "fortify",
+          "persist"
+        ]
+      }
+    },
+    {
+      "type": "giant",
+      "troop": {
+        "max_hp": 40,
+        "attack": 5,
+        "defense": 4,
+        "movement": 1,
+        "range": 1,
+        "skills": []
+      }
+    },
+    {
+      "type": "raft",
+      "troop": {
+        "max_hp": 10,
+        "attack": 0,
+        "defense": 1,
+        "movement": 2,
+        "range": 0,
+        "skills": [
+          "carry",
+          "floating",
+          "water"
+        ]
+      }
+    },
+    {
+      "type": "scout",
+      "troop": {
+        "max_hp": 10,
+        "attack": 2,
+        "defense": 2,
+        "movement": 3,
+        "range": 2,
+        "skills": [
+          "carry",
+          "floating",
+          "water",
+          "dash",
+          "scout"
+        ]
+      }
+    },
+    {
+      "type": "rammer",
+      "troop": {
+        "max_hp": 10,
+        "attack": 3,
+        "defense": 3,
+        "movement": 3,
+        "range": 1,
+        "skills": [
+          "carry",
+          "floating",
+          "water",
+          "dash"
+        ]
+      }
+    },
+    {
+      "type": "bomber",
+      "troop": {
+        "max_hp": 10,
+        "attack": 3,
+        "defense": 2,
+        "movement": 2,
+        "range": 3,
+        "skills": [
+          "carry",
+          "floating",
+          "water",
+          "splash",
+          "stiff"
+        ]
+      }
+    },
+    {
+      "type": "juggernaut",
+      "troop": {
+        "max_hp": 40,
+        "attack": 4,
+        "defense": 4,
+        "movement": 2,
+        "range": 1,
+        "skills": [
+          "carry",
+          "floating",
+          "water",
+          "stomp",
+          "stiff"
+        ]
+      }
+    },
+    {
+      "type": "dinghy",
+      "troop": {
+        "max_hp": 5,
+        "attack": 0,
+        "defense": 1,
+        "movement": 2,
+        "range": 1,
+        "skills": [
+          "carry",
+          "floating",
+          "water",
+          "hide",
+          "sneak",
+          "infiltrate",
+          "scout"
+        ]
+      }
+    },
+    {
+      "type": "pirate",
+      "troop": {
+        "max_hp": 10,
+        "attack": 2,
+        "defense": 2,
+        "movement": 1,
+        "range": 1,
+        "skills": [
+          "water",
+          "surprise",
+          "independent",
+          "dash"
+        ]
+      }
+    }
+  ]
+}
