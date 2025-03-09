@@ -1,6 +1,5 @@
 namespace OpenPolytopia.test.src;
 
-using System.Linq;
 using System.Threading.Tasks;
 using Chickensoft.GoDotTest;
 using Godot;
@@ -17,20 +16,23 @@ public class TroopMovementTest(Node testScene) : TestClass(testScene) {
   }
 
   [Test]
-  public async Task TestNumbersPath() {
+  public async Task TestNumbersPathAsync() {
     _troopManager.SpawnTroop(new Vector2I(0, 0), 1, 1, TroopType.Warrior);
-    var col = new TroopMovement(_troopManager, new Grid(10)).DiscoverPath(new Vector2I(0, 0));
+    var col = new TroopMovement(_troopManager, new Grid(10)).DiscoverPathAsync(new Vector2I(0, 0));
     var counter = 0;
-    await foreach (var value in col) {
+    await foreach (var _ in col) {
       counter++;
     }
+
     counter.ShouldBe(3);
   }
 
   [Test]
-  public async Task TestFindPath() {
+  public async Task TestMoveTroopToDiscoveredPathAsync() {
+    _troopManager = new TroopManager(10);
+    _troopManager.RegisterTroop<WarriorTroop>(TroopType.Warrior);
     _troopManager.SpawnTroop(new Vector2I(0, 0), 1, 1, TroopType.Warrior);
-    var col = new TroopMovement(_troopManager, new Grid(10)).DiscoverPath(new Vector2I(0, 0));
+    var col = new TroopMovement(_troopManager, new Grid(10)).DiscoverPathAsync(new Vector2I(9, 9));
     var index = 0u;
     var lastPos = new Vector2I(0, 0);
     await foreach (var pos in col) {
@@ -43,10 +45,10 @@ public class TroopMovementTest(Node testScene) : TestClass(testScene) {
   }
 
   [Test]
-  public async Task TestMultipleTroops() {
+  public async Task TestMoveMultipleTroopsAsync() {
     _troopManager.SpawnTroop(new Vector2I(5, 0), 1, 1, TroopType.Warrior);
     _troopManager.SpawnTroop(new Vector2I(6, 0), 1, 1, TroopType.Warrior);
-    var col = new TroopMovement(_troopManager, new Grid(10)).DiscoverPath(new Vector2I(5, 0));
+    var col = new TroopMovement(_troopManager, new Grid(10)).DiscoverPathAsync(new Vector2I(5, 0));
     await foreach (var pos in col) {
       pos.ShouldNotBe(new Vector2I(6, 0));
     }
