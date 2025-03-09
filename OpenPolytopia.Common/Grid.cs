@@ -13,6 +13,11 @@ public class Grid(uint size) {
   private readonly Tile[] _grid = new Tile[size * size];
 
   /// <summary>
+  /// Get size of grid
+  /// </summary>
+  public uint Size => size;
+
+  /// <summary>
   /// Returns a <see cref="Tile"/> in the given position.
   /// </summary>
   /// <remarks>

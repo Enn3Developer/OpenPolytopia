@@ -8,74 +8,63 @@ public static class SkillsExtension {
   /// </summary>
   /// <param name="skills">Skills of the troop</param>
   /// <param name="tile">Tile where troop could move</param>
-  /// <returns></returns>
+  /// <returns>Is troop have skill for tile</returns>
   public static bool CheckForTile(this Skill[] skills, Tile tile) => TroopMovement.IsGround(tile)
     ? skills.All(skill => skill != Skill.Water)
     : skills.Any(skill => skill is Skill.Water or Skill.Fly);
 }
 
 internal class WrapperMovement {
-  public enum Marker {
-    White,
-    Black,
-    Gray,
-  }
-
   public uint Depth { get; set; }
   public Vector2I Position { get; init; }
-  public Marker CurrentMarker { get; set; } = Marker.White;
 }
 
 public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
-  public static Vector2I[] DIRECTIONS = {
+  private readonly Vector2I[] _direction = [
     new(-1, -1), new(-1, 0), new(-1, 1), new(0, -1), new(0, 1), new(1, -1), new(1, 0), new(1, 1)
-  };
+  ];
 
   /// <summary>
   /// Search possible path a troop could do.
   /// </summary>
   /// <param name="troopPosition">Position of selected troop</param>
   /// <returns></returns>
-  public async IAsyncEnumerable<Vector2I> DiscoverPathAsync(Vector2I troopPosition) {
+  public IEnumerable<Vector2I> DiscoverPathAsync(Vector2I troopPosition) {
     if (!troopManager[troopPosition].IsValid()) {
       yield break;
     }
 
     var troop = troopManager[troopManager[troopPosition].Type];
     // Depth searching
-    var queue = new Queue<WrapperMovement>();
-    queue.Enqueue(new WrapperMovement {
-      Position = troopPosition, CurrentMarker = WrapperMovement.Marker.Black, Depth = 0
-    });
-    while (queue.TryDequeue(out var current)) {
-      await Task.Yield();
-      current.CurrentMarker = WrapperMovement.Marker.Gray;
-      if (current.Depth > troop.Movement) {
+    var queue = new List<WrapperMovement> { new() { Position = troopPosition } };
+    var index = 0;
+    while (index < queue.Count) {
+      var currentPos = queue[index];
+      if (currentPos.Depth > troop.Movement) {
+        index++;
         continue;
       }
 
-      foreach (var dir in DIRECTIONS) {
-        var neighbors = current.Position + dir;
-
-        var newDepth = current.Depth + 1;
-        if (IsValidNeighbor(neighbors) &&
-            current.CurrentMarker is WrapperMovement.Marker.Gray or WrapperMovement.Marker.Black &&
+      foreach (var dir in _direction) {
+        var neighbors = currentPos.Position + dir;
+        var newDepth = currentPos.Depth + 1;
+        var checkFind = queue.Find(movement => movement.Position == neighbors);
+        if (checkFind == null && isValidNeighbor(neighbors) &&
             newDepth <= troop.Movement) {
-          queue.Enqueue(new WrapperMovement { Position = neighbors, Depth = newDepth });
+          queue.Add(new WrapperMovement { Position = neighbors, Depth = newDepth });
         }
       }
 
-      if (ShouldYieldPosition(current.Position, troopPosition)) {
-        yield return current.Position;
+      if (shouldYieldPosition(currentPos.Position, troopPosition)) {
+        yield return currentPos.Position;
       }
-      else {
-        current.CurrentMarker = WrapperMovement.Marker.Black;
-      }
+
+      index++;
     }
 
-    bool IsValidNeighbor(Vector2I pos) => pos.X >= 0 && pos.Y >= 0;
+    bool isValidNeighbor(Vector2I pos) => pos is { X: >= 0, Y: >= 0 } && pos.X < gameGrid.Size && pos.Y < gameGrid.Size;
 
-    bool ShouldYieldPosition(Vector2I currentPos, Vector2I startPos) =>
+    bool shouldYieldPosition(Vector2I currentPos, Vector2I startPos) =>
       currentPos != startPos &&
       !troopManager[currentPos].IsValid() &&
       troop.Skills.CheckForTile(gameGrid[currentPos]);

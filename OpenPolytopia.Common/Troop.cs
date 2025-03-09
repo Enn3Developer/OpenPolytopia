@@ -14,6 +14,11 @@ public class TroopManager(uint size) {
   private readonly TroopData[] _grid = new TroopData[size * size];
 
   /// <summary>
+  /// Get size of troop manager
+  /// </summary>
+  public uint Size => size;
+
+  /// <summary>
   /// Gets the troop data
   /// </summary>
   /// <param name="position">the position of the troop</param>
