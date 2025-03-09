@@ -29,7 +29,7 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
   /// </summary>
   /// <param name="troopPosition">Position of selected troop</param>
   /// <returns></returns>
-  public IEnumerable<Vector2I> DiscoverPathAsync(Vector2I troopPosition) {
+  public async IAsyncEnumerable<Vector2I> DiscoverPathAsync(Vector2I troopPosition) {
     if (!troopManager[troopPosition].IsValid()) {
       yield break;
     }
@@ -39,6 +39,7 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
     var queue = new List<WrapperMovement> { new() { Position = troopPosition } };
     var index = 0;
     while (index < queue.Count) {
+      await Task.Yield();
       var currentPos = queue[index];
       if (currentPos.Depth > troop.Movement) {
         index++;
