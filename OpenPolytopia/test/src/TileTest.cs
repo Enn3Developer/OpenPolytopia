@@ -59,9 +59,9 @@ public class TileTest(Node testScene) : TestClass(testScene) {
 
   [Test]
   public void TestBiome() {
-    const Tribe biome = Tribe.ElyrionDark;
+    const TribeType biome = TribeType.Elyrion;
     var tile = new Tile(TileKind.Field);
-    tile.Biome.ShouldBe(Tribe.Imperius);
+    tile.Biome.ShouldBe(TribeType.Imperius);
     tile.Biome = biome;
     tile.Biome.ShouldBe(biome);
   }
