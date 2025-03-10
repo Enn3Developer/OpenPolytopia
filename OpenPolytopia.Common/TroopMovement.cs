@@ -24,6 +24,14 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
     new(-1, -1), new(-1, 0), new(-1, 1), new(0, -1), new(0, 1), new(1, -1), new(1, 0), new(1, 1)
   ];
 
+  private readonly Vector2I[] _horizontalSides = [
+    new(-1, 0), new(1, 0)
+  ];
+
+  private readonly Vector2I[] _verticalSides = [
+    new(0, -1), new(0, 1)
+  ];
+
   /// <summary>
   /// Search possible path a troop could do.
   /// </summary>
@@ -49,10 +57,20 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
 
       foreach (var dir in _direction) {
         var neighbors = currentPos.Position + dir;
-        var checkFind = queue.Find(movement => movement.Position == neighbors);
+        var existing = queue.Find(movement => movement.Position == neighbors);
         var newDepth = currentPos.Depth + (gameGrid[currentPos.Position].Roads ? 1u : 2u);
-        if (checkFind != null || !isValidNeighbor(neighbors)) {
+        if (existing != null || !isValidNeighbor(neighbors)) {
           continue;
+        }
+
+        if (gameGrid[neighbors].Roads && gameGrid[neighbors].Kind == TileKind.Water) {
+          var bridgeData = gameGrid[neighbors].GetCustomData<BridgeData>();
+          switch (bridgeData.Direction)
+          {
+            case BridgeDirection.Vertical when _horizontalSides.Contains(dir):
+            case BridgeDirection.Horizontal when _verticalSides.Contains(dir):
+              continue;
+          }
         }
         queue.Add(new WrapperMovement { Position = neighbors, Depth = newDepth });
       }
