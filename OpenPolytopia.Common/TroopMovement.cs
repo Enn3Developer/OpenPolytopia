@@ -35,25 +35,26 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
     }
 
     var troop = troopManager[troopManager[troopPosition].Type];
+    var range = troop.Movement * 2;
     // Depth searching
     var queue = new List<WrapperMovement> { new() { Position = troopPosition } };
     var index = 0;
     while (index < queue.Count) {
       await Task.Yield();
       var currentPos = queue[index];
-      if (currentPos.Depth > troop.Movement) {
+      if (currentPos.Depth > range) {
         index++;
         continue;
       }
 
       foreach (var dir in _direction) {
         var neighbors = currentPos.Position + dir;
-        var newDepth = currentPos.Depth + 1;
         var checkFind = queue.Find(movement => movement.Position == neighbors);
-        if (checkFind == null && isValidNeighbor(neighbors) &&
-            newDepth <= troop.Movement) {
-          queue.Add(new WrapperMovement { Position = neighbors, Depth = newDepth });
+        var newDepth = currentPos.Depth + (gameGrid[currentPos.Position].Roads ? 1u : 2u);
+        if (checkFind != null || !isValidNeighbor(neighbors)) {
+          continue;
         }
+        queue.Add(new WrapperMovement { Position = neighbors, Depth = newDepth });
       }
 
       if (shouldYieldPosition(currentPos.Position, troopPosition)) {
