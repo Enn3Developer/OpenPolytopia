@@ -14,6 +14,11 @@ public class TroopManager(uint size) {
   private readonly TroopData[] _grid = new TroopData[size * size];
 
   /// <summary>
+  /// Get size of troop manager
+  /// </summary>
+  public uint Size => size;
+
+  /// <summary>
   /// Gets the troop data
   /// </summary>
   /// <param name="position">the position of the troop</param>
@@ -35,6 +40,18 @@ public class TroopManager(uint size) {
   public TroopData this[uint index] {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     get => _grid[index];
+  }
+
+  /// <summary>
+  /// Gets the troop type
+  /// </summary>
+  /// <param name="type">the type of the troop</param>
+  /// <remarks>
+  /// Remember to register troop <see cref="TroopType"/>
+  /// </remarks>
+  public Troop this[TroopType type] {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => _troops[type];
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]

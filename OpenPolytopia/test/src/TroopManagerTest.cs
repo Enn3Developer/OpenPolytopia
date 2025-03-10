@@ -1,8 +1,8 @@
-namespace OpenPolytopia;
+namespace OpenPolytopia.test.src;
 
 using Chickensoft.GoDotTest;
-using Common;
 using Godot;
+using Common;
 using Shouldly;
 
 public class TroopManagerTest(Node testScene) : TestClass(testScene) {
@@ -17,10 +17,10 @@ public class TroopManagerTest(Node testScene) : TestClass(testScene) {
   [Test]
   public void TestSpawnTroop() {
     _troopManager.SpawnTroop(new Vector2I(0, 0), 1, 1, TroopType.Warrior);
-    _troopManager[0].IsValid().ShouldBeTrue();
-    _troopManager[0].Type.ShouldBe(TroopType.Warrior);
-    _troopManager[0].Player.ShouldBe(1u);
-    _troopManager[0].City.ShouldBe(1u);
+    _troopManager[0u].IsValid().ShouldBeTrue();
+    _troopManager[0u].Type.ShouldBe(TroopType.Warrior);
+    _troopManager[0u].Player.ShouldBe(1u);
+    _troopManager[0u].City.ShouldBe(1u);
   }
 
   [Test]
