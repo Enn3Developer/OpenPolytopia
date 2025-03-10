@@ -26,9 +26,7 @@ public struct BridgeData : ITileCustomData {
   /// </summary>
   /// <param name="value">value to deserialize from</param>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public void FromULong(ulong value) {
-    var direction = (BridgeDirection)value.GetBits(ONE_BIT, 0);
-  }
+  public void FromULong(ulong value) => _ = (BridgeDirection)value.GetBits(ONE_BIT, 0);
 
   /// <summary>
   /// Serializes the data to a <see langword="ulong"/>

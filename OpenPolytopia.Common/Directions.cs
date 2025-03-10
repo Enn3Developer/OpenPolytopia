@@ -15,33 +15,30 @@ public enum Direction {
 /// for grid-based movement systems
 /// </summary>
 public static class WrapperDirection {
-
   /// <summary>
-  /// Primary direction mapping between Direction enum values and their counterparts
+  /// Primary direction vector values
   /// </summary>
   /// <remarks>
-  /// Contains tuples pairing each Direction with its Vector2I equivalent.
   /// Used as the source for all direction-related vector data in the class.
   /// </remarks>
-  public static readonly (Direction Direction, Vector2I Position)[] Directions = [
-    (Direction.Up, new(0, -1)),
-    (Direction.Down, new(0, 1)),
-    (Direction.Left, new(-1, 0)),
-    (Direction.Right, new(1, 0)),
-    (Direction.UpLeft, new(-1, -1)),
-    (Direction.UpRight, new(1, -1)),
-    (Direction.DownLeft, new(-1, -1)),
-    (Direction.DownRight, new(1, 1))
+  public static readonly Vector2I[] Directions = [
+    new(0, -1),
+    new(0, 1),
+    new(-1, 0),
+    new(1, 0),
+    new(-1, -1),
+    new(1, -1),
+    new(-1, -1),
+    new(1, 1)
   ];
 
   /// <summary>
-  /// Contains all movement vectors for full 8-directional movement
+  /// Cast all movement vectors for full 8-directional movement
   /// </summary>
   /// <remarks>
   /// Precomputed array of Vector2I values extracted from Directions.
-  /// Use this for iterations requiring all possible movement directions.
   /// </remarks>
-  public static readonly Vector2I[] AllDirections = Directions.Select(d => d.Position).ToArray();
+  public static Vector2I ToVector2I(this Direction direction) => Directions[(int)direction];
 
   /// <summary>
   /// Left and right movement vectors for horizontal constraints
@@ -50,8 +47,8 @@ public static class WrapperDirection {
   /// Contains vectors: (-1, 0) and (1, 0)
   /// </remarks>
   public static readonly Vector2I[] Horizontal = [
-    Directions.First(d => d.Direction == Direction.Left).Position,
-    Directions.First(d => d.Direction == Direction.Right).Position
+    Direction.Left.ToVector2I(),
+    Direction.Right.ToVector2I()
   ];
 
   /// <summary>
@@ -61,7 +58,7 @@ public static class WrapperDirection {
   /// Contains vectors: (0, 1) and (0, -1)
   /// </remarks>
   public static readonly Vector2I[] Vertical = [
-    Directions.First(d => d.Direction == Direction.Up).Position,
-    Directions.First(d => d.Direction == Direction.Down).Position
+    Direction.Up.ToVector2I(),
+    Direction.Down.ToVector2I()
   ];
 }

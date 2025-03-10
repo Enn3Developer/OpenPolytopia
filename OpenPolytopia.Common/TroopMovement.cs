@@ -50,7 +50,7 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
         continue;
       }
 
-      foreach (var dir in WrapperDirection.AllDirections) {
+      foreach (var dir in WrapperDirection.Directions) {
         var neighbors = currentPos.Position + dir;
         var existing = queue.Find(movement => movement.Position == neighbors);
         var newDepth = currentPos.Depth + (gameGrid[currentPos.Position].Roads ? 1u : 2u);
@@ -66,6 +66,7 @@ public class TroopMovement(TroopManager troopManager, Grid gameGrid) {
               continue;
           }
         }
+
         queue.Add(new WrapperMovement { Position = neighbors, Depth = newDepth });
       }
 
