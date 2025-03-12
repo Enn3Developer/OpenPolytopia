@@ -14,7 +14,7 @@ public partial class SpacetimeNode : Node {
   private const string DBNAME = "openpolytopia";
 
   private Identity _identity;
-  public DbConnection Connection = null!;
+  public DbConnection Connection { get; private set; } = null!;
   public readonly ObservableCollection<LobbyData> Lobbies = [];
 
   public override void _EnterTree() {
