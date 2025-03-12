@@ -1,5 +1,7 @@
 namespace OpenPolytopia.Server;
 
+using System;
+
 public class UserNotRegisteredException() : Exception("User not registered");
 
 public class LobbyNotFoundException() : Exception("Lobby not found");

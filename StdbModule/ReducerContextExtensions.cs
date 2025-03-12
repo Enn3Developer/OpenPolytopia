@@ -1,6 +1,5 @@
 namespace OpenPolytopia.Server;
 
-using System.Runtime.CompilerServices;
 using SpacetimeDB;
 
 public static class ReducerContextExtensions {
@@ -12,7 +11,8 @@ public static class ReducerContextExtensions {
   public static Module.LobbyPlayer? FindLobbyPlayer(this ReducerContext ctx, ulong id) =>
     ctx.Db.LobbyPlayer.Id.Find(id);
 
-  public static IEnumerable<Module.LobbyPlayer> FilterLobbyPlayer(this ReducerContext ctx, ulong lobbyId,
+  public static IEnumerable<Module.LobbyPlayer> FilterLobbyPlayer(this ReducerContext ctx,
+    ulong lobbyId,
     Identity? playerId = null) =>
     playerId == null
       ? ctx.Db.LobbyPlayer.LobbyAndPlayer.Filter(lobbyId)

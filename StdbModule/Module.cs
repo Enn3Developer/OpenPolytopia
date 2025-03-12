@@ -1,5 +1,6 @@
 namespace OpenPolytopia.Server;
 
+using System.Linq;
 using SpacetimeDB;
 
 public static partial class Module {
@@ -9,7 +10,7 @@ public static partial class Module {
   [Table(Name = "Player", Public = true)]
   public partial class Player {
     [PrimaryKey] public Identity Id;
-    public required string Name;
+    public string Name;
     public bool Online;
   }
 
@@ -38,17 +39,17 @@ public static partial class Module {
     public uint Tribe;
   }
 
-  [Table(Name = "ScheduledStartLobby", Scheduled = nameof(StartLobby), ScheduledAt = nameof(ScheduleAt))]
-  public partial class ScheduledStartLobby {
+  [Table(Name = "StartLobbySchedule", Scheduled = nameof(StartLobby), ScheduledAt = nameof(ScheduledAt))]
+  public partial class StartLobbySchedule {
     [PrimaryKey] [AutoInc] public ulong Id;
-    public required ScheduleAt ScheduleAt;
+    public ScheduleAt ScheduledAt;
   }
 
   [Reducer(ReducerKind.Init)]
   public static void Init(ReducerContext ctx) =>
     // add scheduled start lobby to run every 5 seconds
-    ctx.Db.ScheduledStartLobby.Insert(new ScheduledStartLobby {
-      Id = 0, ScheduleAt = new ScheduleAt.Interval(new TimeDuration(5_000_000))
+    ctx.Db.StartLobbySchedule.Insert(new StartLobbySchedule {
+      Id = 0, ScheduledAt = new ScheduleAt.Interval(new TimeDuration(5_000_000))
     });
 
   [Reducer(ReducerKind.ClientConnected)]
@@ -86,7 +87,7 @@ public static partial class Module {
   }
 
   [Reducer]
-  public static void StartLobby(ReducerContext ctx, ScheduledStartLobby startLobby) {
+  public static void StartLobby(ReducerContext ctx, StartLobbySchedule schedule) {
     // check if the reducer was called from the server and not from a client
     if (ctx.Sender != ctx.Identity) {
       throw new ReducerNoPermissionException();
