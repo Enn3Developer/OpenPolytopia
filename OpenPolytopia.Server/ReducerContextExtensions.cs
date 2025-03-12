@@ -18,8 +18,6 @@ public static class ReducerContextExtensions {
       ? ctx.Db.LobbyPlayer.LobbyAndPlayer.Filter(lobbyId)
       : ctx.Db.LobbyPlayer.LobbyAndPlayer.Filter((lobbyId, playerId.Value));
 
-  public static Module.Lobby UpdateLobby(this ReducerContext ctx, Module.Lobby lobby) => ctx.Db.Lobby.Id.Update(lobby);
-
   public static Module.Lobby CreateLobby(this ReducerContext ctx, uint maxPlayers) =>
     ctx.Db.Lobby.Insert(new Module.Lobby {
       Id = 0,
@@ -30,6 +28,10 @@ public static class ReducerContextExtensions {
       Ready = 0
     });
 
+  public static Module.Lobby UpdateLobby(this ReducerContext ctx, Module.Lobby lobby) => ctx.Db.Lobby.Id.Update(lobby);
+
+  public static void RemoveLobby(this ReducerContext ctx, Module.Lobby lobby) => ctx.Db.Lobby.Id.Delete(lobby.Id);
+
   public static Module.LobbyPlayer CreateLobbyPlayer(this ReducerContext ctx, ulong lobbyId, uint tribe,
     Identity? id = null) =>
     ctx.Db.LobbyPlayer.Insert(new Module.LobbyPlayer {
@@ -38,4 +40,7 @@ public static class ReducerContextExtensions {
 
   public static void RemoveLobbyPlayer(this ReducerContext ctx, Module.LobbyPlayer lobbyPlayer) =>
     ctx.Db.LobbyPlayer.Id.Delete(lobbyPlayer.Id);
+
+  public static void FilterRemoveLobbyPlayer(this ReducerContext ctx, Module.Lobby lobby) =>
+    ctx.Db.LobbyPlayer.LobbyAndPlayer.Delete(lobby.Id);
 }

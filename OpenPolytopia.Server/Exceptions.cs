@@ -11,3 +11,5 @@ public class AlreadyJoinedLobbyException() : Exception("You already joined this 
 public class LobbyFullException() : Exception("This lobby is full");
 
 public class NotInLobbyException() : Exception("You must join a lobby first before leaving it");
+
+public class ReducerNoPermissionException() : Exception("You don't have permission to run this reducer");

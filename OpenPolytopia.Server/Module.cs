@@ -38,6 +38,19 @@ public static partial class Module {
     public uint Tribe;
   }
 
+  [Table(Name = "ScheduledStartLobby", Scheduled = nameof(StartLobby), ScheduledAt = nameof(ScheduleAt))]
+  public partial class ScheduledStartLobby {
+    [PrimaryKey] [AutoInc] public ulong Id;
+    public required ScheduleAt ScheduleAt;
+  }
+
+  [Reducer(ReducerKind.Init)]
+  public static void Init(ReducerContext ctx) =>
+    // add scheduled start lobby to run every 5 seconds
+    ctx.Db.ScheduledStartLobby.Insert(new ScheduledStartLobby {
+      Id = 0, ScheduleAt = new ScheduleAt.Interval(new TimeDuration(5_000_000))
+    });
+
   [Reducer(ReducerKind.ClientConnected)]
   public static void ClientConnected(ReducerContext ctx) {
     // get the player
@@ -70,6 +83,31 @@ public static partial class Module {
 
     // update the database
     ctx.Db.Player.Id.Update(player);
+  }
+
+  [Reducer]
+  public static void StartLobby(ReducerContext ctx, ScheduledStartLobby startLobby) {
+    // check if the reducer was called from the server and not from a client
+    if (ctx.Sender != ctx.Identity) {
+      throw new ReducerNoPermissionException();
+    }
+
+    // for each lobby that is starting
+    foreach (var lobby in ctx.Db.Lobby.Iter()) {
+      if (!lobby.Starting) {
+        continue;
+      }
+
+      // TODO: world generation
+      // TODO: initialize game data
+      // TODO: add players to the game
+
+      // remove all players from the lobby
+      ctx.FilterRemoveLobbyPlayer(lobby);
+
+      // remove the lobby
+      ctx.RemoveLobby(lobby);
+    }
   }
 
   [Reducer]
@@ -142,11 +180,8 @@ public static partial class Module {
       throw new LobbyFullException();
     }
 
-    // get all players in the lobby
-    var lobbyPlayers = ctx.FilterLobbyPlayer(lobbyId);
-
     // check if player is in lobby
-    if (lobbyPlayers.Any(lobbyPlayer => lobbyPlayer.PlayerId == ctx.Sender)) {
+    if (ctx.FilterLobbyPlayer(lobbyId).Any(lobbyPlayer => lobbyPlayer.PlayerId == ctx.Sender)) {
       throw new AlreadyJoinedLobbyException();
     }
 
@@ -162,14 +197,6 @@ public static partial class Module {
 
   [Reducer]
   public static void LeaveLobby(ReducerContext ctx, ulong lobbyId) {
-    // get the player
-    var player = ctx.FindPlayer();
-
-    // check if the player exists
-    if (player == null) {
-      throw new UserNotRegisteredException();
-    }
-
     // get the lobby
     var lobby = ctx.FindLobby(lobbyId);
 
@@ -191,20 +218,18 @@ public static partial class Module {
       throw new NotInLobbyException();
     }
 
+    // decrement the players amount
+    lobby.Players--;
+
+    // update lobby
+    ctx.UpdateLobby(lobby);
+
     // remove the player from the lobby
     ctx.RemoveLobbyPlayer(lobbyPlayer);
   }
 
   [Reducer]
   public static void AddReady(ReducerContext ctx, ulong lobbyId) {
-    // get the player
-    var player = ctx.FindPlayer();
-
-    // check if the player exists
-    if (player == null) {
-      throw new UserNotRegisteredException();
-    }
-
     // get the lobby
     var lobby = ctx.FindLobby(lobbyId);
 
@@ -218,11 +243,8 @@ public static partial class Module {
       throw new LobbyAlreadyStartedException();
     }
 
-    // get all players in the lobby
-    var lobbyPlayer = ctx.FilterLobbyPlayer(lobbyId).FirstOrDefault(lobbyPlayer => lobbyPlayer.PlayerId == ctx.Sender);
-
     // check if the player is in the lobby
-    if (lobbyPlayer == null) {
+    if (ctx.FilterLobbyPlayer(lobbyId).All(lobbyPlayer => lobbyPlayer.PlayerId != ctx.Sender)) {
       throw new NotInLobbyException();
     }
 
@@ -241,14 +263,6 @@ public static partial class Module {
 
   [Reducer]
   public static void RemoveReady(ReducerContext ctx, ulong lobbyId) {
-    // get the player
-    var player = ctx.FindPlayer();
-
-    // check if the player exists
-    if (player == null) {
-      throw new UserNotRegisteredException();
-    }
-
     // get the lobby
     var lobby = ctx.FindLobby(lobbyId);
 
@@ -262,11 +276,8 @@ public static partial class Module {
       throw new LobbyAlreadyStartedException();
     }
 
-    // get all players in the lobby
-    var lobbyPlayer = ctx.FilterLobbyPlayer(lobbyId).FirstOrDefault(lobbyPlayer => lobbyPlayer.PlayerId == ctx.Sender);
-
     // check if the player is in the lobby
-    if (lobbyPlayer == null) {
+    if (ctx.FilterLobbyPlayer(lobbyId).All(lobbyPlayer => lobbyPlayer.PlayerId != ctx.Sender)) {
       throw new NotInLobbyException();
     }
 
