@@ -14,7 +14,8 @@
     "**/*.godot",
     "**/*.cfg",
     "**/*.csproj",
-    "**/*.uid"
+    "**/*.uid",
+    "**/ModuleBindings/**"
   ],
   "words": [
     "animatable",
@@ -100,6 +101,8 @@
     "smithery",
     "aquatism",
     "stdb",
-    "openpolytopia"
+    "openpolytopia",
+    "DBNAME",
+    "SPACETIMEDB"
   ]
 }
