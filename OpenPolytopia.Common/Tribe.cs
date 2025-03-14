@@ -4,11 +4,11 @@ using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
 public class TribeManager {
-  private readonly Dictionary<TribeType, Tribe> _tribes = new(8);
+  public Dictionary<TribeType, Tribe> Tribes { get; } = new(8);
 
-  public Tribe? this[TribeType type] => _tribes.GetValueOrDefault(type);
+  public Tribe? this[TribeType type] => Tribes.GetValueOrDefault(type);
 
-  public void RegisterTribe(TribeType type, Tribe tribe) => _tribes.Add(type, tribe);
+  public void RegisterTribe(TribeType type, Tribe tribe) => Tribes.Add(type, tribe);
 
   public void RegisterTribes(TribesSerializedData tribes) {
     foreach (var tribe in tribes.Tribes) {
