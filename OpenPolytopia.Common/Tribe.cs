@@ -3,13 +3,32 @@ namespace OpenPolytopia.Common;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
+/// <summary>
+/// Class holding all data about the tribes
+/// </summary>
 public class TribeManager {
+  /// <summary>
+  /// All the tribe registered
+  /// </summary>
   public Dictionary<TribeType, Tribe> Tribes { get; } = new(8);
 
+  /// <summary>
+  /// Get a tribe by its registering type
+  /// </summary>
+  /// <param name="type">the type of the tribe</param>
   public Tribe? this[TribeType type] => Tribes.GetValueOrDefault(type);
 
+  /// <summary>
+  /// Register a tribe
+  /// </summary>
+  /// <param name="type">the type of the tribe</param>
+  /// <param name="tribe">the data of the tribe</param>
   public void RegisterTribe(TribeType type, Tribe tribe) => Tribes.Add(type, tribe);
 
+  /// <summary>
+  /// Register multiple tribes
+  /// </summary>
+  /// <param name="tribes">the deserialized data of all tribes to register</param>
   public void RegisterTribes(TribesSerializedData tribes) {
     foreach (var tribe in tribes.Tribes) {
       RegisterTribe(tribe.TribeType, tribe.Tribe);
