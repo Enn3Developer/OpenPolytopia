@@ -11,11 +11,6 @@ public partial class Game : Control {
       return;
     }
 
-    // Check if it is the server, if not just wait for the player to click play
-    if (!OS.HasFeature("dedicated_server")) {
-      return;
-    }
-
     GetTree().ChangeSceneToPacked(LobbyScene);
   }
 
@@ -23,20 +18,13 @@ public partial class Game : Control {
   /// Sets the new name for the player
   /// </summary>
   /// <param name="name">the new player's name</param>
-  private void OnNameChanged(string name) => PlayerData.Instance.Data.PlayerName = name;
+  private void OnNameChanged(string name) { }
 
   /// <summary>
   /// Waits until the player press the play button, creates a new random name if the player hasn't chosen one
   /// and connects him to the lobby
   /// </summary>
   private void OnPlayPressed() {
-    var playerData = PlayerData.Instance;
-    // Generate player's name if missing
-    if (playerData.Data.PlayerName.Length == 0) {
-      var rng = new RandomNumberGenerator();
-      playerData.Data.PlayerName = $"Player{rng.Randi()}";
-    }
-
     GetTree().ChangeSceneToPacked(LobbyScene);
   }
 }
