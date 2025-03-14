@@ -1,5 +1,22 @@
 namespace OpenPolytopia.Common;
 
+using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
+
+public class TribeManager {
+  private readonly Dictionary<TribeType, Tribe> _tribes = new(8);
+
+  public Tribe? this[TribeType type] => _tribes.GetValueOrDefault(type);
+
+  public void RegisterTribe(TribeType type, Tribe tribe) => _tribes.Add(type, tribe);
+
+  public void RegisterTribes(TribesSerializedData tribes) {
+    foreach (var tribe in tribes.Tribes) {
+      RegisterTribe(tribe.TribeType, tribe.Tribe);
+    }
+  }
+}
+
 public class Tribe {
   public required StartingTech StartingTech { get; init; }
   public required SpawnRate SpawnRate { get; init; }
@@ -68,22 +85,27 @@ public class TerrainRate {
 /// <remarks>
 /// There can only be max 32 tribes
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<TribeType>))]
 public enum TribeType {
-  Imperius = 0,
-  Bardur = 1,
-  Oumaji = 2,
-  Kickoo = 3,
-  Vengir = 4,
-  Elyrion = 5,
+  [EnumMember(Value = "imperius")] Imperius = 0,
+  [EnumMember(Value = "bardur")] Bardur = 1,
+  [EnumMember(Value = "oumaji")] Oumaji = 2,
+  [EnumMember(Value = "kickoo")] Kickoo = 3,
+  [EnumMember(Value = "vengir")] Vengir = 4,
+  [EnumMember(Value = "elyrion")] Elyrion = 5,
 }
 
+/// <summary>
+/// Enum containing all resource types
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ResourceType>))]
 public enum ResourceType {
-  None,
-  Fruit,
-  Crop,
-  Animal,
-  Fish,
-  Mineral,
+  [EnumMember(Value = "none")] None,
+  [EnumMember(Value = "fruit")] Fruit,
+  [EnumMember(Value = "crop")] Crop,
+  [EnumMember(Value = "animal")] Animal,
+  [EnumMember(Value = "fish")] Fish,
+  [EnumMember(Value = "mineral")] Mineral,
 }
 
 /// <summary>
@@ -102,5 +124,20 @@ public enum Wonder {
   GrandBazaar = 4,
   GateOfPower = 5,
   EmperorsTomb = 6,
-  EyeTower = 7,
+  EyeOfGod = 7
 }
+
+public class TribeSerializedData {
+  public required TribeType TribeType { get; init; }
+  public required Tribe Tribe { get; init; }
+}
+
+public class TribesSerializedData {
+  public required List<TribeSerializedData> Tribes { get; init; }
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(Tribe))]
+[JsonSerializable(typeof(TribeSerializedData))]
+[JsonSerializable(typeof(TribesSerializedData))]
+public partial class TribeGenerationContext : JsonSerializerContext;

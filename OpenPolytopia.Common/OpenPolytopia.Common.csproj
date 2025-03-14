@@ -20,6 +20,10 @@
     <EmbeddedResource Include="resources\troops.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
+    <None Remove="resources\tribes.json"/>
+    <EmbeddedResource Include="resources\tribes.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>
