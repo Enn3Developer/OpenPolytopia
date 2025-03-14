@@ -14,7 +14,8 @@
     "**/*.godot",
     "**/*.cfg",
     "**/*.csproj",
-    "**/*.uid"
+    "**/*.uid",
+    "**/ModuleBindings/**"
   ],
   "words": [
     "animatable",
@@ -98,6 +99,10 @@
     "Bardur",
     "Oumaji",
     "smithery",
-    "aquatism"
+    "aquatism",
+    "stdb",
+    "openpolytopia",
+    "DBNAME",
+    "SPACETIMEDB"
   ]
 }
