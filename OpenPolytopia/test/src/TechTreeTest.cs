@@ -10,7 +10,7 @@ public class TechTreeTest(Node testScene) : TestClass(testScene) {
   public void TestStartingTech() {
     const BranchType branch = BranchType.Climbing;
     const string id = "climbing";
-    var startingTech = new StartingTech(branch, id);
+    var startingTech = new StartingTech { Branch = branch, Id = id };
     var techTree = new TechTree(startingTech);
     techTree[branch].HasResearched(id).ShouldBeTrue();
   }

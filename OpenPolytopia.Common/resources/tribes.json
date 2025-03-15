@@ -1,0 +1,25 @@
+{
+  "tribes": [
+    {
+      "type": "imperius",
+      "tribe": {
+        "starting_tech": {
+          "branch": "organization",
+          "id": "organization"
+        },
+        "spawn_rate": {
+          "fruit_rate": 2.0,
+          "crop_rate": 1.0,
+          "animal_rate": 0.5,
+          "mineral_rate": 1.0,
+          "fish_rate": 1.0
+        },
+        "terrain_rate": {
+          "forest_rate": 1.0,
+          "mountain_rate": 1.0,
+          "water_rate": 1.0
+        }
+      }
+    }
+  ]
+}
