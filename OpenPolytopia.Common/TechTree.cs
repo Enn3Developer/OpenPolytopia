@@ -2,6 +2,8 @@ namespace OpenPolytopia.Common;
 
 using System;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Tech tree for a single player
@@ -93,22 +95,21 @@ public class TechTree {
 /// <summary>
 /// Branch types
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<BranchType>))]
 public enum BranchType {
-  Climbing,
-  Fishing,
-  Hunting,
-  Riding,
-  Organization
+  [EnumMember(Value = "climbing")] Climbing,
+  [EnumMember(Value = "fishing")] Fishing,
+  [EnumMember(Value = "hunting")] Hunting,
+  [EnumMember(Value = "riding")] Riding,
+  [EnumMember(Value = "organization")] Organization
 }
 
 /// <summary>
 /// The starting tech struct used in <see cref="TechTree"/>
 /// </summary>
-/// <param name="branch">the branch type</param>
-/// <param name="id">the id of the tech</param>
-public readonly struct StartingTech(BranchType branch, string id) {
-  public BranchType Branch => branch;
-  public string Id => id;
+public readonly struct StartingTech {
+  public required BranchType Branch { get; init; }
+  public required string Id { get; init; }
 }
 
 /// <summary>
