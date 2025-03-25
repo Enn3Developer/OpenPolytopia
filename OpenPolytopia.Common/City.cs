@@ -11,6 +11,8 @@ using Godot;
 public class CityManager(Grid grid) {
   private readonly List<uint> _cities = [];
 
+  public IEnumerable<uint> Cities => _cities;
+
   /// <summary>
   /// Access to the <see cref="CityData"/>
   /// </summary>
