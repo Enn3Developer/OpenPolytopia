@@ -19,14 +19,15 @@
     <Title>OpenPolytopia</Title>
     <Version>0.1.0</Version>
     <Description>OpenPolytopia</Description>
-    <Copyright>© 2024 Enn3DevPlayer, GamerPlayer888, Remoxx</Copyright>
-    <Authors>Enn3DevPlayer, GamerPlayer888, Remoxx</Authors>
-    <Company>Enn3DevPlayer, GamerPlayer888, Remoxx</Company>
+    <Copyright>© 2024 Enn3DevPlayer, GamerPlayer888, Remoxx, C0MPL3XDEV</Copyright>
+    <Authors>Enn3DevPlayer, GamerPlayer888, Remoxx, C0MPL3XDEV</Authors>
+    <Company>Enn3DevPlayer, GamerPlayer888, Remoxx, C0MPL3XDEV</Company>
     <!-- Don't include unit tests in release builds. -->
     <DefaultItemExcludes Condition="'$(Configuration)' == 'ExportRelease'">
       $(DefaultItemExcludes);test/**/*
     </DefaultItemExcludes>
     <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'ExportDebug' ">
     <!-- Test dependencies go here! -->

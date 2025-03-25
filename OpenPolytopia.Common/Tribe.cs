@@ -23,6 +23,15 @@ public class TribeManager {
   /// </summary>
   /// <param name="type">the type of the tribe</param>
   /// <param name="tribe">the data of the tribe</param>
+  /// <example>
+  /// <code>
+  /// var imperiusTribe = new Tribe {
+  ///   // settings for this tribe
+  /// };
+  /// var tribeManager = new TribeManager();
+  /// tribeManager.RegisterTribe(TribeType.Imperius, imperiusTribe);
+  /// </code>
+  /// </example>
   public void RegisterTribe(TribeType type, Tribe tribe) => Tribes.Add(type, tribe);
 
   /// <summary>
@@ -36,9 +45,23 @@ public class TribeManager {
   }
 }
 
+/// <summary>
+/// Class representing all data a tribe has
+/// </summary>
 public class Tribe {
+  /// <summary>
+  /// The starting tech of a tribe
+  /// </summary>
   public required StartingTech StartingTech { get; init; }
+
+  /// <summary>
+  /// The resource spawn rates of a tribe
+  /// </summary>
   public required SpawnRate SpawnRate { get; init; }
+
+  /// <summary>
+  /// The terrain generation rates of a tribe
+  /// </summary>
   public required TerrainRate TerrainRate { get; init; }
 }
 

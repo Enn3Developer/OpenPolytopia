@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Godot;
 
+/// <summary>
+/// Layer of abstraction to manage all cities in a grid
+/// </summary>
 public class CityManager(Grid grid) {
   private readonly List<uint> _cities = [];
 
@@ -28,6 +31,12 @@ public class CityManager(Grid grid) {
   /// </summary>
   /// <param name="id">the id of the city</param>
   /// <returns>the id of the tile in the grid</returns>
+  /// <example>
+  /// <code>
+  /// var index = cityManager.GetIndex(cityId);
+  /// grid[index].Owner = 2;
+  /// </code>
+  /// </example>
   public uint GetIndex(uint id) => _cities[(int)(id - 1)];
 
   /// <summary>
@@ -35,6 +44,12 @@ public class CityManager(Grid grid) {
   /// </summary>
   /// <param name="position">position of the tile in the grid</param>
   /// <returns>the id of the city</returns>
+  /// <example>
+  /// <code>
+  /// var position = new Vector2I(0, 5);
+  /// var cityId = cityManager.RegisterCity(position);
+  /// </code>
+  /// </example>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public uint RegisterCity(Vector2I position) => RegisterCity(grid.GridPositionToIndex(position));
 
@@ -44,6 +59,13 @@ public class CityManager(Grid grid) {
   /// <param name="index">index of the tile in the grid</param>
   /// <returns>the id of the city</returns>
   /// <exception cref="ArgumentOutOfRangeException">because of internal implementation, there can only be 255 cities</exception>
+  /// <example>
+  /// <code>
+  /// var position = new Vector2I(0, 5);
+  /// var index = grid.GridPositionToIndex(position);
+  /// var cityId = cityManager.RegisterCity(index);
+  /// </code>
+  /// </example>
   public uint RegisterCity(uint index) {
     if (_cities.Count == 255) {
       throw new ArgumentOutOfRangeException(nameof(index), index, "reached maximum cities possible; max is 255");
