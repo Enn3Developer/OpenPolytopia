@@ -64,6 +64,19 @@ public class Grid(uint size) {
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public uint GridPositionToIndex(int x, int y) => (uint)((y * size) + x);
 
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public Vector2I IndexToGridPosition(uint index) {
+    var x = index % size;
+    var y = (index - x) / size;
+    return new Vector2I((int)x, (int)y);
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void IndexToGridPosition(uint index, out uint x, out uint y) {
+    x = index % size;
+    y = (index - x) / size;
+  }
+
   /// <summary>
   /// Modifies a given tile
   /// </summary>
@@ -215,7 +228,7 @@ public struct Tile {
   /// Using 0 as the left-most bit and 63 as the right-most bit
   /// <list type="bullet">
   /// <item>0 -> 1: has road; 0 doesn't have any road; (bridge if on water)</item>
-  /// <item>1 -> 1: has ancient ruin; 0 doesn't have any ruin</item>
+  /// <item>1 -> 2: has ancient ruin; 0 doesn't have any ruin</item>
   /// <item>[2, 4] -> <see cref="Kind"/></item>
   /// <item>[5, 6] -> Tile modifier</item>
   /// <item>[7, 9] -> Tile buildings</item>
@@ -251,7 +264,12 @@ public struct Tile {
   /// <summary>
   /// The type of the tile
   /// </summary>
-  public TileKind Kind => (TileKind)_inner.GetBits(THREE_BITS, TILEKIND_POSITION);
+  public TileKind Kind {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => (TileKind)_inner.GetBits(THREE_BITS, TILEKIND_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    set => _inner.SetBits((ulong)value, THREE_BITS, TILEKIND_POSITION);
+  }
 
   /// <summary>
   /// The tile modifier castable to the corresponding enum
