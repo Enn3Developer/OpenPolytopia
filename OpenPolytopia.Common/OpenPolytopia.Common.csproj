@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="DotNext.Threading" Version="5.19.1"/>
-    <PackageReference Include="GodotSharp" Version="4.4.0"/>
+    <PackageReference Include="GodotSharp" Version="4.4.1"/>
   </ItemGroup>
 
   <ItemGroup>

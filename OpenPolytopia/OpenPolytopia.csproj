@@ -1,4 +1,4 @@
-<Project Sdk="Godot.NET.Sdk/4.4.0">
+<Project Sdk="Godot.NET.Sdk/4.4.1">
   <PropertyGroup>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <LangVersion>latest</LangVersion>
@@ -32,7 +32,7 @@
   <ItemGroup Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'ExportDebug' ">
     <!-- Test dependencies go here! -->
     <!-- Dependencies added here will not be included in release builds. -->
-    <PackageReference Include="Chickensoft.GoDotTest" Version="1.6.2"/>
+    <PackageReference Include="Chickensoft.GoDotTest" Version="1.6.4"/>
     <!-- Used to drive test scenes when testing visual code -->
     <PackageReference Include="Chickensoft.GodotTestDriver" Version="3.0.2"/>
     <!-- Bring your own assertion library for tests! -->
@@ -45,11 +45,11 @@
   </ItemGroup>
   <ItemGroup><!-- Production dependencies go here! -->
 
-    <PackageReference Include="Chickensoft.GameTools" Version="2.0.3"/>
+    <PackageReference Include="Chickensoft.GameTools" Version="2.0.6"/>
 
-    <PackageReference Include="SpacetimeDB.ClientSDK" Version="1.0.1"/>
+    <PackageReference Include="SpacetimeDB.ClientSDK" Version="1.0.2"/>
 
-    <PackageReference Include="System.Numerics.Vectors" Version="4.6.0"/>
+    <PackageReference Include="System.Numerics.Vectors" Version="4.6.1"/>
   </ItemGroup>
   <ItemGroup>
     <Compile Remove=".github\**"/>
