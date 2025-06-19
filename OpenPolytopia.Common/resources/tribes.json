@@ -2,6 +2,7 @@
   "tribes": [
     {
       "type": "imperius",
+      "starting_stars": 7,
       "tribe": {
         "starting_tech": {
           "branch": "organization",
