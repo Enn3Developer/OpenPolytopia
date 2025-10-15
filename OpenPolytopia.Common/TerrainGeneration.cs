@@ -2,6 +2,14 @@ namespace OpenPolytopia.Common;
 
 using System.Runtime.CompilerServices;
 
+/// <summary>
+/// Terrain generation system
+/// </summary>
+/// <param name="grid">the grid to use</param>
+/// <param name="cityManager">the city manager to use</param>
+/// <param name="tribeManager">the tribe manager to use</param>
+/// <param name="players">all the players in the game</param>
+/// <param name="seed">the optional random seed</param>
 public class TerrainGeneration(
   Grid grid,
   CityManager cityManager,
