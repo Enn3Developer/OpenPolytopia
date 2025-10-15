@@ -103,6 +103,7 @@
     "stdb",
     "openpolytopia",
     "DBNAME",
-    "SPACETIMEDB"
+    "SPACETIMEDB",
+    "XDEV"
   ]
 }
