@@ -63,6 +63,11 @@ public class Tribe {
   /// The terrain generation rates of a tribe
   /// </summary>
   public required TerrainRate TerrainRate { get; init; }
+
+  /// <summary>
+  /// The starting stars of a tribe
+  /// </summary>
+  public required int StartingStars { get; init; }
 }
 
 /// <summary>
