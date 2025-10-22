@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DotNext.Threading" Version="5.25.2"/>
-    <PackageReference Include="GodotSharp" Version="4.5.0"/>
+    <PackageReference Include="DotNext.Threading" Version="5.26.0"/>
+    <PackageReference Include="GodotSharp" Version="4.5.1"/>
   </ItemGroup>
 
   <ItemGroup>
