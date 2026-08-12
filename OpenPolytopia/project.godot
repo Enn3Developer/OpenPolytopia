@@ -20,6 +20,11 @@ config/icon="res://icon.png"
 
 NetworkNode="*res://src/NetworkNode.cs"
 
+[open_polytopia]
+
+network/server_host="enn3.ovh"
+network/server_port=6969
+
 [debug]
 
 settings/stdout/print_fps=true

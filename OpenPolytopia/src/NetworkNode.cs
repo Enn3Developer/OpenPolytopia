@@ -21,10 +21,30 @@ public partial class NetworkNode : Node {
   /// </summary>
   public static NetworkNode Instance { get; private set; } = null!;
 
-  private const string HOST = "enn3.ovh";
-  private const int PORT = NetworkConstants.DEFAULT_PORT;
+  private const string DEFAULT_HOST = "enn3.ovh";
+
+  // project settings editable in the editor, see [open_polytopia] in project.godot
+  private const string HOST_SETTING = "open_polytopia/network/server_host";
+  private const string PORT_SETTING = "open_polytopia/network/server_port";
+
+  // overrides usable without touching the project:
+  // OPENPOLYTOPIA_SERVER_HOST=... or `godot -- --server-host=...` (same for port)
+  private const string HOST_ENV = "OPENPOLYTOPIA_SERVER_HOST";
+  private const string PORT_ENV = "OPENPOLYTOPIA_SERVER_PORT";
+  private const string HOST_ARG = "--server-host";
+  private const string PORT_ARG = "--server-port";
 
   private ClientConnection? _connection;
+
+  /// <summary>
+  /// Host the client connects to
+  /// </summary>
+  public string Host { get; private set; } = DEFAULT_HOST;
+
+  /// <summary>
+  /// Port the client connects to
+  /// </summary>
+  public int Port { get; private set; } = NetworkConstants.DEFAULT_PORT;
 
   /// <summary>
   /// Id assigned to this client by the server; valid after <see cref="OnConnected"/>
@@ -87,8 +107,52 @@ public partial class NetworkNode : Node {
   public override void _EnterTree() {
     base._EnterTree();
     Instance = this;
+    ResolveServerAddress();
     _ = ConnectToServerAsync();
   }
+
+  /// <summary>
+  /// Resolves the server host and port to connect to.
+  /// Precedence: command line argument, environment variable, project setting, default
+  /// </summary>
+  private void ResolveServerAddress() {
+    var host = GetUserArg(HOST_ARG) ?? EnvOrNull(HOST_ENV) ??
+               SettingOrNull(HOST_SETTING)?.AsString();
+    if (!string.IsNullOrWhiteSpace(host)) {
+      Host = host;
+    }
+
+    var portValue = GetUserArg(PORT_ARG) ?? EnvOrNull(PORT_ENV);
+    if (portValue == null && SettingOrNull(PORT_SETTING) is { } portSetting) {
+      Port = portSetting.AsInt32();
+    }
+    else if (portValue != null) {
+      if (int.TryParse(portValue, out var port) && port is > 0 and <= ushort.MaxValue) {
+        Port = port;
+      }
+      else {
+        GD.PushError($"Invalid server port: {portValue}, using {Port}");
+      }
+    }
+  }
+
+  /// <summary>
+  /// Returns the value of a <c>--name=value</c> user argument (the ones after <c>--</c>) or null
+  /// </summary>
+  /// <param name="name">the argument name, including the leading dashes</param>
+  private static string? GetUserArg(string name) =>
+    OS.GetCmdlineUserArgs()
+      .Where(arg => arg.StartsWith($"{name}=", StringComparison.Ordinal))
+      .Select(arg => arg[(name.Length + 1)..])
+      .FirstOrDefault();
+
+  private static string? EnvOrNull(string name) {
+    var value = OS.GetEnvironment(name);
+    return string.IsNullOrWhiteSpace(value) ? null : value;
+  }
+
+  private static Variant? SettingOrNull(string name) =>
+    ProjectSettings.HasSetting(name) ? ProjectSettings.GetSetting(name) : (Variant?)null;
 
   /// <summary>
   /// Disconnect from the server
@@ -154,7 +218,7 @@ public partial class NetworkNode : Node {
 
   private async Task ConnectToServerAsync() {
     try {
-      _connection = new ClientConnection(HOST, PORT);
+      _connection = new ClientConnection(Host, Port);
       _connection.OnDisconnected += () => {
         Connected = false;
         OnDisconnected?.Invoke();

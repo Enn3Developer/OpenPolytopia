@@ -3,14 +3,37 @@ namespace OpenPolytopia.Server;
 using OpenPolytopia.Common.Network;
 
 internal static class Program {
+  /// <summary>
+  /// Environment variable that overrides the default port
+  /// </summary>
+  private const string PORT_ENV = "OPENPOLYTOPIA_PORT";
+
+  /// <summary>
+  /// Environment variable that overrides the default bind address
+  /// </summary>
+  private const string BIND_ADDRESS_ENV = "OPENPOLYTOPIA_BIND_ADDRESS";
+
+  /// <summary>
+  /// Usage: <c>OpenPolytopia.Server [port] [bind-address]</c>
+  /// <br/>
+  /// Both arguments are optional and fall back to the
+  /// <c>OPENPOLYTOPIA_PORT</c>/<c>OPENPOLYTOPIA_BIND_ADDRESS</c> environment variables,
+  /// then to port <see cref="NetworkConstants.DEFAULT_PORT"/> on every interface
+  /// </summary>
   private static async Task Main(string[] args) {
+    var portValue = args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable(PORT_ENV);
     var port = NetworkConstants.DEFAULT_PORT;
-    if (args.Length > 0 && !int.TryParse(args[0], out port)) {
-      Console.Error.WriteLine($"Invalid port: {args[0]}");
+    if (!string.IsNullOrWhiteSpace(portValue) && !int.TryParse(portValue, out port)) {
+      Console.Error.WriteLine($"Invalid port: {portValue}");
       Environment.Exit(1);
     }
 
-    using var gameServer = new GameServer(port);
+    var bindAddress = args.Length > 1 ? args[1] : Environment.GetEnvironmentVariable(BIND_ADDRESS_ENV);
+    if (string.IsNullOrWhiteSpace(bindAddress)) {
+      bindAddress = null;
+    }
+
+    using var gameServer = new GameServer(port, bindAddress);
 
     // stop gracefully on ctrl+c
     Console.CancelKeyPress += (_, eventArgs) => {

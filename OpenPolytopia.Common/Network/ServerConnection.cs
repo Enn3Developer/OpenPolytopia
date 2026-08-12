@@ -12,11 +12,15 @@ using Packets;
 /// a <see cref="KeepAlivePacket"/> to every client and disconnects the ones that
 /// didn't send anything back for longer than <see cref="TIMEOUT"/>
 /// </summary>
-public class ServerConnection(int port) : IDisposable {
+/// <param name="port">the port to listen on</param>
+/// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
+public class ServerConnection(int port, string? bindAddress = null) : IDisposable {
   private static readonly TimeSpan KEEP_ALIVE_INTERVAL = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
 
-  private readonly TcpListener _listener = TcpListener.Create(port);
+  private readonly TcpListener _listener = bindAddress == null
+    ? TcpListener.Create(port)
+    : new TcpListener(System.Net.IPAddress.Parse(bindAddress), port);
   private readonly ConcurrentDictionary<uint, NetworkConnection> _connections = new();
   private readonly CancellationTokenSource _cts = new();
   private uint _nextId;

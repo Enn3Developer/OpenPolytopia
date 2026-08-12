@@ -7,13 +7,15 @@ using OpenPolytopia.Common.Network.Packets;
 /// <summary>
 /// The game server: manages players, lobbies and starting games on top of a <see cref="ServerConnection"/>
 /// </summary>
-public class GameServer(int port) : IDisposable {
+/// <param name="port">the port to listen on</param>
+/// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
+public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// <summary>
   /// How often the server checks for lobbies to start
   /// </summary>
   private static readonly TimeSpan START_LOBBY_INTERVAL = TimeSpan.FromSeconds(5);
 
-  private readonly ServerConnection _server = new(port);
+  private readonly ServerConnection _server = new(port, bindAddress);
   private readonly LobbyManager _lobbyManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
 
@@ -32,7 +34,7 @@ public class GameServer(int port) : IDisposable {
     // check for lobbies to start in background
     _ = StartLobbiesLoopAsync(_cts.Token);
 
-    Console.WriteLine($"Server listening on port {port}");
+    Console.WriteLine($"Server listening on {bindAddress ?? "*"}:{port}");
     await _server.RunAsync();
   }
 
