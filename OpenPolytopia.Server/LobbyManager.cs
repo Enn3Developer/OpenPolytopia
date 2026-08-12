@@ -1,0 +1,181 @@
+namespace OpenPolytopia.Server;
+
+using OpenPolytopia.Common;
+using OpenPolytopia.Common.Network.Packets;
+
+/// <summary>
+/// Owns all the lobbies on the server.
+/// <br/>
+/// Not thread-safe on its own: <see cref="GameServer"/> serializes every access through its own lock
+/// </summary>
+public class LobbyManager {
+  private readonly Dictionary<ulong, LobbyData> _lobbies = new();
+  private ulong _nextId;
+
+  /// <summary>
+  /// All the lobbies on the server
+  /// </summary>
+  public IReadOnlyCollection<LobbyData> Lobbies => _lobbies.Values;
+
+  /// <summary>
+  /// Returns a lobby given its id
+  /// </summary>
+  /// <param name="id">the id of the lobby</param>
+  public LobbyData? this[ulong id] => _lobbies.GetValueOrDefault(id);
+
+  /// <summary>
+  /// Creates a new lobby and adds the creator to it
+  /// </summary>
+  /// <param name="maxPlayers">max players that can join the lobby</param>
+  /// <param name="creator">the player creating the lobby</param>
+  /// <returns>the new lobby</returns>
+  public LobbyData CreateLobby(uint maxPlayers, LobbyPlayerData creator) {
+    var lobby = new LobbyData { Id = ++_nextId, MaxPlayers = maxPlayers, Players = [creator] };
+    _lobbies[lobby.Id] = lobby;
+    return lobby;
+  }
+
+  /// <summary>
+  /// Adds a player to a lobby, applying all the lobby rules
+  /// </summary>
+  /// <param name="lobbyId">the id of the lobby to join</param>
+  /// <param name="player">the joining player</param>
+  /// <returns>the result of the operation</returns>
+  public LobbyActionResult JoinLobby(ulong lobbyId, LobbyPlayerData player) {
+    var lobby = this[lobbyId];
+    if (lobby == null) {
+      return LobbyActionResult.LobbyNotFound;
+    }
+
+    if (lobby.Starting || lobby.Started) {
+      return LobbyActionResult.LobbyAlreadyStarted;
+    }
+
+    if (lobby[player.PlayerId] != null) {
+      return LobbyActionResult.AlreadyJoinedLobby;
+    }
+
+    if (lobby.PlayersCount >= lobby.MaxPlayers) {
+      return LobbyActionResult.LobbyFull;
+    }
+
+    lobby.Players.Add(player);
+    return LobbyActionResult.Ok;
+  }
+
+  /// <summary>
+  /// Removes a player from a lobby
+  /// </summary>
+  /// <param name="lobbyId">the id of the lobby to leave</param>
+  /// <param name="playerId">the id of the leaving player</param>
+  /// <returns>the result of the operation</returns>
+  public LobbyActionResult LeaveLobby(ulong lobbyId, uint playerId) {
+    var lobby = this[lobbyId];
+    if (lobby == null) {
+      return LobbyActionResult.LobbyNotFound;
+    }
+
+    if (lobby.Starting || lobby.Started) {
+      return LobbyActionResult.LobbyAlreadyStarted;
+    }
+
+    var player = lobby[playerId];
+    if (player == null) {
+      return LobbyActionResult.NotInLobby;
+    }
+
+    lobby.Players.Remove(player);
+    return LobbyActionResult.Ok;
+  }
+
+  /// <summary>
+  /// Sets the ready state of a player in a lobby.
+  /// When every player in the lobby is ready, the lobby is marked as starting
+  /// </summary>
+  /// <param name="lobbyId">the id of the lobby</param>
+  /// <param name="playerId">the id of the player</param>
+  /// <param name="ready">the new ready state</param>
+  /// <returns>the result of the operation</returns>
+  public LobbyActionResult SetReady(ulong lobbyId, uint playerId, bool ready) {
+    var lobby = this[lobbyId];
+    if (lobby == null) {
+      return LobbyActionResult.LobbyNotFound;
+    }
+
+    if (lobby.Starting || lobby.Started) {
+      return LobbyActionResult.LobbyAlreadyStarted;
+    }
+
+    var player = lobby[playerId];
+    if (player == null) {
+      return LobbyActionResult.NotInLobby;
+    }
+
+    player.Ready = ready;
+
+    // check if all players are ready
+    if (lobby.ReadyCount == lobby.PlayersCount) {
+      // start the game
+      lobby.Starting = true;
+    }
+
+    return LobbyActionResult.Ok;
+  }
+
+  /// <summary>
+  /// Removes a lobby
+  /// </summary>
+  /// <param name="lobbyId">the id of the lobby to remove</param>
+  public void RemoveLobby(ulong lobbyId) => _lobbies.Remove(lobbyId);
+
+  /// <summary>
+  /// Removes a player from every lobby he joined, used when a client disconnects.
+  /// Lobbies that become empty get removed
+  /// </summary>
+  /// <param name="playerId">the id of the disconnected player</param>
+  /// <param name="updated">filled with the lobbies that changed</param>
+  /// <param name="deleted">filled with the ids of the lobbies that got removed</param>
+  public void RemovePlayerFromAllLobbies(uint playerId, List<LobbyData> updated, List<ulong> deleted) {
+    foreach (var lobby in _lobbies.Values.ToArray()) {
+      // players can't abandon a game that already started
+      if (lobby.Started) {
+        continue;
+      }
+
+      var player = lobby[playerId];
+      if (player == null) {
+        continue;
+      }
+
+      lobby.Players.Remove(player);
+
+      if (lobby.PlayersCount == 0) {
+        _lobbies.Remove(lobby.Id);
+        deleted.Add(lobby.Id);
+      }
+      else {
+        updated.Add(lobby);
+      }
+    }
+  }
+
+  /// <summary>
+  /// Removes and returns all the lobbies that are marked as starting
+  /// </summary>
+  /// <returns>the lobbies whose game must start now</returns>
+  public List<LobbyData> TakeStartingLobbies() {
+    List<LobbyData> starting = [];
+
+    foreach (var lobby in _lobbies.Values.ToArray()) {
+      if (!lobby.Starting || lobby.Started) {
+        continue;
+      }
+
+      lobby.Started = true;
+      _lobbies.Remove(lobby.Id);
+      starting.Add(lobby);
+    }
+
+    return starting;
+  }
+}

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://cywpu6lxdjhuu"]
+[gd_scene load_steps=3 format=3 uid="uid://cywpu6lxdjhuu"]
 
 [ext_resource type="Script" uid="uid://bnycq21rdq54b" path="res://src/Game.cs" id="1_17mmo"]
+[ext_resource type="PackedScene" uid="uid://badtuu46ibki5" path="res://src/Lobby.tscn" id="2_lobby"]
 
 [node name="Control" type="Control"]
 layout_mode = 3
@@ -10,6 +11,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_17mmo")
+LobbyScene = ExtResource("2_lobby")
 
 [node name="Label" type="Label" parent="."]
 layout_mode = 1

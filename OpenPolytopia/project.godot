@@ -16,6 +16,10 @@ run/main_scene="res://src/Main.tscn"
 config/features=PackedStringArray("4.5", "C#", "Mobile")
 config/icon="res://icon.png"
 
+[autoload]
+
+NetworkNode="*res://src/NetworkNode.cs"
+
 [debug]
 
 settings/stdout/print_fps=true
