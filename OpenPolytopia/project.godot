@@ -16,15 +16,6 @@ run/main_scene="res://src/Main.tscn"
 config/features=PackedStringArray("4.5", "C#", "Mobile")
 config/icon="res://icon.png"
 
-[autoload]
-
-NetworkNode="*res://src/NetworkNode.cs"
-
-[open_polytopia]
-
-network/server_host="enn3.ovh"
-network/server_port=6969
-
 [debug]
 
 settings/stdout/print_fps=true
