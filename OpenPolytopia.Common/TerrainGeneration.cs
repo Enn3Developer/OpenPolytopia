@@ -230,7 +230,7 @@ public class TerrainGeneration(
       });
 
       // claim the starting 3x3 territory
-      ForEachInRadius(index, 1, neighbour => grid.ModifyTile(neighbour, (ref Tile tile) => {
+      ForEachInRadius(index, 1, neighbor => grid.ModifyTile(neighbor, (ref Tile tile) => {
         tile.Owner = player.Id;
         tile.City = (int)cityId;
       }));
@@ -496,7 +496,7 @@ public class TerrainGeneration(
 
       // never place two ruins next to each other
       var nearRuin = false;
-      ForEachInRadius(index, 1, neighbour => nearRuin |= grid[neighbour].Ruin);
+      ForEachInRadius(index, 1, neighbor => nearRuin |= grid[neighbor].Ruin);
       if (nearRuin) {
         continue;
       }
@@ -517,9 +517,9 @@ public class TerrainGeneration(
   private void MarkCityZone(uint index) {
     _zoneMap[index] = ZONE_CITY;
     ForEachInRadius(index, 2,
-      neighbour => _zoneMap[neighbour] = Math.Max(_zoneMap[neighbour], ZONE_BORDER));
+      neighbor => _zoneMap[neighbor] = Math.Max(_zoneMap[neighbor], ZONE_BORDER));
     ForEachInRadius(index, 1,
-      neighbour => _zoneMap[neighbour] = Math.Max(_zoneMap[neighbour], ZONE_TERRITORY));
+      neighbor => _zoneMap[neighbor] = Math.Max(_zoneMap[neighbor], ZONE_TERRITORY));
   }
 
   /// <summary>
@@ -546,7 +546,7 @@ public class TerrainGeneration(
   /// </summary>
   /// <param name="index">index of the center tile</param>
   /// <param name="radius">the radius</param>
-  /// <param name="action">callback run with the index of every neighbour</param>
+  /// <param name="action">callback run with the index of every neighbor</param>
   private void ForEachInRadius(uint index, int radius, Action<uint> action) {
     var size = (int)grid.Size;
     grid.IndexToGridPosition(index, out var centerX, out var centerY);

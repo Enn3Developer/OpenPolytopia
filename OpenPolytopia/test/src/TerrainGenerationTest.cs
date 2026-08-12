@@ -1,5 +1,6 @@
 namespace OpenPolytopia;
 
+using System;
 using System.Threading.Tasks;
 using Chickensoft.GoDotTest;
 using Common;
@@ -102,7 +103,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
 
         grid.IndexToGridPosition(index, out var x, out var y);
         grid.IndexToGridPosition(other, out var otherX, out var otherY);
-        var distance = Mathf.Max(Mathf.Abs((int)x - (int)otherX), Mathf.Abs((int)y - (int)otherY));
+        var distance = Math.Max(Math.Abs((int)x - (int)otherX), Math.Abs((int)y - (int)otherY));
         distance.ShouldBeGreaterThanOrEqualTo(2);
       }
     }
@@ -125,7 +126,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
       var nearCity = false;
       foreach (var index in cityManager.Cities) {
         grid.IndexToGridPosition(index, out var cityX, out var cityY);
-        var distance = Mathf.Max(Mathf.Abs((int)x - (int)cityX), Mathf.Abs((int)y - (int)cityY));
+        var distance = Math.Max(Math.Abs((int)x - (int)cityX), Math.Abs((int)y - (int)cityY));
         if (distance <= 2) {
           nearCity = true;
           break;
