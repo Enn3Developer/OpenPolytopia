@@ -1,8 +1,7 @@
 {
   "tribes": [
     {
-      "type": "imperius",
-      "starting_stars": 7,
+      "tribe_type": "imperius",
       "tribe": {
         "starting_tech": {
           "branch": "organization",
@@ -19,7 +18,8 @@
           "forest_rate": 1.0,
           "mountain_rate": 1.0,
           "water_rate": 1.0
-        }
+        },
+        "starting_stars": 7
       }
     }
   ]
