@@ -5,7 +5,7 @@ using OpenPolytopia.Common.Network;
 using OpenPolytopia.Common.Network.Packets;
 
 /// <summary>
-/// The game server: manages players, lobbies and starting games on top of a <see cref="ServerConnection"/>
+/// Manages players, lobbies and starting games on top of a <see cref="ServerConnection"/>
 /// </summary>
 /// <param name="port">the port to listen on</param>
 /// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
@@ -51,7 +51,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       await DispatchPacketAsync(connection, packet);
     }
     catch (Exception e) {
-      // a failing handler must not go unnoticed nor take the server down
+      // log the error without taking the server down
       Console.Error.WriteLine($"Error while managing {packet.GetType().Name} from client {connection.Id}: {e}");
     }
   }

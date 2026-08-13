@@ -8,9 +8,11 @@ using Common.Network.Packets;
 using Godot;
 
 /// <summary>
-/// Lobby browser: lists the lobbies on the server and lets the player
-/// create, join, leave and ready up in a lobby
+/// Lists the lobbies on the server
 /// </summary>
+/// <remarks>
+/// Lets the player create, join and leave a lobby and mark himself as ready
+/// </remarks>
 public partial class Lobby : Control {
   private const uint DEFAULT_MAX_PLAYERS = 4;
 

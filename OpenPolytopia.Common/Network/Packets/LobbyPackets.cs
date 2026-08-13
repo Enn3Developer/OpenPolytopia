@@ -24,8 +24,11 @@ public class GetLobbiesResponsePacket : IPacket {
 }
 
 /// <summary>
-/// Creates a new lobby; the sender automatically joins it
+/// Creates a new lobby
 /// </summary>
+/// <remarks>
+/// The sender automatically joins the new lobby
+/// </remarks>
 public class CreateLobbyPacket : IPacket {
   /// <summary>
   /// Number of max players that can join the lobby
@@ -58,8 +61,11 @@ public class CreateLobbyResponsePacket : IPacket {
   public LobbyActionResult Result;
 
   /// <summary>
-  /// Id of the newly created lobby; valid only if <see cref="Result"/> is <see cref="LobbyActionResult.Ok"/>
+  /// Id of the newly created lobby
   /// </summary>
+  /// <remarks>
+  /// Valid only if <see cref="Result"/> is <see cref="LobbyActionResult.Ok"/>
+  /// </remarks>
   public ulong LobbyId;
 
   public void Serialize(List<byte> bytes) {
@@ -163,9 +169,11 @@ public class LeaveLobbyResponsePacket : IPacket {
 }
 
 /// <summary>
-/// Marks the player as ready (or not ready) in a lobby.
-/// When all the players in a lobby are ready, the game starts
+/// Updates the ready state of the player in a lobby
 /// </summary>
+/// <remarks>
+/// When all the players in a lobby are ready, the game starts
+/// </remarks>
 public class SetReadyPacket : IPacket {
   /// <summary>
   /// Id of the lobby

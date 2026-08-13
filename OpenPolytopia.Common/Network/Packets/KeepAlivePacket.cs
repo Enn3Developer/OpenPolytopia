@@ -1,9 +1,11 @@
 namespace OpenPolytopia.Common.Network.Packets;
 
 /// <summary>
-/// Sent periodically by the server; the client must echo it back.
-/// If the server doesn't receive it back in time, it closes the connection.
+/// Sent periodically by the server to check if a client is still alive
 /// </summary>
+/// <remarks>
+/// The client must echo it back, otherwise the server closes the connection
+/// </remarks>
 public class KeepAlivePacket : IPacket {
   /// <summary>
   /// Random value that must be echoed back untouched

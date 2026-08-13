@@ -34,8 +34,11 @@ public static class PacketRegistrar {
   public static uint GetPacketId(IPacket packet) => _packetIds[packet.GetType()];
 
   /// <summary>
-  /// Register all known packets; it is safe to call this multiple times
+  /// Registers all the packets of the protocol
   /// </summary>
+  /// <remarks>
+  /// Calling this multiple times is safe
+  /// </remarks>
   public static void RegisterAllPackets() {
     lock (_lock) {
       if (_registered) {

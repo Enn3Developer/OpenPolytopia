@@ -4,10 +4,11 @@ using OpenPolytopia.Common;
 using OpenPolytopia.Common.Network.Packets;
 
 /// <summary>
-/// Owns all the lobbies on the server.
-/// <br/>
-/// Not thread-safe on its own: <see cref="GameServer"/> serializes every access through its own lock
+/// Owns all the lobbies on the server
 /// </summary>
+/// <remarks>
+/// This class isn't thread-safe, <see cref="GameServer"/> serializes every access through its own lock
+/// </remarks>
 public class LobbyManager {
   private readonly Dictionary<ulong, LobbyData> _lobbies = new();
   private ulong _nextId;
@@ -89,9 +90,11 @@ public class LobbyManager {
   }
 
   /// <summary>
-  /// Sets the ready state of a player in a lobby.
-  /// When every player in the lobby is ready, the lobby is marked as starting
+  /// Sets the ready state of a player in a lobby
   /// </summary>
+  /// <remarks>
+  /// When every player in the lobby is ready, the lobby is marked as starting
+  /// </remarks>
   /// <param name="lobbyId">the id of the lobby</param>
   /// <param name="playerId">the id of the player</param>
   /// <param name="ready">the new ready state</param>
@@ -113,9 +116,8 @@ public class LobbyManager {
 
     player.Ready = ready;
 
-    // check if all players are ready
+    // start the game when all players are ready
     if (lobby.ReadyCount == lobby.PlayersCount) {
-      // start the game
       lobby.Starting = true;
     }
 
@@ -129,9 +131,11 @@ public class LobbyManager {
   public void RemoveLobby(ulong lobbyId) => _lobbies.Remove(lobbyId);
 
   /// <summary>
-  /// Removes a player from every lobby he joined, used when a client disconnects.
-  /// Lobbies that become empty get removed
+  /// Removes a player from every lobby he joined
   /// </summary>
+  /// <remarks>
+  /// Used when a client disconnects; lobbies that become empty get removed
+  /// </remarks>
   /// <param name="playerId">the id of the disconnected player</param>
   /// <param name="updated">filled with the lobbies that changed</param>
   /// <param name="deleted">filled with the ids of the lobbies that got removed</param>

@@ -24,8 +24,11 @@ public class HandshakeResponsePacket : IPacket {
   public bool Ok;
 
   /// <summary>
-  /// Id assigned to the client by the server; valid only if <see cref="Ok"/> is true
+  /// Id assigned to the client by the server
   /// </summary>
+  /// <remarks>
+  /// Valid only if <see cref="Ok"/> is true
+  /// </remarks>
   public uint PlayerId;
 
   public void Serialize(List<byte> bytes) {

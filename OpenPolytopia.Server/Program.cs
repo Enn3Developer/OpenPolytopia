@@ -14,12 +14,14 @@ internal static class Program {
   private const string BIND_ADDRESS_ENV = "OPENPOLYTOPIA_BIND_ADDRESS";
 
   /// <summary>
-  /// Usage: <c>OpenPolytopia.Server [port] [bind-address]</c>
-  /// <br/>
-  /// Both arguments are optional and fall back to the
+  /// Entry point of the server
+  /// </summary>
+  /// <remarks>
+  /// Usage: <c>OpenPolytopia.Server [port] [bind-address]</c>;
+  /// both arguments are optional and fall back to the
   /// <c>OPENPOLYTOPIA_PORT</c>/<c>OPENPOLYTOPIA_BIND_ADDRESS</c> environment variables,
   /// then to port <see cref="NetworkConstants.DEFAULT_PORT"/> on every interface
-  /// </summary>
+  /// </remarks>
   private static async Task Main(string[] args) {
     var portValue = args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable(PORT_ENV);
     var port = NetworkConstants.DEFAULT_PORT;

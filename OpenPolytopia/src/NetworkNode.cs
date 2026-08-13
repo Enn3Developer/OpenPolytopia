@@ -11,31 +11,31 @@ using Common.Network.Packets;
 using Godot;
 
 /// <summary>
-/// Manages the connection with the game server.
-/// <br/>
-/// Add this node to every scene that talks to the server: the underlying connection is shared
-/// between all the instances and survives scene changes, so the first node to enter the tree
-/// connects and the following ones reuse the same connection.
-/// <br/>
-/// Packets are received in background and processed on the main thread
-/// in <see cref="_PhysicsProcess"/>, so every event is safe to use with Godot nodes
+/// Manages the connection with the game server
 /// </summary>
+/// <remarks>
+/// Add this node to every scene that talks to the server.
+/// The underlying connection is shared between all the instances and survives scene changes:
+/// the first node to enter the tree connects and the following ones reuse the same connection.
+/// Packets are processed on the main thread in <see cref="_PhysicsProcess"/>,
+/// so every event is safe to use with Godot nodes
+/// </remarks>
 [GlobalClass]
 public partial class NetworkNode : Node {
   /// <summary>
-  /// The instance currently pumping the connection, i.e. the last one that entered the tree
+  /// The instance currently processing the packets
   /// </summary>
+  /// <remarks>
+  /// It is the last instance that entered the tree
+  /// </remarks>
   public static NetworkNode Instance { get; private set; } = null!;
 
-  // overrides usable without touching the scene:
-  // OPENPOLYTOPIA_SERVER_HOST=... or `godot -- --server-host=...` (same for port)
   private const string HOST_ENV = "OPENPOLYTOPIA_SERVER_HOST";
   private const string PORT_ENV = "OPENPOLYTOPIA_SERVER_PORT";
   private const string HOST_ARG = "--server-host";
   private const string PORT_ARG = "--server-port";
 
-  // the connection and the session state are shared between all NetworkNode instances
-  // so they survive scene changes; only app shutdown or Disconnect() close the connection
+  // shared between all the instances so the connection survives scene changes
   private static ClientConnection? _connection;
   private static bool _handshakeDone;
   private static uint _playerId;
@@ -43,31 +43,37 @@ public partial class NetworkNode : Node {
   private static int _disconnectedFlag;
 
   /// <summary>
-  /// Host to connect to; editable in the inspector.
+  /// Host to connect to
+  /// </summary>
+  /// <remarks>
   /// Overridable with the <c>--server-host=</c> command line argument
   /// or the <c>OPENPOLYTOPIA_SERVER_HOST</c> environment variable
-  /// </summary>
+  /// </remarks>
   [Export]
   public string Host { get; set; } = "enn3.ovh";
 
   /// <summary>
-  /// Port to connect to; editable in the inspector.
+  /// Port to connect to
+  /// </summary>
+  /// <remarks>
   /// Overridable with the <c>--server-port=</c> command line argument
   /// or the <c>OPENPOLYTOPIA_SERVER_PORT</c> environment variable
-  /// </summary>
+  /// </remarks>
   [Export(PropertyHint.Range, "1,65535")]
   public int Port { get; set; } = NetworkConstants.DEFAULT_PORT;
 
   /// <summary>
   /// If true, the node connects to the server as soon as it enters the tree
-  /// (unless a shared connection already exists)
   /// </summary>
   [Export]
   public bool AutoConnect { get; set; } = true;
 
   /// <summary>
-  /// Id assigned to this client by the server; valid after <see cref="OnConnected"/>
+  /// Id assigned to this client by the server
   /// </summary>
+  /// <remarks>
+  /// Valid after <see cref="OnConnected"/> gets fired
+  /// </remarks>
   public uint PlayerId => _playerId;
 
   /// <summary>
@@ -121,7 +127,7 @@ public partial class NetworkNode : Node {
   public event Action<GameStartedPacket>? OnGameStarted;
 
   /// <summary>
-  /// Take over the pumping of the shared connection and connect if needed
+  /// Takes over the shared connection and connects to the server if needed
   /// </summary>
   public override void _EnterTree() {
     base._EnterTree();
@@ -133,11 +139,11 @@ public partial class NetworkNode : Node {
   }
 
   /// <summary>
-  /// Process messages received from the server
+  /// Processes the packets received from the server
   /// </summary>
   /// <param name="delta">ignored</param>
   public override void _PhysicsProcess(double delta) {
-    // only the active instance pumps the shared connection
+    // only the active instance processes the packets
     if (Instance != this || _connection == null) {
       return;
     }
@@ -157,10 +163,12 @@ public partial class NetworkNode : Node {
   }
 
   /// <summary>
-  /// Connects to the server; called automatically when entering the tree if
-  /// <see cref="AutoConnect"/> is enabled.
-  /// Does nothing if a shared connection already exists
+  /// Connects to the server
   /// </summary>
+  /// <remarks>
+  /// Called automatically when entering the tree if <see cref="AutoConnect"/> is enabled;
+  /// does nothing if a shared connection already exists
+  /// </remarks>
   public void ConnectToServer() {
     if (_connection != null) {
       return;
@@ -220,9 +228,11 @@ public partial class NetworkNode : Node {
   public void SetReady(ulong lobbyId, bool ready) => Send(new SetReadyPacket { LobbyId = lobbyId, Ready = ready });
 
   /// <summary>
-  /// Resolves the server host and port to connect to.
-  /// Precedence: command line argument, environment variable, exported property
+  /// Resolves the server host and port to connect to
   /// </summary>
+  /// <remarks>
+  /// Precedence: command line argument, environment variable, exported property
+  /// </remarks>
   private (string, int) ResolveServerAddress() {
     var host = GetUserArg(HOST_ARG) ?? EnvOrNull(HOST_ENV) ?? Host;
 
@@ -241,7 +251,7 @@ public partial class NetworkNode : Node {
   }
 
   /// <summary>
-  /// Returns the value of a <c>--name=value</c> user argument (the ones after <c>--</c>) or null
+  /// Returns the value of a <c>--name=value</c> user argument or null if missing
   /// </summary>
   /// <param name="name">the argument name, including the leading dashes</param>
   private static string? GetUserArg(string name) =>
@@ -266,7 +276,7 @@ public partial class NetworkNode : Node {
     catch (Exception e) {
       GD.PushError($"Error while connecting to {host}:{port}: {e}");
 
-      // throw the connection away so a new node (or a manual call) can retry
+      // remove the connection to let a new node retry
       if (_connection == connection) {
         _connection = null;
       }

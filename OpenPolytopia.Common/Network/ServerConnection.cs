@@ -6,12 +6,12 @@ using System.Security.Cryptography;
 using Packets;
 
 /// <summary>
-/// Accepts TCP connections and manages one <see cref="NetworkConnection"/> per client.
-/// <br/>
-/// It also takes care of the keep alive logic: every <see cref="KEEP_ALIVE_INTERVAL"/> it sends
-/// a <see cref="KeepAlivePacket"/> to every client and disconnects the ones that
-/// didn't send anything back for longer than <see cref="TIMEOUT"/>
+/// Accepts TCP connections and manages one <see cref="NetworkConnection"/> per client
 /// </summary>
+/// <remarks>
+/// Every <see cref="KEEP_ALIVE_INTERVAL"/> it sends a <see cref="KeepAlivePacket"/> to every client
+/// and disconnects the ones that didn't send anything back for longer than <see cref="TIMEOUT"/>
+/// </remarks>
 /// <param name="port">the port to listen on</param>
 /// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
 public class ServerConnection(int port, string? bindAddress = null) : IDisposable {
@@ -31,8 +31,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   public IReadOnlyDictionary<uint, NetworkConnection> Connections => _connections;
 
   /// <summary>
-  /// Fired when a new client connects, before any packet is received from it
+  /// Fired when a new client connects
   /// </summary>
+  /// <remarks>
+  /// Fired before any packet is received from the client
+  /// </remarks>
   public event Action<NetworkConnection>? OnClientConnected;
 
   /// <summary>
@@ -46,8 +49,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   public event Func<NetworkConnection, IPacket, Task>? OnPacketReceived;
 
   /// <summary>
-  /// Listens for connections and runs until <see cref="Stop"/> gets called
+  /// Listens to incoming connections
   /// </summary>
+  /// <remarks>
+  /// Runs until <see cref="Stop"/> gets called
+  /// </remarks>
   public async Task RunAsync() {
     PacketRegistrar.RegisterAllPackets();
     _listener.Start();
@@ -89,8 +95,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   public void Stop() => _cts.Cancel();
 
   /// <summary>
-  /// Sends a packet to a single client; failures are treated as a disconnection
+  /// Sends a packet to a single client
   /// </summary>
+  /// <remarks>
+  /// If the send fails, the client gets disconnected
+  /// </remarks>
   /// <param name="id">the id of the client</param>
   /// <param name="packet">the packet to send</param>
   public async Task SendToAsync(uint id, IPacket packet) {

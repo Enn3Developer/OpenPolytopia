@@ -2,8 +2,11 @@ namespace OpenPolytopia.Common.Network;
 
 public static class NetworkConstants {
   /// <summary>
-  /// Protocol version; client and server must match to complete the handshake
+  /// Version of the network protocol
   /// </summary>
+  /// <remarks>
+  /// The handshake fails if client and server have different versions
+  /// </remarks>
   public const string VERSION = "0.1.0";
 
   /// <summary>
@@ -12,7 +15,7 @@ public static class NetworkConstants {
   public const int DEFAULT_PORT = 6969;
 
   /// <summary>
-  /// Maximum allowed size in bytes of a single packet (id + payload)
+  /// Maximum size in bytes of a single packet, counting the packet id and the payload
   /// </summary>
   public const uint MAX_PACKET_SIZE = 1024 * 1024;
 }

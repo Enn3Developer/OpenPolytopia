@@ -5,12 +5,12 @@ using System.Net.Sockets;
 using Packets;
 
 /// <summary>
-/// Client-side connection to the game server.
-/// <br/>
-/// Received packets are queued in <see cref="IncomingPackets"/> so the consumer
-/// (e.g. a Godot node) can process them on its own thread by calling a drain loop
-/// every frame; <see cref="KeepAlivePacket"/>s are answered automatically
+/// Client-side connection to the game server
 /// </summary>
+/// <remarks>
+/// Received packets are queued in <see cref="IncomingPackets"/> to let the consumer
+/// process them on its own thread; <see cref="KeepAlivePacket"/> gets answered automatically
+/// </remarks>
 public class ClientConnection(string address, int port) : IDisposable {
   private readonly TcpClient _client = new();
   private readonly CancellationTokenSource _cts = new();

@@ -9,12 +9,13 @@ using Packets;
 public class ProtocolViolationException(string message) : Exception(message);
 
 /// <summary>
-/// Implements the wire format of the protocol.
-/// <br/>
+/// Implements the wire format of the protocol
+/// </summary>
+/// <remarks>
 /// Every packet is framed as <c>[uint content length][uint packet id][payload]</c>,
 /// with every integer in network byte order (big-endian);
-/// the content length covers the packet id and the payload.
-/// </summary>
+/// the content length covers the packet id and the payload
+/// </remarks>
 public static class PacketProtocol {
   /// <summary>
   /// Frames a packet into a byte list ready to be sent on the wire
@@ -47,9 +48,11 @@ public static class PacketProtocol {
   }
 
   /// <summary>
-  /// Reads exactly one packet from the stream.
-  /// Blocks until a full packet is available or the stream gets closed
+  /// Reads exactly one packet from the stream
   /// </summary>
+  /// <remarks>
+  /// Blocks until a full packet is available or the stream gets closed
+  /// </remarks>
   /// <param name="stream">the stream to read from</param>
   /// <param name="ct">cancellation token</param>
   /// <returns>the packet or null if the packet id isn't registered</returns>
@@ -76,8 +79,7 @@ public static class PacketProtocol {
     var packetId = UIntSerialization.Read(content, ref index);
     var packet = PacketRegistrar.CreatePacket(packetId);
 
-    // unknown packets are skipped instead of closing the connection
-    // so older clients can talk to newer servers
+    // skip unknown packets so older clients can talk to newer servers
     if (packet == null) {
       return null;
     }

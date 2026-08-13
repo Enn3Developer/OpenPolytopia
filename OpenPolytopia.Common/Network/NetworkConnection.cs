@@ -5,10 +5,12 @@ using System.Net.Sockets;
 using Packets;
 
 /// <summary>
-/// Wraps a connected <see cref="TcpClient"/> and provides framed packet send/receive on top of it.
-/// Used both by the client (a single connection to the server) and
-/// by the server (one connection per client).
+/// Wraps a connected <see cref="TcpClient"/> to send and receive packets
 /// </summary>
+/// <remarks>
+/// Used by the client for its connection to the server
+/// and by the server for every connected client
+/// </remarks>
 public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   private readonly NetworkStream _stream = client.GetStream();
   private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -40,8 +42,11 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   public bool Connected => !_closed && client.Connected;
 
   /// <summary>
-  /// Sends a single packet; thread-safe
+  /// Sends a packet to the remote endpoint
   /// </summary>
+  /// <remarks>
+  /// This method is thread-safe
+  /// </remarks>
   /// <param name="packet">the packet to send</param>
   /// <param name="ct">cancellation token</param>
   public async Task SendPacketAsync(IPacket packet, CancellationToken ct = default) {
@@ -58,10 +63,12 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   }
 
   /// <summary>
-  /// Reads packets from the connection until it gets closed or the token gets cancelled,
-  /// firing <see cref="OnPacketReceived"/> for each one.
-  /// Always fires <see cref="OnDisconnected"/> at the end
+  /// Reads packets from the connection until it gets closed or the token gets cancelled
   /// </summary>
+  /// <remarks>
+  /// Fires <see cref="OnPacketReceived"/> for every packet
+  /// and <see cref="OnDisconnected"/> at the end
+  /// </remarks>
   /// <param name="ct">cancellation token</param>
   public async Task RunAsync(CancellationToken ct = default) {
     try {
@@ -90,8 +97,11 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   }
 
   /// <summary>
-  /// Closes the connection; it is safe to call this multiple times
+  /// Closes the connection
   /// </summary>
+  /// <remarks>
+  /// Calling this multiple times is safe
+  /// </remarks>
   public void Close() {
     if (_closed) {
       return;

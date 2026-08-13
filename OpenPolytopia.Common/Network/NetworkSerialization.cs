@@ -2,9 +2,8 @@ namespace OpenPolytopia.Common.Network;
 
 using System.Text;
 
-// Primitive (de)serialization extensions.
-// Everything is written in network byte order (big-endian).
-// Every Deserialize increments the index by the number of bytes it consumed.
+// Everything is written in network byte order (big-endian)
+// Every Deserialize should increment the index
 
 public static class BoolSerialization {
   public static void Serialize(this bool value, List<byte> bytes) => bytes.Add((byte)value.ToUInt());
