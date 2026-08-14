@@ -102,33 +102,4 @@ public static class ListSerialization {
     }
   }
 
-  public static void Serialize(this List<uint> list, List<byte> bytes) {
-    ((uint)list.Count).Serialize(bytes);
-    foreach (var element in list) {
-      element.Serialize(bytes);
-    }
-  }
-
-  public static void Deserialize(this List<uint> list, byte[] bytes, ref uint index) {
-    var length = UIntSerialization.Read(bytes, ref index);
-
-    for (var i = 0; i < length; i++) {
-      list.Add(UIntSerialization.Read(bytes, ref index));
-    }
-  }
-
-  public static void Serialize(this List<string> list, List<byte> bytes) {
-    ((uint)list.Count).Serialize(bytes);
-    foreach (var element in list) {
-      element.Serialize(bytes);
-    }
-  }
-
-  public static void Deserialize(this List<string> list, byte[] bytes, ref uint index) {
-    var length = UIntSerialization.Read(bytes, ref index);
-
-    for (var i = 0; i < length; i++) {
-      list.Add(StringSerialization.Read(bytes, ref index));
-    }
-  }
 }

@@ -26,9 +26,11 @@ public partial class NetworkNode : Node {
   /// The instance currently processing the packets
   /// </summary>
   /// <remarks>
-  /// It is the last instance that entered the tree
+  /// It is the last instance that entered the tree,
+  /// or null when no instance is inside the tree.
+  /// Nodes that use it across scene changes should grab it once in <c>_Ready</c>
   /// </remarks>
-  public static NetworkNode Instance { get; private set; } = null!;
+  public static NetworkNode? Instance { get; private set; }
 
   private const string HOST_ENV = "OPENPOLYTOPIA_SERVER_HOST";
   private const string PORT_ENV = "OPENPOLYTOPIA_SERVER_PORT";
@@ -40,6 +42,7 @@ public partial class NetworkNode : Node {
   private static bool _handshakeDone;
   private static uint _playerId;
   private static readonly List<LobbyData> _lobbies = [];
+  private static readonly Queue<IPacket> _pendingPackets = new();
   private static int _disconnectedFlag;
 
   /// <summary>
@@ -144,6 +147,21 @@ public partial class NetworkNode : Node {
   }
 
   /// <summary>
+  /// Stops being the active instance when leaving the tree
+  /// </summary>
+  /// <remarks>
+  /// Without this, <see cref="Instance"/> would keep referencing a freed node
+  /// after a scene change to a scene without a <see cref="NetworkNode"/>
+  /// </remarks>
+  public override void _ExitTree() {
+    base._ExitTree();
+
+    if (Instance == this) {
+      Instance = null;
+    }
+  }
+
+  /// <summary>
   /// Processes the packets received from the server
   /// </summary>
   /// <param name="delta">ignored</param>
@@ -157,6 +175,7 @@ public partial class NetworkNode : Node {
     if (connection == null) {
       // surface a connection attempt that failed before being established
       if (Interlocked.Exchange(ref _disconnectedFlag, 0) == 1) {
+        _pendingPackets.Clear();
         OnDisconnected?.Invoke();
       }
 
@@ -178,6 +197,7 @@ public partial class NetworkNode : Node {
       connection.Dispose();
       _connection = null;
       _lobbies.Clear();
+      _pendingPackets.Clear();
       OnLobbiesChanged?.Invoke();
       OnDisconnected?.Invoke();
     }
@@ -207,6 +227,7 @@ public partial class NetworkNode : Node {
     _connection = null;
     _handshakeDone = false;
     _lobbies.Clear();
+    _pendingPackets.Clear();
     OnLobbiesChanged?.Invoke();
 
     // consume the disconnection signalled by disposing the connection
@@ -317,9 +338,10 @@ public partial class NetworkNode : Node {
   private static void Send(IPacket packet) {
     var connection = _connection;
 
-    // wait for the handshake, or packets could get lost or beat the handshake onto the wire
+    // queue the packet while the handshake is in flight, connecting takes a moment;
+    // the queue gets flushed after the handshake and dropped on a failed connection
     if (connection == null || !_handshakeDone) {
-      GD.PushError("Not connected to the server");
+      _pendingPackets.Enqueue(packet);
       return;
     }
 
@@ -347,6 +369,11 @@ public partial class NetworkNode : Node {
         _playerId = handshakeResponse.PlayerId;
         _handshakeDone = true;
         OnConnected?.Invoke();
+
+        // send the packets queued while connecting; stop if a handler disconnected
+        while (_handshakeDone && _pendingPackets.TryDequeue(out var pending)) {
+          Send(pending);
+        }
 
         // get the initial lobby list
         RefreshLobbies();

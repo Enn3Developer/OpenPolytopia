@@ -5,16 +5,21 @@ using Godot;
 public partial class Game : Control {
   [Export] public PackedScene? LobbyScene;
 
+  private NetworkNode _network = null!;
   private string _playerName = "";
   private bool _switching;
 
-  public override void _Ready() =>
+  public override void _Ready() {
+    // grab the instance once, the node could leave the tree before this scene
+    _network = NetworkNode.Instance!;
+
     // switch to the lobby scene once the server accepts the player's name
-    NetworkNode.Instance.OnNameSet += OnNameSet;
+    _network.OnNameSet += OnNameSet;
+  }
 
   public override void _ExitTree() {
     base._ExitTree();
-    NetworkNode.Instance.OnNameSet -= OnNameSet;
+    _network.OnNameSet -= OnNameSet;
   }
 
   /// <summary>
@@ -33,7 +38,7 @@ public partial class Game : Control {
       _playerName = $"Player{GD.Randi() % 10000}";
     }
 
-    NetworkNode.Instance.SetName(_playerName);
+    _network.SetName(_playerName);
   }
 
   private void OnNameSet(bool ok) {

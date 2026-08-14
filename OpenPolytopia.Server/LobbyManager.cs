@@ -91,6 +91,9 @@ public class LobbyManager {
     }
 
     lobby.Players.Remove(player);
+
+    // the leaving player could be the last not-ready one
+    TryMarkStarting(lobby);
     return LobbyActionResult.Ok;
   }
 
@@ -120,13 +123,22 @@ public class LobbyManager {
     }
 
     player.Ready = ready;
+    TryMarkStarting(lobby);
+    return LobbyActionResult.Ok;
+  }
 
-    // start the game when all players are ready
-    if (lobby.ReadyCount == lobby.PlayersCount) {
+  /// <summary>
+  /// Marks a lobby as starting when every player in it is ready
+  /// </summary>
+  /// <remarks>
+  /// Called after every change to the players of a lobby,
+  /// because removing the last not-ready player must start it too
+  /// </remarks>
+  /// <param name="lobby">the lobby to check</param>
+  private static void TryMarkStarting(LobbyData lobby) {
+    if (lobby.PlayersCount > 0 && lobby.ReadyCount == lobby.PlayersCount) {
       lobby.Starting = true;
     }
-
-    return LobbyActionResult.Ok;
   }
 
   /// <summary>
@@ -134,6 +146,24 @@ public class LobbyManager {
   /// </summary>
   /// <param name="playerId">the id of the player</param>
   public bool IsPlayerInAnyLobby(uint playerId) => _lobbies.Values.Any(lobby => lobby[playerId] != null);
+
+  /// <summary>
+  /// Renames a player in every lobby he joined
+  /// </summary>
+  /// <param name="playerId">the id of the player</param>
+  /// <param name="name">the new name</param>
+  /// <param name="updated">filled with the lobbies that changed</param>
+  public void RenamePlayerInLobbies(uint playerId, string name, List<LobbyData> updated) {
+    foreach (var lobby in _lobbies.Values) {
+      var player = lobby[playerId];
+      if (player == null) {
+        continue;
+      }
+
+      player.Name = name;
+      updated.Add(lobby);
+    }
+  }
 
   /// <summary>
   /// Removes a lobby
@@ -169,6 +199,8 @@ public class LobbyManager {
         deleted.Add(lobby.Id);
       }
       else {
+        // the disconnected player could be the last not-ready one
+        TryMarkStarting(lobby);
         updated.Add(lobby);
       }
     }

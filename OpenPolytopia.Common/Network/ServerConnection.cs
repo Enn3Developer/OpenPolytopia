@@ -2,33 +2,33 @@ namespace OpenPolytopia.Common.Network;
 
 using System.Collections.Concurrent;
 using System.Net.Sockets;
+using System.Threading.Channels;
 using Packets;
 
 /// <summary>
 /// Accepts TCP connections and manages one <see cref="NetworkConnection"/> per client
 /// </summary>
 /// <remarks>
+/// Outgoing packets go through one queue per client, so they get delivered
+/// in the order they were enqueued and a slow client can't delay the others.
 /// Every <see cref="KEEP_ALIVE_INTERVAL"/> it sends a <see cref="KeepAlivePacket"/> to every client
-/// and disconnects the ones that didn't send anything back for longer than <see cref="TIMEOUT"/>
+/// and disconnects the ones that didn't send anything back for longer than <see cref="TIMEOUT"/>;
+/// clients that don't complete a handshake within <see cref="HANDSHAKE_TIMEOUT"/> get disconnected too
 /// </remarks>
 /// <param name="port">the port to listen on</param>
 /// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
 public class ServerConnection(int port, string? bindAddress = null) : IDisposable {
   private static readonly TimeSpan KEEP_ALIVE_INTERVAL = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
+  private static readonly TimeSpan HANDSHAKE_TIMEOUT = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan SEND_TIMEOUT = TimeSpan.FromSeconds(10);
 
   private readonly TcpListener _listener = bindAddress == null
     ? TcpListener.Create(port)
     : new TcpListener(System.Net.IPAddress.Parse(bindAddress), port);
-  private readonly ConcurrentDictionary<uint, NetworkConnection> _connections = new();
+  private readonly ConcurrentDictionary<uint, Client> _clients = new();
   private readonly CancellationTokenSource _cts = new();
   private uint _nextId;
-
-  /// <summary>
-  /// All the currently connected clients
-  /// </summary>
-  public IReadOnlyDictionary<uint, NetworkConnection> Connections => _connections;
 
   /// <summary>
   /// Fired when a new client connects
@@ -63,9 +63,9 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
 
     try {
       while (!_cts.IsCancellationRequested) {
-        TcpClient client;
+        TcpClient tcpClient;
         try {
-          client = await _listener.AcceptTcpClientAsync(_cts.Token);
+          tcpClient = await _listener.AcceptTcpClientAsync(_cts.Token);
         }
         catch (SocketException e) {
           // transient failure, like a connection aborted mid-handshake; keep accepting the others
@@ -75,15 +75,18 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
 
         var id = Interlocked.Increment(ref _nextId);
 
-        var connection = new NetworkConnection(id, client);
+        var connection = new NetworkConnection(id, tcpClient);
         connection.OnPacketReceived += ClientPacketReceivedAsync;
         connection.OnDisconnected += ClientDisconnected;
-        _connections[id] = connection;
+
+        var client = new Client(connection);
+        _clients[id] = client;
 
         OnClientConnected?.Invoke(connection);
 
         // manage the client in background
         _ = connection.RunAsync(_cts.Token);
+        _ = SenderLoopAsync(client, _cts.Token);
       }
     }
     catch (OperationCanceledException) {
@@ -92,8 +95,8 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
     finally {
       _listener.Stop();
 
-      foreach (var connection in _connections.Values) {
-        connection.Close();
+      foreach (var client in _clients.Values) {
+        client.Connection.Close();
       }
     }
   }
@@ -104,72 +107,105 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   public void Stop() => _cts.Cancel();
 
   /// <summary>
-  /// Sends a packet to a single client
+  /// Marks a client as having completed the handshake
   /// </summary>
   /// <remarks>
-  /// If the send fails or takes longer than <see cref="SEND_TIMEOUT"/>, the client gets disconnected
+  /// Only handshaked clients receive broadcasts and keep alive packets;
+  /// the others get disconnected after <see cref="HANDSHAKE_TIMEOUT"/>
   /// </remarks>
   /// <param name="id">the id of the client</param>
-  /// <param name="packet">the packet to send</param>
-  public async Task SendToAsync(uint id, IPacket packet) => await SendToAsync(id, PacketProtocol.FramePacket(packet));
-
-  /// <summary>
-  /// Sends an already framed packet to a single client
-  /// </summary>
-  /// <remarks>
-  /// If the send fails or takes longer than <see cref="SEND_TIMEOUT"/>, the client gets disconnected
-  /// </remarks>
-  /// <param name="id">the id of the client</param>
-  /// <param name="frame">the framed packet to send</param>
-  public async Task SendToAsync(uint id, byte[] frame) {
-    if (!_connections.TryGetValue(id, out var connection)) {
-      return;
-    }
-
-    // timeout the send so a client that stopped reading can't block the server
-    using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-    cts.CancelAfter(SEND_TIMEOUT);
-
-    try {
-      await connection.SendFrameAsync(frame, cts.Token);
-    }
-    catch (Exception) {
-      connection.Close();
+  public void CompleteHandshake(uint id) {
+    if (_clients.TryGetValue(id, out var client)) {
+      client.HandshakeDone = true;
     }
   }
 
   /// <summary>
-  /// Sends a packet to every connected client
+  /// Checks if a client completed the handshake
+  /// </summary>
+  /// <param name="id">the id of the client</param>
+  public bool IsHandshakeDone(uint id) => _clients.TryGetValue(id, out var client) && client.HandshakeDone;
+
+  /// <summary>
+  /// Disconnects a client after delivering the packets already queued for him
+  /// </summary>
+  /// <param name="id">the id of the client</param>
+  public void Kick(uint id) {
+    if (_clients.TryGetValue(id, out var client)) {
+      client.Outgoing.Writer.TryComplete();
+    }
+  }
+
+  /// <summary>
+  /// Queues a packet for a single client
+  /// </summary>
+  /// <param name="id">the id of the client</param>
+  /// <param name="packet">the packet to send</param>
+  public void SendTo(uint id, IPacket packet) => SendTo(id, PacketProtocol.FramePacket(packet));
+
+  /// <summary>
+  /// Queues an already framed packet for a single client
+  /// </summary>
+  /// <param name="id">the id of the client</param>
+  /// <param name="frame">the framed packet to send</param>
+  public void SendTo(uint id, byte[] frame) {
+    if (_clients.TryGetValue(id, out var client)) {
+      client.Outgoing.Writer.TryWrite(frame);
+    }
+  }
+
+  /// <summary>
+  /// Queues a packet for every handshaked client
   /// </summary>
   /// <param name="packet">the packet to broadcast</param>
-  public async Task BroadcastAsync(IPacket packet) => await BroadcastAsync(PacketProtocol.FramePacket(packet));
+  public void Broadcast(IPacket packet) => Broadcast(PacketProtocol.FramePacket(packet));
 
   /// <summary>
-  /// Sends an already framed packet to every connected client
+  /// Queues an already framed packet for every handshaked client
   /// </summary>
-  /// <remarks>
-  /// The packet is framed once and the sends run concurrently,
-  /// so a slow client can't delay the others
-  /// </remarks>
   /// <param name="frame">the framed packet to broadcast</param>
-  public async Task BroadcastAsync(byte[] frame) =>
-    await Task.WhenAll(_connections.Keys.Select(id => SendToAsync(id, frame)));
+  public void Broadcast(byte[] frame) {
+    foreach (var client in _clients.Values) {
+      if (client.HandshakeDone) {
+        client.Outgoing.Writer.TryWrite(frame);
+      }
+    }
+  }
 
   /// <summary>
-  /// Sends a packet to the given clients
+  /// Queues a packet for the given clients
   /// </summary>
   /// <param name="ids">the ids of the clients</param>
   /// <param name="packet">the packet to send</param>
-  public async Task BroadcastToAsync(IEnumerable<uint> ids, IPacket packet) =>
-    await BroadcastToAsync(ids, PacketProtocol.FramePacket(packet));
+  public void BroadcastTo(IEnumerable<uint> ids, IPacket packet) {
+    var frame = PacketProtocol.FramePacket(packet);
+    foreach (var id in ids) {
+      SendTo(id, frame);
+    }
+  }
 
   /// <summary>
-  /// Sends an already framed packet to the given clients
+  /// Sends the queued packets of a client one at a time, in order
   /// </summary>
-  /// <param name="ids">the ids of the clients</param>
-  /// <param name="frame">the framed packet to send</param>
-  public async Task BroadcastToAsync(IEnumerable<uint> ids, byte[] frame) =>
-    await Task.WhenAll(ids.Select(id => SendToAsync(id, frame)));
+  /// <remarks>
+  /// If a send fails or takes longer than <see cref="SEND_TIMEOUT"/>, the client gets disconnected
+  /// </remarks>
+  private static async Task SenderLoopAsync(Client client, CancellationToken ct) {
+    try {
+      await foreach (var frame in client.Outgoing.Reader.ReadAllAsync(ct)) {
+        // timeout the send so a client that stopped reading can't pile up frames forever
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(SEND_TIMEOUT);
+        await client.Connection.SendFrameAsync(frame, cts.Token);
+      }
+    }
+    catch (Exception) {
+      // send failure or server stopping, close below
+    }
+
+    // the queue only completes on a kick, disconnect once it's drained
+    client.Connection.Close();
+  }
 
   private async Task ClientPacketReceivedAsync(NetworkConnection connection, IPacket packet) {
     // the keep alive response is managed here, the rest is forwarded
@@ -184,7 +220,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   }
 
   private void ClientDisconnected(NetworkConnection connection) {
-    _connections.TryRemove(connection.Id, out _);
+    if (_clients.TryRemove(connection.Id, out var client)) {
+      // stop the sender loop
+      client.Outgoing.Writer.TryComplete();
+    }
+
     OnClientDisconnected?.Invoke(connection);
   }
 
@@ -196,19 +236,25 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
 
       while (await timer.WaitForNextTickAsync(ct)) {
         var now = DateTime.UtcNow;
-        List<Task> sends = [];
 
-        foreach (var connection in _connections.Values) {
+        foreach (var client in _clients.Values) {
           // kick clients that timed out
-          if (now - connection.LastReceived > TIMEOUT) {
-            connection.Close();
+          if (now - client.Connection.LastReceived > TIMEOUT) {
+            client.Connection.Close();
             continue;
           }
 
-          sends.Add(SendToAsync(connection.Id, keepAlive));
-        }
+          // kick clients that connected but never completed a handshake
+          if (!client.HandshakeDone) {
+            if (now - client.ConnectedAt > HANDSHAKE_TIMEOUT) {
+              client.Connection.Close();
+            }
 
-        await Task.WhenAll(sends);
+            continue;
+          }
+
+          SendTo(client.Connection.Id, keepAlive);
+        }
       }
     }
     catch (OperationCanceledException) {
@@ -221,5 +267,20 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
     _cts.Dispose();
     _listener.Dispose();
     GC.SuppressFinalize(this);
+  }
+
+  /// <summary>
+  /// Server-side state of a connected client
+  /// </summary>
+  private sealed class Client(NetworkConnection connection) {
+    public NetworkConnection Connection { get; } = connection;
+    public DateTime ConnectedAt { get; } = DateTime.UtcNow;
+    public volatile bool HandshakeDone;
+
+    /// <summary>
+    /// Packets waiting to be sent to this client
+    /// </summary>
+    public Channel<byte[]> Outgoing { get; } =
+      Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
   }
 }

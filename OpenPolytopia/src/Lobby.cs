@@ -23,13 +23,17 @@ public partial class Lobby : Control {
   private CheckButton _readyButton = null!;
   private Label _statusLabel = null!;
 
+  private NetworkNode _network = null!;
   private ulong _joinedLobbyId;
   private bool _joined;
 
   public override void _Ready() {
     BuildUi();
 
-    var network = NetworkNode.Instance;
+    // grab the instance once, the node could leave the tree before this scene
+    _network = NetworkNode.Instance!;
+    var network = _network;
+
     network.OnLobbiesChanged += OnLobbiesChanged;
     network.OnLobbyCreated += OnLobbyCreated;
     network.OnLobbyJoined += OnLobbyJoined;
@@ -46,7 +50,7 @@ public partial class Lobby : Control {
   public override void _ExitTree() {
     base._ExitTree();
 
-    var network = NetworkNode.Instance;
+    var network = _network;
     network.OnLobbiesChanged -= OnLobbiesChanged;
     network.OnLobbyCreated -= OnLobbyCreated;
     network.OnLobbyJoined -= OnLobbyJoined;
@@ -82,7 +86,7 @@ public partial class Lobby : Control {
     topBar.AddChild(_createButton);
 
     var refreshButton = new Button { Text = "Refresh" };
-    refreshButton.Pressed += () => NetworkNode.Instance.RefreshLobbies();
+    refreshButton.Pressed += () => _network.RefreshLobbies();
     topBar.AddChild(refreshButton);
 
     _lobbyList = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -123,7 +127,7 @@ public partial class Lobby : Control {
   }
 
   private void RefreshList() {
-    var network = NetworkNode.Instance;
+    var network = _network;
 
     // remember the selection to restore it after the rebuild
     var selectedId = SelectedLobby()?.Id;
@@ -151,7 +155,7 @@ public partial class Lobby : Control {
     }
 
     var id = _lobbyList.GetItemMetadata(selected[0]).AsUInt64();
-    return NetworkNode.Instance.Lobbies.FirstOrDefault(lobby => lobby.Id == id);
+    return _network.Lobbies.FirstOrDefault(lobby => lobby.Id == id);
   }
 
   private void UpdateButtons() {
@@ -162,7 +166,7 @@ public partial class Lobby : Control {
   }
 
   private void OnCreatePressed() =>
-    NetworkNode.Instance.CreateLobby(DEFAULT_MAX_PLAYERS, (uint)_tribeButton.GetSelectedId());
+    _network.CreateLobby(DEFAULT_MAX_PLAYERS, (uint)_tribeButton.GetSelectedId());
 
   private void OnJoinPressed() {
     var lobby = SelectedLobby();
@@ -170,14 +174,14 @@ public partial class Lobby : Control {
       return;
     }
 
-    NetworkNode.Instance.JoinLobby(lobby.Id, (uint)_tribeButton.GetSelectedId());
+    _network.JoinLobby(lobby.Id, (uint)_tribeButton.GetSelectedId());
   }
 
-  private void OnLeavePressed() => NetworkNode.Instance.LeaveLobby(_joinedLobbyId);
+  private void OnLeavePressed() => _network.LeaveLobby(_joinedLobbyId);
 
   private void OnReadyToggled(bool ready) {
     if (_joined) {
-      NetworkNode.Instance.SetReady(_joinedLobbyId, ready);
+      _network.SetReady(_joinedLobbyId, ready);
     }
   }
 
