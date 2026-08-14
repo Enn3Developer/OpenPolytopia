@@ -110,7 +110,7 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   /// Marks a client as having completed the handshake
   /// </summary>
   /// <remarks>
-  /// Only handshaked clients receive broadcasts and keep alive packets;
+  /// Only clients that completed the handshake receive broadcasts and keep alive packets;
   /// the others get disconnected after <see cref="HANDSHAKE_TIMEOUT"/>
   /// </remarks>
   /// <param name="id">the id of the client</param>
@@ -155,13 +155,13 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   }
 
   /// <summary>
-  /// Queues a packet for every handshaked client
+  /// Queues a packet for every client that completed the handshake
   /// </summary>
   /// <param name="packet">the packet to broadcast</param>
   public void Broadcast(IPacket packet) => Broadcast(PacketProtocol.FramePacket(packet));
 
   /// <summary>
-  /// Queues an already framed packet for every handshaked client
+  /// Queues an already framed packet for every client that completed the handshake
   /// </summary>
   /// <param name="frame">the framed packet to broadcast</param>
   public void Broadcast(byte[] frame) {
