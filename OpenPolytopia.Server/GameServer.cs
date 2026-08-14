@@ -18,9 +18,9 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   private readonly ServerConnection _server = new(port, bindAddress);
   private readonly LobbyManager _lobbyManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
-  private readonly HashSet<uint> _handshaked = [];
+  private readonly HashSet<uint> _handshakeDone = [];
 
-  // guards _lobbyManager, _playerNames and _handshaked: packet handlers run on many client tasks
+  // guards _lobbyManager, _playerNames and _handshakeDone: packet handlers run on many client tasks
   private readonly SemaphoreSlim _stateLock = new(1, 1);
 
   private readonly CancellationTokenSource _cts = new();
@@ -64,16 +64,16 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     }
 
     // kick clients that send anything else before a successful handshake
-    bool handshaked;
+    bool handshakeDone;
     await _stateLock.WaitAsync();
     try {
-      handshaked = _handshaked.Contains(connection.Id);
+      handshakeDone = _handshakeDone.Contains(connection.Id);
     }
     finally {
       _stateLock.Release();
     }
 
-    if (!handshaked) {
+    if (!handshakeDone) {
       connection.Close();
       return;
     }
@@ -112,7 +112,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     if (ok) {
       await _stateLock.WaitAsync();
       try {
-        _handshaked.Add(connection.Id);
+        _handshakeDone.Add(connection.Id);
       }
       finally {
         _stateLock.Release();
@@ -283,7 +283,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
     await _stateLock.WaitAsync();
     try {
-      _handshaked.Remove(connection.Id);
+      _handshakeDone.Remove(connection.Id);
       _playerNames.Remove(connection.Id);
 
       List<LobbyData> updated = [];
