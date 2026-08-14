@@ -9,13 +9,14 @@ using Godot;
 
 /// <summary>
 /// Node wrapper around <see cref="Common.TerrainGeneration"/> so a map can be generated
-/// directly from a scene.
-///
+/// directly from a scene
+/// </summary>
+/// <remarks>
 /// Add it to a scene, configure the generation parameters from the inspector and either let it
 /// generate the map when it's ready (see <see cref="GenerateOnReady"/>) or call
 /// <see cref="GenerateMapAsync"/> yourself; the generated map is available through
 /// <see cref="Grid"/> and <see cref="CityManager"/> once <see cref="MapGenerated"/> is emitted
-/// </summary>
+/// </remarks>
 [GlobalClass]
 public partial class TerrainGenerationNode : Node {
   private static readonly JsonSerializerOptions _jsonOptions = new() {
@@ -37,8 +38,11 @@ public partial class TerrainGenerationNode : Node {
   public int GridSize { get; set; } = 16;
 
   /// <summary>
-  /// Random seed used by the generation; 0 means a random seed
+  /// Random seed used by the generation
   /// </summary>
+  /// <remarks>
+  /// If 0, a random seed is used
+  /// </remarks>
   [Export]
   public int Seed { get; set; }
 
@@ -55,9 +59,11 @@ public partial class TerrainGenerationNode : Node {
   public int Smoothing { get; set; } = 3;
 
   /// <summary>
-  /// Land/water balance of the smoothing passes; lower values produce more compact
-  /// continents while higher values produce rougher coasts
+  /// Land/water balance of the smoothing passes
   /// </summary>
+  /// <remarks>
+  /// Lower values produce more compact continents while higher values produce rougher coasts
+  /// </remarks>
   [Export(PropertyHint.Range, "0,8,1")]
   public int Relief { get; set; } = 4;
 
@@ -69,9 +75,11 @@ public partial class TerrainGenerationNode : Node {
   public float WaterRate { get; set; } = 0.05f;
 
   /// <summary>
-  /// Tribes of the players as <see cref="TribeType"/> values; the player at index
-  /// <c>i</c> gets id <c>i + 1</c>
+  /// Tribes of the players as <see cref="TribeType"/> values
   /// </summary>
+  /// <remarks>
+  /// The player at index <c>i</c> gets id <c>i + 1</c>
+  /// </remarks>
   [Export]
   public int[] PlayerTribes { get; set; } = [(int)TribeType.Imperius, (int)TribeType.Bardur];
 
@@ -82,27 +90,37 @@ public partial class TerrainGenerationNode : Node {
   public bool GenerateOnReady { get; set; } = true;
 
   /// <summary>
-  /// The generated grid; null until the first generation
+  /// The generated grid
   /// </summary>
+  /// <remarks>
+  /// Null until the first generation
+  /// </remarks>
   public Grid? Grid { get; private set; }
 
   /// <summary>
-  /// The city manager holding the generated cities and villages; null until the first generation
+  /// The city manager holding the generated cities and villages
   /// </summary>
+  /// <remarks>
+  /// Null until the first generation
+  /// </remarks>
   public CityManager? CityManager { get; private set; }
 
   /// <summary>
-  /// The players of the generated map; null until the first generation
+  /// The players of the generated map
   /// </summary>
+  /// <remarks>
+  /// Null until the first generation
+  /// </remarks>
   public Player[]? Players { get; private set; }
 
   /// <summary>
-  /// The tribe manager used by the generation.
-  ///
+  /// The tribe manager used by the generation
+  /// </summary>
+  /// <remarks>
   /// If no tribe is registered when the generation starts, the tribes from the embedded
   /// <c>tribes.json</c> are registered automatically; set your own populated manager to
   /// override this behavior
-  /// </summary>
+  /// </remarks>
   public TribeManager TribeManager { get; set; } = new();
 
   public override void _Ready() {
@@ -112,11 +130,12 @@ public partial class TerrainGenerationNode : Node {
   }
 
   /// <summary>
-  /// Generates a new map with the current parameters.
-  ///
+  /// Generates a new map with the current parameters
+  /// </summary>
+  /// <remarks>
   /// A fresh <see cref="Grid"/> and <see cref="CityManager"/> are created on every call, so it
   /// can be called again to regenerate the map; emits <see cref="MapGenerated"/> when done
-  /// </summary>
+  /// </remarks>
   /// <exception cref="InvalidOperationException">
   /// if <see cref="PlayerTribes"/> is empty or has more than 15 players
   /// </exception>

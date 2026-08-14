@@ -3,8 +3,9 @@ namespace OpenPolytopia.Common;
 using System.Runtime.CompilerServices;
 
 /// <summary>
-/// Terrain generation system.
-///
+/// Terrain generation system
+/// </summary>
+/// <remarks>
 /// Implements the Polytopia map generation pipeline:
 /// <list type="number">
 /// <item>Land generation: random land seeding followed by cellular-automata smoothing passes</item>
@@ -16,7 +17,7 @@ using System.Runtime.CompilerServices;
 /// with reduced rates on the outer ring</item>
 /// <item>Ruins: <c>tiles / 40</c> ancient ruins, at most a third of them on water</item>
 /// </list>
-/// </summary>
+/// </remarks>
 /// <param name="grid">the grid to use</param>
 /// <param name="cityManager">the city manager to use</param>
 /// <param name="tribeManager">the tribe manager to use</param>
@@ -82,11 +83,12 @@ public class TerrainGeneration(
   public int Smoothing { get; init; } = 3;
 
   /// <summary>
-  /// Land/water balance of the smoothing passes.
-  ///
+  /// Land/water balance of the smoothing passes
+  /// </summary>
+  /// <remarks>
   /// A cell stays land when at most <c>Relief</c> of the 9 cells around it are water,
   /// so lower values produce more compact continents while higher values produce rougher coasts
-  /// </summary>
+  /// </remarks>
   public int Relief { get; init; } = 4;
 
   /// <summary>
@@ -114,12 +116,13 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Generates the land/ocean layout.
-  ///
+  /// Generates the land/ocean layout
+  /// </summary>
+  /// <remarks>
   /// Starts from a full ocean map, converts random tiles to land until <see cref="InitialLand"/>
   /// is reached, then applies <see cref="Smoothing"/> cellular-automata passes where a tile stays
   /// land when at most <see cref="Relief"/> of the 9 cells around it are water
-  /// </summary>
+  /// </remarks>
   private async Task GenerateLandAsync() {
     var size = (int)grid.Size;
     var cells = size * size;
@@ -175,12 +178,13 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Places a capital for every player.
-  ///
+  /// Places a capital for every player
+  /// </summary>
+  /// <remarks>
   /// Capitals only spawn on land at least <see cref="CAPITAL_EDGE_MARGIN"/> tiles away from the
   /// map border; every capital is placed on the tile maximizing the minimum distance to the
   /// already placed capitals so players don't start too close to one another
-  /// </summary>
+  /// </remarks>
   private async Task GenerateInitialCitiesAsync() {
     foreach (var player in players) {
       // yield to the task executor
@@ -240,12 +244,13 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Collects the tiles where a capital can spawn.
-  ///
+  /// Collects the tiles where a capital can spawn
+  /// </summary>
+  /// <remarks>
   /// Starts with free land at least <see cref="CAPITAL_EDGE_MARGIN"/> tiles away from the map
   /// border and progressively relaxes the requirements so capitals can always be placed, even
   /// on tiny or very watery maps
-  /// </summary>
+  /// </remarks>
   /// <returns>the indexes of the valid spawn tiles</returns>
   private List<uint> CollectCapitalCandidates() {
     var cells = grid.Size * grid.Size;
@@ -278,12 +283,15 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Assigns biomes and terrain types.
-  ///
+  /// Assigns biomes and terrain types
+  /// </summary>
+  /// <remarks>
   /// Every tile gets the biome of the nearest capital; every land tile then rolls water,
   /// mountain and forest in this order using the biome tribe's <see cref="TerrainRate"/>,
-  /// defaulting to field. Finally, ocean tiles adjacent to land become shallow water
-  /// </summary>
+  /// defaulting to field.
+  /// <br/>
+  /// Finally, ocean tiles adjacent to land become shallow water
+  /// </remarks>
   private async Task GenerateTerrainAsync() {
     var size = (int)grid.Size;
     var cells = (uint)(size * size);
@@ -346,11 +354,12 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Places the villages.
-  ///
+  /// Places the villages
+  /// </summary>
+  /// <remarks>
   /// Villages spawn on free field/forest tiles at least 1 tile away from the map border and
   /// 2 tiles away from any other city or village, until no free tile remains
-  /// </summary>
+  /// </remarks>
   private async Task GenerateCitiesAsync() {
     var size = (int)grid.Size;
     var cells = (uint)(size * size);
@@ -392,12 +401,13 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Spawns the resources.
-  ///
+  /// Spawns the resources
+  /// </summary>
+  /// <remarks>
   /// Resources only spawn within 2 tiles of a city or village, at full rate inside city
   /// territory and at a third of the rate on the outer ring, using the biome tribe's
   /// <see cref="SpawnRate"/> as multiplier
-  /// </summary>
+  /// </remarks>
   private async Task GenerateResourcesAsync() {
     var cells = grid.Size * grid.Size;
 
@@ -463,11 +473,12 @@ public class TerrainGeneration(
   }
 
   /// <summary>
-  /// Places the ancient ruins.
-  ///
+  /// Places the ancient ruins
+  /// </summary>
+  /// <remarks>
   /// Spawns <c>tiles / 40</c> ruins away from cities and villages, never adjacent to another
   /// ruin and with at most a third of them on water
-  /// </summary>
+  /// </remarks>
   private async Task GenerateRuinsAsync() {
     // yield to the task executor
     await Task.Yield();
