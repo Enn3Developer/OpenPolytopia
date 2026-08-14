@@ -63,4 +63,13 @@ public class TerrainGenerationNodeTest(Node testScene) : TestClass(testScene) {
     await Should.ThrowAsync<System.InvalidOperationException>(node.GenerateMapAsync);
     node.Free();
   }
+
+  [Test]
+  public async Task TestInvalidTribe() {
+    // an out-of-range tribe would overflow the 5-bit biome field
+    var node = new TerrainGenerationNode { GenerateOnReady = false, PlayerTribes = [40] };
+
+    await Should.ThrowAsync<System.InvalidOperationException>(node.GenerateMapAsync);
+    node.Free();
+  }
 }

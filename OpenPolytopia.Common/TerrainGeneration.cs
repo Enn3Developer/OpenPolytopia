@@ -100,6 +100,7 @@ public class TerrainGeneration(
   /// <summary>
   /// Generates the map ready to use in-game
   /// </summary>
+  /// <exception cref="InvalidOperationException">if there are no players or more than 15 players</exception>
   /// <example>
   /// <code>
   /// var terrainGeneration = new TerrainGeneration(grid, cityManager, tribeManager, players);
@@ -107,6 +108,12 @@ public class TerrainGeneration(
   /// </code>
   /// </example>
   public async Task GenerateMapAsync() {
+    // Tile.Owner is 4 bits, so there can't be more than 15 players
+    if (players.Length is 0 or > 15) {
+      throw new InvalidOperationException(
+        $"invalid number of players: {players.Length}; must be between 1 and 15");
+    }
+
     await GenerateLandAsync();
     await GenerateInitialCitiesAsync();
     await GenerateTerrainAsync();
@@ -233,8 +240,12 @@ public class TerrainGeneration(
         city.Level = 1;
       });
 
-      // claim the starting 3x3 territory
+      // claim the starting 3x3 territory; never steal tiles already claimed by another capital
       ForEachInRadius(index, 1, neighbor => grid.ModifyTile(neighbor, (ref Tile tile) => {
+        if (tile.Owner != 0 || tile.Kind == TileKind.Village) {
+          return;
+        }
+
         tile.Owner = player.Id;
         tile.City = (int)cityId;
       }));
@@ -271,12 +282,26 @@ public class TerrainGeneration(
       }
     }
 
-    // last resort: raise a random tile from the ocean
-    var index = (uint)_rng.Next(0, (int)cells);
-    while (grid[index].Kind == TileKind.Village) {
-      index = (uint)_rng.Next(0, (int)cells);
+    // last resort: raise a random unclaimed tile from the ocean, preferring free zones
+    var free = new List<uint>();
+    var unclaimed = new List<uint>();
+    for (var i = 0u; i < cells; i++) {
+      if (grid[i].Kind == TileKind.Village || grid[i].Owner != 0) {
+        continue;
+      }
+
+      unclaimed.Add(i);
+      if (_zoneMap[i] == ZONE_FREE) {
+        free.Add(i);
+      }
     }
 
+    var pool = free.Count > 0 ? free : unclaimed;
+    if (pool.Count == 0) {
+      throw new InvalidOperationException("not enough tiles to place all the capitals");
+    }
+
+    var index = pool[_rng.Next(pool.Count)];
     grid.ModifyTile(index, (ref Tile tile) => tile.Kind = TileKind.Field);
     candidates.Add(index);
     return candidates;
@@ -375,9 +400,6 @@ public class TerrainGeneration(
     }
 
     while (candidates.Count > 0 && _citiesCount < MAX_CITIES) {
-      // yield to the task executor
-      await Task.Yield();
-
       var position = _rng.Next(candidates.Count);
       var index = candidates[position];
       candidates.RemoveAt(position);
@@ -386,6 +408,9 @@ public class TerrainGeneration(
       if (_zoneMap[index] != ZONE_FREE) {
         continue;
       }
+
+      // yield to the task executor once per placed village
+      await Task.Yield();
 
       // register the village; the default CityData already means "village" (no owner, level 0)
       cityManager.RegisterCity(index);

@@ -228,7 +228,7 @@ public struct Tile {
   /// Using 0 as the left-most bit and 63 as the right-most bit
   /// <list type="bullet">
   /// <item>0 -> 1: has road; 0 doesn't have any road; (bridge if on water)</item>
-  /// <item>1 -> 2: has ancient ruin; 0 doesn't have any ruin</item>
+  /// <item>1 -> 1: has ancient ruin; 0 doesn't have any ruin</item>
   /// <item>[2, 4] -> <see cref="Kind"/></item>
   /// <item>[5, 6] -> Tile modifier</item>
   /// <item>[7, 9] -> Tile buildings</item>

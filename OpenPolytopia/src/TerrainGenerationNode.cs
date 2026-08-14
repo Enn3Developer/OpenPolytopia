@@ -113,6 +113,9 @@ public partial class TerrainGenerationNode : Node {
   /// </remarks>
   public Player[]? Players { get; private set; }
 
+  // currently running generation, so concurrent calls can't race each other
+  private Task? _generation;
+
   /// <summary>
   /// The tribe manager used by the generation
   /// </summary>
@@ -134,10 +137,13 @@ public partial class TerrainGenerationNode : Node {
   /// </summary>
   /// <remarks>
   /// A fresh <see cref="Grid"/> and <see cref="CityManager"/> are created on every call, so it
-  /// can be called again to regenerate the map; emits <see cref="MapGenerated"/> when done
+  /// can be called again to regenerate the map; emits <see cref="MapGenerated"/> when done.
+  /// <br/>
+  /// If a generation is already running (for example the one started by
+  /// <see cref="GenerateOnReady"/>), this waits for it instead of starting another one
   /// </remarks>
   /// <exception cref="InvalidOperationException">
-  /// if <see cref="PlayerTribes"/> is empty or has more than 15 players
+  /// if <see cref="PlayerTribes"/> is empty, has more than 15 players or contains an invalid tribe
   /// </exception>
   /// <example>
   /// <code>
@@ -147,10 +153,33 @@ public partial class TerrainGenerationNode : Node {
   /// </code>
   /// </example>
   public async Task GenerateMapAsync() {
+    // if a generation is already running, wait for it instead of racing it
+    if (_generation != null) {
+      await _generation;
+      return;
+    }
+
+    _generation = GenerateInternalAsync();
+    try {
+      await _generation;
+    }
+    finally {
+      _generation = null;
+    }
+  }
+
+  private async Task GenerateInternalAsync() {
     // Tile.Owner is 4 bits, so there can't be more than 15 players
     if (PlayerTribes.Length is 0 or > 15) {
       throw new InvalidOperationException(
         $"invalid number of players: {PlayerTribes.Length}; must be between 1 and 15");
+    }
+
+    // an out-of-range tribe would corrupt the biome bits of every tile
+    foreach (var tribe in PlayerTribes) {
+      if (!Enum.IsDefined((TribeType)tribe)) {
+        throw new InvalidOperationException($"invalid tribe: {tribe}");
+      }
     }
 
     if (TribeManager.Tribes.Count == 0) {

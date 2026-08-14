@@ -154,6 +154,14 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
   }
 
   [Test]
+  public async Task TestInvalidPlayers() {
+    var grid = new Grid(SIZE);
+    var terrainGeneration = new TerrainGeneration(grid, new CityManager(grid), new TribeManager(), []);
+
+    await Should.ThrowAsync<InvalidOperationException>(terrainGeneration.GenerateMapAsync);
+  }
+
+  [Test]
   public async Task TestDeterministicSeed() {
     var (first, _, _) = await GenerateMapAsync();
     var (second, _, _) = await GenerateMapAsync();

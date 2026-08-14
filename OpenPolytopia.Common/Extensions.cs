@@ -44,7 +44,7 @@ public static class ULongExtensions {
   /// <param name="position">the position where to set bits starting from the right</param>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public static void SetBits(this ref ulong value, ulong data, ulong bits, int position) =>
-    value = value.ClearBits(bits, position) | (data << position);
+    value = value.ClearBits(bits, position) | ((data & bits) << position);
 
   /// <summary>
   /// Get the bits
@@ -77,7 +77,7 @@ public static class UIntExtensions {
   /// <param name="position">the position where to set bits starting from the right</param>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public static void SetBits(this ref uint value, uint data, uint bits, int position) =>
-    value = value.ClearBits(bits, position) | (data << position);
+    value = value.ClearBits(bits, position) | ((data & bits) << position);
 
   /// <summary>
   /// Get the bits
@@ -110,7 +110,7 @@ public static class IntExtensions {
   /// <param name="position">the position where to set bits starting from the right</param>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public static void SetBits(this ref int value, int data, int bits, int position) =>
-    value = value.ClearBits(bits, position) | (data << position);
+    value = value.ClearBits(bits, position) | ((data & bits) << position);
 
   /// <summary>
   /// Get the bits
