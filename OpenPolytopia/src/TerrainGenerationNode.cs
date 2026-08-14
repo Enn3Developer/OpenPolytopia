@@ -169,38 +169,29 @@ public partial class TerrainGenerationNode : Node {
   }
 
   private async Task GenerateInternalAsync() {
-    // Tile.Owner is 4 bits, so there can't be more than 15 players
-    if (PlayerTribes.Length is 0 or > 15) {
-      throw new InvalidOperationException(
-        $"invalid number of players: {PlayerTribes.Length}; must be between 1 and 15");
-    }
-
-    // an out-of-range tribe would corrupt the biome bits of every tile
-    foreach (var tribe in PlayerTribes) {
-      if (!Enum.IsDefined((TribeType)tribe)) {
-        throw new InvalidOperationException($"invalid tribe: {tribe}");
-      }
-    }
-
     if (TribeManager.Tribes.Count == 0) {
       RegisterEmbeddedTribes();
     }
 
+    // the players are validated by TerrainGeneration.GenerateMapAsync
     var players = new Player[PlayerTribes.Length];
     for (var i = 0; i < PlayerTribes.Length; i++) {
       players[i] = new Player((TribeType)PlayerTribes[i], i + 1);
     }
 
-    Players = players;
-    Grid = new Grid((uint)Math.Max(GridSize, 1));
-    CityManager = new CityManager(Grid);
+    var grid = new Grid((uint)Math.Max(GridSize, 1));
+    var cityManager = new CityManager(grid);
 
-    var generation = new TerrainGeneration(Grid, CityManager, TribeManager, players,
+    var generation = new TerrainGeneration(grid, cityManager, TribeManager, players,
       Seed == 0 ? null : Seed) {
       InitialLand = InitialLand, Smoothing = Smoothing, Relief = Relief, WaterRate = WaterRate
     };
     await generation.GenerateMapAsync();
 
+    // publish the new map only when it's fully generated, so consumers never see a partial grid
+    Players = players;
+    Grid = grid;
+    CityManager = cityManager;
     EmitSignal(SignalName.MapGenerated);
   }
 

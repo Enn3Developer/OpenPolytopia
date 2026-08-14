@@ -71,6 +71,7 @@ public class TerrainGeneration(
   private readonly List<uint> _capitals = new(players.Length);
 
   private int _citiesCount;
+  private bool _generated;
 
   /// <summary>
   /// Fraction of the map converted to land before the smoothing passes
@@ -100,7 +101,15 @@ public class TerrainGeneration(
   /// <summary>
   /// Generates the map ready to use in-game
   /// </summary>
-  /// <exception cref="InvalidOperationException">if there are no players or more than 15 players</exception>
+  /// <remarks>
+  /// An instance can only generate one map because the grid and the city manager keep the
+  /// generated data; create a new <see cref="TerrainGeneration"/> to generate another map
+  /// </remarks>
+  /// <exception cref="InvalidOperationException">
+  /// if the map has already been generated or the players are invalid: there must be
+  /// between 1 and 15 players, every player id must be unique and between 1 and 15 and
+  /// every tribe must be a defined <see cref="TribeType"/>
+  /// </exception>
   /// <example>
   /// <code>
   /// var terrainGeneration = new TerrainGeneration(grid, cityManager, tribeManager, players);
@@ -108,11 +117,39 @@ public class TerrainGeneration(
   /// </code>
   /// </example>
   public async Task GenerateMapAsync() {
+    // the grid and the city manager keep the generated data, so an instance is single-use
+    if (_generated) {
+      throw new InvalidOperationException(
+        "the map has already been generated; create a new TerrainGeneration to generate another map");
+    }
+
     // Tile.Owner is 4 bits, so there can't be more than 15 players
     if (players.Length is 0 or > 15) {
       throw new InvalidOperationException(
         $"invalid number of players: {players.Length}; must be between 1 and 15");
     }
+
+    var seenIds = 0;
+    foreach (var player in players) {
+      // player ids must fit in the 4-bit Tile.Owner field, where 0 means no owner
+      if (player.Id is < 1 or > 15) {
+        throw new InvalidOperationException($"invalid player id: {player.Id}; must be between 1 and 15");
+      }
+
+      // a duplicate id would merge the territories of two players
+      if ((seenIds & (1 << player.Id)) != 0) {
+        throw new InvalidOperationException($"duplicate player id: {player.Id}");
+      }
+
+      seenIds |= 1 << player.Id;
+
+      // an undefined tribe would silently fall back to the base rates
+      if (!Enum.IsDefined(player.Tribe)) {
+        throw new InvalidOperationException($"invalid tribe: {player.Tribe}");
+      }
+    }
+
+    _generated = true;
 
     await GenerateLandAsync();
     await GenerateInitialCitiesAsync();
@@ -520,8 +557,8 @@ public class TerrainGeneration(
       var index = (uint)_rng.Next(0, cells);
       var tile = grid[index];
 
-      // keep ruins away from cities, villages and their territory
-      if (tile.Ruin || tile.Kind == TileKind.Village || _zoneMap[index] >= ZONE_TERRITORY) {
+      // keep ruins away from cities, villages, their territory and tiles with a resource
+      if (tile.Ruin || tile.Modifier != 0 || tile.Kind == TileKind.Village || _zoneMap[index] >= ZONE_TERRITORY) {
         continue;
       }
 

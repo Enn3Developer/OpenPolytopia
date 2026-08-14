@@ -145,6 +145,9 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     for (var i = 0u; i < SIZE * SIZE; i++) {
       if (grid[i].Ruin) {
         ruins++;
+
+        // ruins never spawn on a tile with a resource
+        grid[i].Modifier.ShouldBe(0);
       }
     }
 
@@ -158,6 +161,17 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     var grid = new Grid(SIZE);
     var terrainGeneration = new TerrainGeneration(grid, new CityManager(grid), new TribeManager(), []);
 
+    await Should.ThrowAsync<InvalidOperationException>(terrainGeneration.GenerateMapAsync);
+  }
+
+  [Test]
+  public async Task TestSingleUse() {
+    var grid = new Grid(SIZE);
+    var players = new[] { new Player(TribeType.Imperius, 1) };
+    var terrainGeneration = new TerrainGeneration(grid, new CityManager(grid), new TribeManager(), players);
+    await terrainGeneration.GenerateMapAsync();
+
+    // an instance can only generate one map
     await Should.ThrowAsync<InvalidOperationException>(terrainGeneration.GenerateMapAsync);
   }
 

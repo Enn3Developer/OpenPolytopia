@@ -67,14 +67,14 @@ public class Grid(uint size) {
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public Vector2I IndexToGridPosition(uint index) {
     var x = index % size;
-    var y = (index - x) / size;
+    var y = index / size;
     return new Vector2I((int)x, (int)y);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void IndexToGridPosition(uint index, out uint x, out uint y) {
     x = index % size;
-    y = (index - x) / size;
+    y = index / size;
   }
 
   /// <summary>
