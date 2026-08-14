@@ -36,6 +36,17 @@ public static class PacketProtocol {
   }
 
   /// <summary>
+  /// Frames a packet into a byte array ready to be sent on the wire
+  /// </summary>
+  /// <param name="packet">the packet to frame</param>
+  /// <returns>the framed packet</returns>
+  public static byte[] FramePacket(IPacket packet) {
+    List<byte> bytes = [];
+    FramePacket(packet, bytes);
+    return [.. bytes];
+  }
+
+  /// <summary>
   /// Frames a packet and writes it to the stream
   /// </summary>
   /// <param name="stream">the stream to write to</param>

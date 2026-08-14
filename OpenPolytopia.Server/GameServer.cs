@@ -18,8 +18,9 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   private readonly ServerConnection _server = new(port, bindAddress);
   private readonly LobbyManager _lobbyManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
+  private readonly HashSet<uint> _handshaked = [];
 
-  // guards _lobbyManager and _playerNames: packet handlers run on many client tasks
+  // guards _lobbyManager, _playerNames and _handshaked: packet handlers run on many client tasks
   private readonly SemaphoreSlim _stateLock = new(1, 1);
 
   private readonly CancellationTokenSource _cts = new();
@@ -57,12 +58,27 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   }
 
   private async Task DispatchPacketAsync(NetworkConnection connection, IPacket packet) {
+    if (packet is HandshakePacket handshake) {
+      await ManageHandshakeAsync(connection, handshake);
+      return;
+    }
+
+    // kick clients that send anything else before a successful handshake
+    bool handshaked;
+    await _stateLock.WaitAsync();
+    try {
+      handshaked = _handshaked.Contains(connection.Id);
+    }
+    finally {
+      _stateLock.Release();
+    }
+
+    if (!handshaked) {
+      connection.Close();
+      return;
+    }
+
     switch (packet) {
-      // handshake, respond with the result of the version check and the assigned player id
-      case HandshakePacket handshake:
-        await _server.SendToAsync(connection.Id,
-          new HandshakeResponsePacket { Ok = handshake.Version == NetworkConstants.VERSION, PlayerId = connection.Id });
-        break;
       // register the player or rename him
       case SetNamePacket setName:
         await ManageSetNameAsync(connection, setName);
@@ -90,6 +106,27 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     }
   }
 
+  private async Task ManageHandshakeAsync(NetworkConnection connection, HandshakePacket packet) {
+    var ok = packet.Version == NetworkConstants.VERSION;
+
+    if (ok) {
+      await _stateLock.WaitAsync();
+      try {
+        _handshaked.Add(connection.Id);
+      }
+      finally {
+        _stateLock.Release();
+      }
+    }
+
+    await _server.SendToAsync(connection.Id, new HandshakeResponsePacket { Ok = ok, PlayerId = connection.Id });
+
+    // kick clients with an incompatible version
+    if (!ok) {
+      connection.Close();
+    }
+  }
+
   private async Task ManageSetNameAsync(NetworkConnection connection, SetNamePacket packet) {
     var name = packet.Name.Trim();
     var ok = name.Length is > 0 and <= 32;
@@ -108,11 +145,12 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   }
 
   private async Task ManageGetLobbiesAsync(NetworkConnection connection) {
-    GetLobbiesResponsePacket response;
+    byte[] response;
 
+    // frame the packet while holding the lock, the lobby data is shared
     await _stateLock.WaitAsync();
     try {
-      response = new GetLobbiesResponsePacket { Lobbies = [.. _lobbyManager.Lobbies] };
+      response = PacketProtocol.FramePacket(new GetLobbiesResponsePacket { Lobbies = [.. _lobbyManager.Lobbies] });
     }
     finally {
       _stateLock.Release();
@@ -122,7 +160,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   }
 
   private async Task ManageCreateLobbyAsync(NetworkConnection connection, CreateLobbyPacket packet) {
-    LobbyData? lobby = null;
+    var lobbyId = 0ul;
+    byte[]? lobbyUpdate = null;
     var result = LobbyActionResult.Ok;
 
     await _stateLock.WaitAsync();
@@ -134,24 +173,27 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         result = LobbyActionResult.InvalidParameters;
       }
       else {
-        lobby = _lobbyManager.CreateLobby(packet.MaxPlayers,
+        var lobby = _lobbyManager.CreateLobby(packet.MaxPlayers,
           new LobbyPlayerData { PlayerId = connection.Id, Name = name, Tribe = packet.Tribe });
+        lobbyId = lobby.Id;
+
+        // frame the broadcast while holding the lock, the lobby data is shared
+        lobbyUpdate = PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby });
       }
     }
     finally {
       _stateLock.Release();
     }
 
-    await _server.SendToAsync(connection.Id,
-      new CreateLobbyResponsePacket { Result = result, LobbyId = lobby?.Id ?? 0 });
+    await _server.SendToAsync(connection.Id, new CreateLobbyResponsePacket { Result = result, LobbyId = lobbyId });
 
-    if (lobby != null) {
-      await _server.BroadcastAsync(new LobbyUpdatedPacket { Lobby = lobby });
+    if (lobbyUpdate != null) {
+      await _server.BroadcastAsync(lobbyUpdate);
     }
   }
 
   private async Task ManageJoinLobbyAsync(NetworkConnection connection, JoinLobbyPacket packet) {
-    LobbyData? lobby = null;
+    byte[]? lobbyUpdate = null;
     LobbyActionResult result;
 
     await _stateLock.WaitAsync();
@@ -162,7 +204,12 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       else {
         result = _lobbyManager.JoinLobby(packet.LobbyId,
           new LobbyPlayerData { PlayerId = connection.Id, Name = name, Tribe = packet.Tribe });
-        lobby = _lobbyManager[packet.LobbyId];
+        var lobby = _lobbyManager[packet.LobbyId];
+
+        if (result == LobbyActionResult.Ok && lobby != null) {
+          // frame the broadcast while holding the lock, the lobby data is shared
+          lobbyUpdate = PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby });
+        }
       }
     }
     finally {
@@ -171,27 +218,27 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
     await _server.SendToAsync(connection.Id, new JoinLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
-    if (result == LobbyActionResult.Ok && lobby != null) {
-      await _server.BroadcastAsync(new LobbyUpdatedPacket { Lobby = lobby });
+    if (lobbyUpdate != null) {
+      await _server.BroadcastAsync(lobbyUpdate);
     }
   }
 
   private async Task ManageLeaveLobbyAsync(NetworkConnection connection, LeaveLobbyPacket packet) {
-    LobbyData? lobby = null;
-    var deleted = false;
+    byte[]? broadcast = null;
     LobbyActionResult result;
 
     await _stateLock.WaitAsync();
     try {
       result = _lobbyManager.LeaveLobby(packet.LobbyId, connection.Id);
 
-      if (result == LobbyActionResult.Ok) {
-        lobby = _lobbyManager[packet.LobbyId];
-
-        // remove the lobby if it became empty
-        if (lobby is { PlayersCount: 0 }) {
+      if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
+        // remove the lobby if it became empty; frame the broadcast while holding the lock
+        if (lobby.PlayersCount == 0) {
           _lobbyManager.RemoveLobby(lobby.Id);
-          deleted = true;
+          broadcast = PacketProtocol.FramePacket(new LobbyDeletedPacket { LobbyId = lobby.Id });
+        }
+        else {
+          broadcast = PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby });
         }
       }
     }
@@ -202,27 +249,22 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     await _server.SendToAsync(connection.Id,
       new LeaveLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
-    if (result != LobbyActionResult.Ok || lobby == null) {
-      return;
-    }
-
-    if (deleted) {
-      await _server.BroadcastAsync(new LobbyDeletedPacket { LobbyId = lobby.Id });
-    }
-    else {
-      await _server.BroadcastAsync(new LobbyUpdatedPacket { Lobby = lobby });
+    if (broadcast != null) {
+      await _server.BroadcastAsync(broadcast);
     }
   }
 
   private async Task ManageSetReadyAsync(NetworkConnection connection, SetReadyPacket packet) {
-    LobbyData? lobby = null;
+    byte[]? lobbyUpdate = null;
     LobbyActionResult result;
 
     await _stateLock.WaitAsync();
     try {
       result = _lobbyManager.SetReady(packet.LobbyId, connection.Id, packet.Ready);
-      if (result == LobbyActionResult.Ok) {
-        lobby = _lobbyManager[packet.LobbyId];
+
+      if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
+        // frame the broadcast while holding the lock, the lobby data is shared
+        lobbyUpdate = PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby });
       }
     }
     finally {
@@ -231,30 +273,33 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
     await _server.SendToAsync(connection.Id, new SetReadyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
-    if (result == LobbyActionResult.Ok && lobby != null) {
-      await _server.BroadcastAsync(new LobbyUpdatedPacket { Lobby = lobby });
+    if (lobbyUpdate != null) {
+      await _server.BroadcastAsync(lobbyUpdate);
     }
   }
 
   private async Task ClientDisconnectedAsync(NetworkConnection connection) {
-    List<LobbyData> updated = [];
-    List<ulong> deletedIds = [];
+    List<byte[]> broadcasts = [];
 
     await _stateLock.WaitAsync();
     try {
+      _handshaked.Remove(connection.Id);
       _playerNames.Remove(connection.Id);
+
+      List<LobbyData> updated = [];
+      List<ulong> deletedIds = [];
       _lobbyManager.RemovePlayerFromAllLobbies(connection.Id, updated, deletedIds);
+
+      // frame the broadcasts while holding the lock, the lobby data is shared
+      broadcasts.AddRange(updated.Select(lobby => PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby })));
+      broadcasts.AddRange(deletedIds.Select(id => PacketProtocol.FramePacket(new LobbyDeletedPacket { LobbyId = id })));
     }
     finally {
       _stateLock.Release();
     }
 
-    foreach (var lobby in updated) {
-      await _server.BroadcastAsync(new LobbyUpdatedPacket { Lobby = lobby });
-    }
-
-    foreach (var id in deletedIds) {
-      await _server.BroadcastAsync(new LobbyDeletedPacket { LobbyId = id });
+    foreach (var broadcast in broadcasts) {
+      await _server.BroadcastAsync(broadcast);
     }
   }
 

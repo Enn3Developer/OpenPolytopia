@@ -14,7 +14,7 @@ using Packets;
 public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   private readonly NetworkStream _stream = client.GetStream();
   private readonly SemaphoreSlim _writeLock = new(1, 1);
-  private bool _closed;
+  private int _closed;
 
   /// <summary>
   /// Id of this connection; assigned by the server
@@ -39,7 +39,7 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   /// <summary>
   /// true while the underlying socket is connected
   /// </summary>
-  public bool Connected => !_closed && client.Connected;
+  public bool Connected => _closed == 0 && client.Connected;
 
   /// <summary>
   /// Sends a packet to the remote endpoint
@@ -49,13 +49,21 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   /// </remarks>
   /// <param name="packet">the packet to send</param>
   /// <param name="ct">cancellation token</param>
-  public async Task SendPacketAsync(IPacket packet, CancellationToken ct = default) {
-    List<byte> bytes = [];
-    PacketProtocol.FramePacket(packet, bytes);
+  public async Task SendPacketAsync(IPacket packet, CancellationToken ct = default) =>
+    await SendFrameAsync(PacketProtocol.FramePacket(packet), ct);
 
+  /// <summary>
+  /// Sends an already framed packet to the remote endpoint
+  /// </summary>
+  /// <remarks>
+  /// This method is thread-safe
+  /// </remarks>
+  /// <param name="frame">the framed packet to send</param>
+  /// <param name="ct">cancellation token</param>
+  public async Task SendFrameAsync(byte[] frame, CancellationToken ct = default) {
     await _writeLock.WaitAsync(ct);
     try {
-      await _stream.WriteAsync(bytes.ToArray(), ct);
+      await _stream.WriteAsync(frame, ct);
     }
     finally {
       _writeLock.Release();
@@ -103,11 +111,11 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
   /// Calling this multiple times is safe
   /// </remarks>
   public void Close() {
-    if (_closed) {
+    // atomic exchange so two threads closing at once fire OnDisconnected only once
+    if (Interlocked.Exchange(ref _closed, 1) == 1) {
       return;
     }
 
-    _closed = true;
     client.Close();
     OnDisconnected?.Invoke(this);
   }

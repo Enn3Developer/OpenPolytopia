@@ -25,7 +25,8 @@ internal static class Program {
   private static async Task Main(string[] args) {
     var portValue = args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable(PORT_ENV);
     var port = NetworkConstants.DEFAULT_PORT;
-    if (!string.IsNullOrWhiteSpace(portValue) && !int.TryParse(portValue, out port)) {
+    if (!string.IsNullOrWhiteSpace(portValue) &&
+        (!int.TryParse(portValue, out port) || port is <= 0 or > ushort.MaxValue)) {
       Console.Error.WriteLine($"Invalid port: {portValue}");
       Environment.Exit(1);
     }

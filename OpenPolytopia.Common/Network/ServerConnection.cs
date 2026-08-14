@@ -2,7 +2,6 @@ namespace OpenPolytopia.Common.Network;
 
 using System.Collections.Concurrent;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using Packets;
 
 /// <summary>
@@ -17,6 +16,7 @@ using Packets;
 public class ServerConnection(int port, string? bindAddress = null) : IDisposable {
   private static readonly TimeSpan KEEP_ALIVE_INTERVAL = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
+  private static readonly TimeSpan SEND_TIMEOUT = TimeSpan.FromSeconds(10);
 
   private readonly TcpListener _listener = bindAddress == null
     ? TcpListener.Create(port)
@@ -98,17 +98,31 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   /// Sends a packet to a single client
   /// </summary>
   /// <remarks>
-  /// If the send fails, the client gets disconnected
+  /// If the send fails or takes longer than <see cref="SEND_TIMEOUT"/>, the client gets disconnected
   /// </remarks>
   /// <param name="id">the id of the client</param>
   /// <param name="packet">the packet to send</param>
-  public async Task SendToAsync(uint id, IPacket packet) {
+  public async Task SendToAsync(uint id, IPacket packet) => await SendToAsync(id, PacketProtocol.FramePacket(packet));
+
+  /// <summary>
+  /// Sends an already framed packet to a single client
+  /// </summary>
+  /// <remarks>
+  /// If the send fails or takes longer than <see cref="SEND_TIMEOUT"/>, the client gets disconnected
+  /// </remarks>
+  /// <param name="id">the id of the client</param>
+  /// <param name="frame">the framed packet to send</param>
+  public async Task SendToAsync(uint id, byte[] frame) {
     if (!_connections.TryGetValue(id, out var connection)) {
       return;
     }
 
+    // timeout the send so a client that stopped reading can't block the server
+    using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+    cts.CancelAfter(SEND_TIMEOUT);
+
     try {
-      await connection.SendPacketAsync(packet, _cts.Token);
+      await connection.SendFrameAsync(frame, cts.Token);
     }
     catch (Exception) {
       connection.Close();
@@ -119,22 +133,34 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   /// Sends a packet to every connected client
   /// </summary>
   /// <param name="packet">the packet to broadcast</param>
-  public async Task BroadcastAsync(IPacket packet) {
-    foreach (var id in _connections.Keys) {
-      await SendToAsync(id, packet);
-    }
-  }
+  public async Task BroadcastAsync(IPacket packet) => await BroadcastAsync(PacketProtocol.FramePacket(packet));
+
+  /// <summary>
+  /// Sends an already framed packet to every connected client
+  /// </summary>
+  /// <remarks>
+  /// The packet is framed once and the sends run concurrently,
+  /// so a slow client can't delay the others
+  /// </remarks>
+  /// <param name="frame">the framed packet to broadcast</param>
+  public async Task BroadcastAsync(byte[] frame) =>
+    await Task.WhenAll(_connections.Keys.Select(id => SendToAsync(id, frame)));
 
   /// <summary>
   /// Sends a packet to the given clients
   /// </summary>
   /// <param name="ids">the ids of the clients</param>
   /// <param name="packet">the packet to send</param>
-  public async Task BroadcastToAsync(IEnumerable<uint> ids, IPacket packet) {
-    foreach (var id in ids) {
-      await SendToAsync(id, packet);
-    }
-  }
+  public async Task BroadcastToAsync(IEnumerable<uint> ids, IPacket packet) =>
+    await BroadcastToAsync(ids, PacketProtocol.FramePacket(packet));
+
+  /// <summary>
+  /// Sends an already framed packet to the given clients
+  /// </summary>
+  /// <param name="ids">the ids of the clients</param>
+  /// <param name="frame">the framed packet to send</param>
+  public async Task BroadcastToAsync(IEnumerable<uint> ids, byte[] frame) =>
+    await Task.WhenAll(ids.Select(id => SendToAsync(id, frame)));
 
   private async Task ClientPacketReceivedAsync(NetworkConnection connection, IPacket packet) {
     // the keep alive response is managed here, the rest is forwarded
@@ -157,8 +183,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
     using var timer = new PeriodicTimer(KEEP_ALIVE_INTERVAL);
 
     try {
+      var keepAlive = PacketProtocol.FramePacket(new KeepAlivePacket());
+
       while (await timer.WaitForNextTickAsync(ct)) {
         var now = DateTime.UtcNow;
+        List<Task> sends = [];
 
         foreach (var connection in _connections.Values) {
           // kick clients that timed out
@@ -167,10 +196,10 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
             continue;
           }
 
-          await SendToAsync(connection.Id, new KeepAlivePacket {
-            Captcha = (uint)RandomNumberGenerator.GetInt32(int.MaxValue)
-          });
+          sends.Add(SendToAsync(connection.Id, keepAlive));
         }
+
+        await Task.WhenAll(sends);
       }
     }
     catch (OperationCanceledException) {

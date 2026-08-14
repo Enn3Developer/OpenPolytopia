@@ -144,18 +144,28 @@ public partial class NetworkNode : Node {
   /// <param name="delta">ignored</param>
   public override void _PhysicsProcess(double delta) {
     // only the active instance processes the packets
-    if (Instance != this || _connection == null) {
+    if (Instance != this) {
       return;
     }
 
-    while (_connection.IncomingPackets.TryDequeue(out var packet)) {
+    var connection = _connection;
+    if (connection == null) {
+      return;
+    }
+
+    while (connection.IncomingPackets.TryDequeue(out var packet)) {
       ProcessPacket(packet);
+
+      // stop if a handler disconnected
+      if (_connection != connection) {
+        return;
+      }
     }
 
     // manage a disconnection signalled by the background read task
     if (Interlocked.Exchange(ref _disconnectedFlag, 0) == 1) {
       _handshakeDone = false;
-      _connection.Dispose();
+      connection.Dispose();
       _connection = null;
       _lobbies.Clear();
       OnDisconnected?.Invoke();
@@ -186,6 +196,9 @@ public partial class NetworkNode : Node {
     _connection = null;
     _handshakeDone = false;
     _lobbies.Clear();
+
+    // consume the disconnection signalled by disposing the connection
+    Interlocked.Exchange(ref _disconnectedFlag, 0);
   }
 
   /// <summary>
@@ -266,6 +279,9 @@ public partial class NetworkNode : Node {
   }
 
   private static async Task ConnectToServerAsync(string host, int port) {
+    // clear a stale disconnection left over from a previous connection
+    Interlocked.Exchange(ref _disconnectedFlag, 0);
+
     var connection = new ClientConnection(host, port);
     try {
       _connection = connection;

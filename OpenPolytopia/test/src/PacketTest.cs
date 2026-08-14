@@ -34,8 +34,8 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
 
   [Test]
   public void TestKeepAlive() {
-    var packet = RoundTrip(new KeepAlivePacket { Captcha = 20u });
-    packet.Captcha.ShouldBe(20u);
+    var packet = RoundTrip(new KeepAlivePacket());
+    packet.ShouldNotBeNull();
   }
 
   [Test]

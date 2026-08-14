@@ -4,15 +4,12 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// Sent periodically by the server to check if a client is still alive
 /// </summary>
 /// <remarks>
-/// The client must echo it back, otherwise the server closes the connection
+/// The client echoes it back; a client that doesn't send anything for too long gets disconnected
 /// </remarks>
 public class KeepAlivePacket : IPacket {
-  /// <summary>
-  /// Random value that must be echoed back untouched
-  /// </summary>
-  public uint Captcha;
+  public void Serialize(List<byte> bytes) {
+  }
 
-  public void Serialize(List<byte> bytes) => Captcha.Serialize(bytes);
-
-  public void Deserialize(byte[] bytes, ref uint index) => Captcha.Deserialize(bytes, ref index);
+  public void Deserialize(byte[] bytes, ref uint index) {
+  }
 }

@@ -114,9 +114,12 @@ public partial class Lobby : Control {
 
   private void RefreshList() {
     var network = NetworkNode.Instance;
+
+    // remember the selection to restore it after the rebuild
+    var selectedId = SelectedLobby()?.Id;
     _lobbyList.Clear();
 
-    foreach (var lobby in network.Lobbies) {
+    foreach (var lobby in network.Lobbies.OrderBy(lobby => lobby.Id)) {
       var text = $"Lobby {lobby.Id} — {lobby.PlayersCount}/{lobby.MaxPlayers} players, {lobby.ReadyCount} ready";
       if (lobby.Starting) {
         text += " (starting)";
@@ -124,6 +127,10 @@ public partial class Lobby : Control {
 
       var index = _lobbyList.AddItem(text);
       _lobbyList.SetItemMetadata(index, lobby.Id);
+
+      if (lobby.Id == selectedId) {
+        _lobbyList.Select(index);
+      }
     }
   }
 
