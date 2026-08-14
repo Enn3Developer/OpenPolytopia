@@ -15,6 +15,11 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </summary>
   private static readonly TimeSpan START_LOBBY_INTERVAL = TimeSpan.FromSeconds(5);
 
+  /// <summary>
+  /// Max lobbies the server accepts before refusing new ones
+  /// </summary>
+  private const int MAX_LOBBIES = 100;
+
   private readonly ServerConnection _server = new(port, bindAddress);
   private readonly LobbyManager _lobbyManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
@@ -169,8 +174,15 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
       }
-      else if (packet.MaxPlayers is < 2 or > 16) {
+      else if (packet.MaxPlayers is < 2 or > 16 || !Enum.IsDefined((TribeType)packet.Tribe)) {
         result = LobbyActionResult.InvalidParameters;
+      }
+      // one lobby per player and a global cap, or a client could flood the server
+      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id)) {
+        result = LobbyActionResult.AlreadyJoinedLobby;
+      }
+      else if (_lobbyManager.LobbiesCount >= MAX_LOBBIES) {
+        result = LobbyActionResult.TooManyLobbies;
       }
       else {
         var lobby = _lobbyManager.CreateLobby(packet.MaxPlayers,
@@ -200,6 +212,13 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     try {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
+      }
+      else if (!Enum.IsDefined((TribeType)packet.Tribe)) {
+        result = LobbyActionResult.InvalidParameters;
+      }
+      // one lobby per player, or a client could flood the server
+      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id)) {
+        result = LobbyActionResult.AlreadyJoinedLobby;
       }
       else {
         result = _lobbyManager.JoinLobby(packet.LobbyId,

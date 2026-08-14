@@ -4,7 +4,7 @@ using System.IO;
 using Packets;
 
 /// <summary>
-/// Thrown when the remote endpoint sends a malformed or too big packet
+/// Thrown when a packet violates the wire format, like being malformed or too big
 /// </summary>
 public class ProtocolViolationException(string message) : Exception(message);
 
@@ -22,6 +22,7 @@ public static class PacketProtocol {
   /// </summary>
   /// <param name="packet">the packet to frame</param>
   /// <param name="bytes">the list where to append the framed packet</param>
+  /// <exception cref="ProtocolViolationException">if the framed packet exceeds <see cref="NetworkConstants.MAX_PACKET_SIZE"/></exception>
   public static void FramePacket(IPacket packet, List<byte> bytes) {
     // remember where this packet starts to insert the content length later
     var startIndex = bytes.Count;
@@ -30,8 +31,14 @@ public static class PacketProtocol {
     PacketRegistrar.GetPacketId(packet).Serialize(bytes);
     packet.Serialize(bytes);
 
-    // insert the content length before the id
+    // fail on the sender instead of disconnecting the receivers
     var contentLength = (uint)(bytes.Count - startIndex);
+    if (contentLength > NetworkConstants.MAX_PACKET_SIZE) {
+      bytes.RemoveRange(startIndex, bytes.Count - startIndex);
+      throw new ProtocolViolationException($"Packet too big: {contentLength} bytes");
+    }
+
+    // insert the content length before the id
     bytes.InsertRange(startIndex, contentLength.Serialize());
   }
 
@@ -44,18 +51,6 @@ public static class PacketProtocol {
     List<byte> bytes = [];
     FramePacket(packet, bytes);
     return [.. bytes];
-  }
-
-  /// <summary>
-  /// Frames a packet and writes it to the stream
-  /// </summary>
-  /// <param name="stream">the stream to write to</param>
-  /// <param name="packet">the packet to send</param>
-  /// <param name="ct">cancellation token</param>
-  public static async Task WritePacketAsync(Stream stream, IPacket packet, CancellationToken ct = default) {
-    List<byte> bytes = [];
-    FramePacket(packet, bytes);
-    await stream.WriteAsync(bytes.ToArray(), ct);
   }
 
   /// <summary>

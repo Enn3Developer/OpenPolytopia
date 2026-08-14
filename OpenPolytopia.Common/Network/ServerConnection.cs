@@ -63,7 +63,16 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
 
     try {
       while (!_cts.IsCancellationRequested) {
-        var client = await _listener.AcceptTcpClientAsync(_cts.Token);
+        TcpClient client;
+        try {
+          client = await _listener.AcceptTcpClientAsync(_cts.Token);
+        }
+        catch (SocketException e) {
+          // transient failure, like a connection aborted mid-handshake; keep accepting the others
+          Console.Error.WriteLine($"Failed to accept a connection: {e.Message}");
+          continue;
+        }
+
         var id = Interlocked.Increment(ref _nextId);
 
         var connection = new NetworkConnection(id, client);

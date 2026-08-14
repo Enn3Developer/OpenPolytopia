@@ -19,6 +19,11 @@ public class LobbyManager {
   public IReadOnlyCollection<LobbyData> Lobbies => _lobbies.Values;
 
   /// <summary>
+  /// Number of lobbies currently on the server
+  /// </summary>
+  public int LobbiesCount => _lobbies.Count;
+
+  /// <summary>
   /// Returns a lobby given its id
   /// </summary>
   /// <param name="id">the id of the lobby</param>
@@ -123,6 +128,12 @@ public class LobbyManager {
 
     return LobbyActionResult.Ok;
   }
+
+  /// <summary>
+  /// Checks if a player joined any lobby
+  /// </summary>
+  /// <param name="playerId">the id of the player</param>
+  public bool IsPlayerInAnyLobby(uint playerId) => _lobbies.Values.Any(lobby => lobby[playerId] != null);
 
   /// <summary>
   /// Removes a lobby

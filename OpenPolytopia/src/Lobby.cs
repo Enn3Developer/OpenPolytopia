@@ -1,7 +1,6 @@
 namespace OpenPolytopia;
 
 using System;
-using System.Collections.Specialized;
 using System.Linq;
 using Common;
 using Common.Network.Packets;
@@ -31,12 +30,13 @@ public partial class Lobby : Control {
     BuildUi();
 
     var network = NetworkNode.Instance;
-    network.Lobbies.CollectionChanged += OnLobbiesChanged;
+    network.OnLobbiesChanged += OnLobbiesChanged;
     network.OnLobbyCreated += OnLobbyCreated;
     network.OnLobbyJoined += OnLobbyJoined;
     network.OnLobbyLeft += OnLobbyLeft;
     network.OnReadySet += OnReadySet;
     network.OnGameStarted += OnGameStarted;
+    network.OnDisconnected += OnNetworkDisconnected;
 
     network.RefreshLobbies();
     RefreshList();
@@ -47,12 +47,13 @@ public partial class Lobby : Control {
     base._ExitTree();
 
     var network = NetworkNode.Instance;
-    network.Lobbies.CollectionChanged -= OnLobbiesChanged;
+    network.OnLobbiesChanged -= OnLobbiesChanged;
     network.OnLobbyCreated -= OnLobbyCreated;
     network.OnLobbyJoined -= OnLobbyJoined;
     network.OnLobbyLeft -= OnLobbyLeft;
     network.OnReadySet -= OnReadySet;
     network.OnGameStarted -= OnGameStarted;
+    network.OnDisconnected -= OnNetworkDisconnected;
   }
 
   private void BuildUi() {
@@ -107,8 +108,17 @@ public partial class Lobby : Control {
     bottomBar.AddChild(_statusLabel);
   }
 
-  private void OnLobbiesChanged(object? sender, NotifyCollectionChangedEventArgs e) {
+  private void OnLobbiesChanged() {
     RefreshList();
+    UpdateButtons();
+  }
+
+  private void OnNetworkDisconnected() {
+    // reset the joined state, its server side is gone
+    _joined = false;
+    _joinedLobbyId = 0;
+    _readyButton.SetPressedNoSignal(false);
+    _statusLabel.Text = "Disconnected from the server";
     UpdateButtons();
   }
 

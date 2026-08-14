@@ -10,8 +10,12 @@ using Packets;
 /// <remarks>
 /// Received packets are queued in <see cref="IncomingPackets"/> to let the consumer
 /// process them on its own thread; <see cref="KeepAlivePacket"/> gets answered automatically
+/// and the connection gets closed if the server doesn't send anything for longer than <see cref="TIMEOUT"/>
 /// </remarks>
 public class ClientConnection(string address, int port) : IDisposable {
+  private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
+  private static readonly TimeSpan TIMEOUT_CHECK_INTERVAL = TimeSpan.FromSeconds(5);
+
   private readonly TcpClient _client = new();
   private readonly CancellationTokenSource _cts = new();
   private NetworkConnection? _connection;
@@ -42,8 +46,9 @@ public class ClientConnection(string address, int port) : IDisposable {
     _connection.OnPacketReceived += PacketReceivedAsync;
     _connection.OnDisconnected += _ => OnDisconnected?.Invoke();
 
-    // read packets in background
+    // read packets and watch for a dead server in background
     _ = _connection.RunAsync(_cts.Token);
+    _ = TimeoutLoopAsync(_connection, _cts.Token);
   }
 
   /// <summary>
@@ -64,6 +69,23 @@ public class ClientConnection(string address, int port) : IDisposable {
   public void Disconnect() {
     _cts.Cancel();
     _connection?.Close();
+  }
+
+  private static async Task TimeoutLoopAsync(NetworkConnection connection, CancellationToken ct) {
+    using var timer = new PeriodicTimer(TIMEOUT_CHECK_INTERVAL);
+
+    try {
+      while (await timer.WaitForNextTickAsync(ct)) {
+        // the server pings every 10 seconds, a long silence means it's gone
+        if (DateTime.UtcNow - connection.LastReceived > TIMEOUT) {
+          connection.Close();
+          return;
+        }
+      }
+    }
+    catch (OperationCanceledException) {
+      // client disconnecting
+    }
   }
 
   private async Task PacketReceivedAsync(NetworkConnection connection, IPacket packet) {

@@ -12,6 +12,7 @@ public enum LobbyActionResult : byte {
   AlreadyJoinedLobby = 5,
   NotInLobby = 6,
   InvalidParameters = 7,
+  TooManyLobbies = 8,
 }
 
 public static class LobbyActionResultSerialization {

@@ -1,7 +1,7 @@
 namespace OpenPolytopia;
 
 using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,7 +39,7 @@ public partial class NetworkNode : Node {
   private static ClientConnection? _connection;
   private static bool _handshakeDone;
   private static uint _playerId;
-  private static readonly ObservableCollection<LobbyData> _lobbies = [];
+  private static readonly List<LobbyData> _lobbies = [];
   private static int _disconnectedFlag;
 
   /// <summary>
@@ -84,7 +84,12 @@ public partial class NetworkNode : Node {
   /// <summary>
   /// Lobbies data; it updates when the server broadcasts lobby changes
   /// </summary>
-  public ObservableCollection<LobbyData> Lobbies => _lobbies;
+  public IReadOnlyList<LobbyData> Lobbies => _lobbies;
+
+  /// <summary>
+  /// Fired once after every change to <see cref="Lobbies"/>
+  /// </summary>
+  public event Action? OnLobbiesChanged;
 
   /// <summary>
   /// Fired after a successful handshake
@@ -150,6 +155,11 @@ public partial class NetworkNode : Node {
 
     var connection = _connection;
     if (connection == null) {
+      // surface a connection attempt that failed before being established
+      if (Interlocked.Exchange(ref _disconnectedFlag, 0) == 1) {
+        OnDisconnected?.Invoke();
+      }
+
       return;
     }
 
@@ -168,6 +178,7 @@ public partial class NetworkNode : Node {
       connection.Dispose();
       _connection = null;
       _lobbies.Clear();
+      OnLobbiesChanged?.Invoke();
       OnDisconnected?.Invoke();
     }
   }
@@ -196,6 +207,7 @@ public partial class NetworkNode : Node {
     _connection = null;
     _handshakeDone = false;
     _lobbies.Clear();
+    OnLobbiesChanged?.Invoke();
 
     // consume the disconnection signalled by disposing the connection
     Interlocked.Exchange(ref _disconnectedFlag, 0);
@@ -292,22 +304,26 @@ public partial class NetworkNode : Node {
     catch (Exception e) {
       GD.PushError($"Error while connecting to {host}:{port}: {e}");
 
-      // remove the connection to let a new node retry
+      // remove the connection and surface the failure to let a scene retry
       if (_connection == connection) {
         _connection = null;
+        Interlocked.Exchange(ref _disconnectedFlag, 1);
       }
 
       connection.Dispose();
     }
   }
 
-  private void Send(IPacket packet) {
-    if (_connection == null) {
+  private static void Send(IPacket packet) {
+    var connection = _connection;
+
+    // wait for the handshake, or packets could get lost or beat the handshake onto the wire
+    if (connection == null || !_handshakeDone) {
       GD.PushError("Not connected to the server");
       return;
     }
 
-    _ = SendAsync(_connection, packet);
+    _ = SendAsync(connection, packet);
   }
 
   private static async Task SendAsync(ClientConnection connection, IPacket packet) {
@@ -340,10 +356,8 @@ public partial class NetworkNode : Node {
         break;
       case GetLobbiesResponsePacket lobbiesResponse:
         _lobbies.Clear();
-        foreach (var lobby in lobbiesResponse.Lobbies) {
-          _lobbies.Add(lobby);
-        }
-
+        _lobbies.AddRange(lobbiesResponse.Lobbies);
+        OnLobbiesChanged?.Invoke();
         break;
       case CreateLobbyResponsePacket createLobbyResponse:
         OnLobbyCreated?.Invoke(createLobbyResponse.Result, createLobbyResponse.LobbyId);
@@ -358,19 +372,20 @@ public partial class NetworkNode : Node {
         OnReadySet?.Invoke(setReadyResponse.Result, setReadyResponse.LobbyId);
         break;
       case LobbyUpdatedPacket lobbyUpdated:
-        // remove the old lobby data if present
-        var oldLobby = _lobbies.FirstOrDefault(lobby => lobby.Id == lobbyUpdated.Lobby.Id);
-        if (oldLobby != null) {
-          _lobbies.Remove(oldLobby);
+        // replace the old lobby data in place if present
+        var oldIndex = _lobbies.FindIndex(lobby => lobby.Id == lobbyUpdated.Lobby.Id);
+        if (oldIndex >= 0) {
+          _lobbies[oldIndex] = lobbyUpdated.Lobby;
+        }
+        else {
+          _lobbies.Add(lobbyUpdated.Lobby);
         }
 
-        // add back the lobby data to force the list to emit the event
-        _lobbies.Add(lobbyUpdated.Lobby);
+        OnLobbiesChanged?.Invoke();
         break;
       case LobbyDeletedPacket lobbyDeleted:
-        var deletedLobby = _lobbies.FirstOrDefault(lobby => lobby.Id == lobbyDeleted.LobbyId);
-        if (deletedLobby != null) {
-          _lobbies.Remove(deletedLobby);
+        if (_lobbies.RemoveAll(lobby => lobby.Id == lobbyDeleted.LobbyId) > 0) {
+          OnLobbiesChanged?.Invoke();
         }
 
         break;

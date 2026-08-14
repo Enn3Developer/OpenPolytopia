@@ -42,16 +42,6 @@ public static class UIntSerialization {
   }
 }
 
-public static class IntSerialization {
-  public static void Serialize(this int value, List<byte> bytes) => ((uint)value).Serialize(bytes);
-
-  public static void Deserialize(this ref int value, byte[] bytes, ref uint index) {
-    var unsigned = 0u;
-    unsigned.Deserialize(bytes, ref index);
-    value = (int)unsigned;
-  }
-}
-
 public static class ULongSerialization {
   public static void Serialize(this ulong value, List<byte> bytes) {
     bytes.Add((byte)(value >> 56));
