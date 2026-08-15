@@ -11,7 +11,14 @@ using Godot;
 public class CityManager(Grid grid) {
   private readonly List<uint> _cities = [];
 
-  public IEnumerable<uint> Cities => _cities;
+  /// <summary>
+  /// Grid indexes of the registered cities
+  /// </summary>
+  /// <remarks>
+  /// The city with id <c>i</c> is at position <c>i - 1</c>; don't modify this list because the
+  /// ids are positions in it, use <see cref="RegisterCity(uint)"/> to add a city
+  /// </remarks>
+  public IReadOnlyList<uint> Cities => _cities;
 
   /// <summary>
   /// Access to the <see cref="CityData"/>

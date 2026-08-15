@@ -214,8 +214,11 @@ public class TerrainGeneration(
             }
           }
 
-          var kind = waterCount <= relief ? TileKind.Field : TileKind.Ocean;
-          grid.ModifyTile(grid.GridPositionToIndex(x, y), (ref Tile tile) => tile.Kind = kind);
+          // the indexer avoids allocating a closure capturing the computed kind for every tile
+          var index = grid.GridPositionToIndex(x, y);
+          var tile = grid[index];
+          tile.Kind = waterCount <= relief ? TileKind.Field : TileKind.Ocean;
+          grid[index] = tile;
         }
       }
     }
@@ -364,8 +367,11 @@ public class TerrainGeneration(
         await Task.Yield();
       }
 
+      // the indexer avoids allocating a closure capturing the biome for every tile
       var biome = NearestCapitalTribe(i);
-      grid.ModifyTile(i, (ref Tile tile) => tile.Biome = biome);
+      var biomeTile = grid[i];
+      biomeTile.Biome = biome;
+      grid[i] = biomeTile;
 
       if (grid[i].Kind != TileKind.Field) {
         continue;
@@ -409,7 +415,10 @@ public class TerrainGeneration(
                        (y > 0 && IsLand(snapshot[((y - 1) * size) + x])) ||
                        (y < size - 1 && IsLand(snapshot[((y + 1) * size) + x]));
         if (nearLand) {
-          grid.ModifyTile(grid.GridPositionToIndex(x, y), (ref Tile tile) => tile.Kind = TileKind.Water);
+          var index = grid.GridPositionToIndex(x, y);
+          var tile = grid[index];
+          tile.Kind = TileKind.Water;
+          grid[index] = tile;
         }
       }
     }
@@ -426,11 +435,12 @@ public class TerrainGeneration(
     var size = (int)grid.Size;
     var cells = (uint)(size * size);
 
-    // collect all the tiles where a village can spawn
+    // collect all the tiles where a village can spawn; border expansion tiles are allowed
+    // so villages can be exactly 2 tiles away from another city
     var candidates = new List<uint>();
     for (var i = 0u; i < cells; i++) {
       grid.IndexToGridPosition(i, out var x, out var y);
-      if (_zoneMap[i] == ZONE_FREE && grid[i].Kind is TileKind.Field or TileKind.Forest &&
+      if (_zoneMap[i] <= ZONE_BORDER && grid[i].Kind is TileKind.Field or TileKind.Forest &&
           x > 0 && y > 0 && x < size - 1 && y < size - 1) {
         candidates.Add(i);
       }
@@ -441,8 +451,8 @@ public class TerrainGeneration(
       var index = candidates[position];
       candidates.RemoveAt(position);
 
-      // a previously placed village may have claimed this tile
-      if (_zoneMap[index] != ZONE_FREE) {
+      // a previously placed village may have claimed this tile as its territory
+      if (_zoneMap[index] > ZONE_BORDER) {
         continue;
       }
 

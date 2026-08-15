@@ -1,8 +1,6 @@
 namespace OpenPolytopia;
 
 using System;
-using System.Text.Json;
-using System.Text.Unicode;
 using System.Threading.Tasks;
 using Common;
 using Godot;
@@ -19,12 +17,6 @@ using Godot;
 /// </remarks>
 [GlobalClass]
 public partial class TerrainGenerationNode : Node {
-  private static readonly JsonSerializerOptions _jsonOptions = new() {
-    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
-    TypeInfoResolver = TribeGenerationContext.Default,
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-  };
-
   /// <summary>
   /// Emitted when the map has been generated
   /// </summary>
@@ -199,7 +191,7 @@ public partial class TerrainGenerationNode : Node {
   /// Registers the tribes from the embedded <c>tribes.json</c>
   /// </summary>
   private void RegisterEmbeddedTribes() {
-    var tribes = JsonSerializer.Deserialize<TribesSerializedData>(EmbeddedResources.TribesData, _jsonOptions);
+    var tribes = EmbeddedResources.LoadTribes();
     if (tribes == null) {
       GD.PushWarning("no tribes data found; terrain generation will use the base rates");
       return;
