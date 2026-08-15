@@ -10,6 +10,11 @@ using OpenPolytopia.Common.Network.Packets;
 /// This class isn't thread-safe, <see cref="GameServer"/> serializes every access through its own lock
 /// </remarks>
 public class LobbyManager {
+  /// <summary>
+  /// Minimum players needed to start a game; solo games aren't allowed
+  /// </summary>
+  private const uint MIN_PLAYERS_TO_START = 2;
+
   private readonly Dictionary<ulong, LobbyData> _lobbies = new();
   private ulong _nextId;
 
@@ -53,7 +58,7 @@ public class LobbyManager {
       return LobbyActionResult.LobbyNotFound;
     }
 
-    if (lobby.Starting || lobby.Started) {
+    if (lobby.Starting) {
       return LobbyActionResult.LobbyAlreadyStarted;
     }
 
@@ -81,7 +86,7 @@ public class LobbyManager {
       return LobbyActionResult.LobbyNotFound;
     }
 
-    if (lobby.Starting || lobby.Started) {
+    if (lobby.Starting) {
       return LobbyActionResult.LobbyAlreadyStarted;
     }
 
@@ -113,7 +118,7 @@ public class LobbyManager {
       return LobbyActionResult.LobbyNotFound;
     }
 
-    if (lobby.Starting || lobby.Started) {
+    if (lobby.Starting) {
       return LobbyActionResult.LobbyAlreadyStarted;
     }
 
@@ -128,15 +133,16 @@ public class LobbyManager {
   }
 
   /// <summary>
-  /// Marks a lobby as starting when every player in it is ready
+  /// Marks a lobby as starting when it has at least <see cref="MIN_PLAYERS_TO_START"/> players
+  /// and every one of them is ready
   /// </summary>
   /// <remarks>
   /// Called after every change to the players of a lobby,
-  /// because removing the last not-ready player must start it too
+  /// because removing the last not-ready player can start it too
   /// </remarks>
   /// <param name="lobby">the lobby to check</param>
   private static void TryMarkStarting(LobbyData lobby) {
-    if (lobby.PlayersCount > 0 && lobby.ReadyCount == lobby.PlayersCount) {
+    if (lobby.PlayersCount >= MIN_PLAYERS_TO_START && lobby.ReadyCount == lobby.PlayersCount) {
       lobby.Starting = true;
     }
   }
@@ -182,11 +188,6 @@ public class LobbyManager {
   /// <param name="deleted">filled with the ids of the lobbies that got removed</param>
   public void RemovePlayerFromAllLobbies(uint playerId, List<LobbyData> updated, List<ulong> deleted) {
     foreach (var lobby in _lobbies.Values.ToArray()) {
-      // players can't abandon a game that already started
-      if (lobby.Started) {
-        continue;
-      }
-
       var player = lobby[playerId];
       if (player == null) {
         continue;
@@ -214,10 +215,12 @@ public class LobbyManager {
     List<LobbyData> starting = [];
 
     foreach (var lobby in _lobbies.Values.ToArray()) {
-      if (!lobby.Starting || lobby.Started) {
+      if (!lobby.Starting) {
         continue;
       }
 
+      // the flag marks the snapshot handed to the game; the lobby itself leaves the manager,
+      // so no lobby inside it is ever started
       lobby.Started = true;
       _lobbies.Remove(lobby.Id);
       starting.Add(lobby);

@@ -32,6 +32,8 @@ public partial class NetworkNode : Node {
   /// </remarks>
   public static NetworkNode? Instance { get; private set; }
 
+  private static readonly TimeSpan RECONNECT_DELAY = TimeSpan.FromSeconds(3);
+
   private const string HOST_ENV = "OPENPOLYTOPIA_SERVER_HOST";
   private const string PORT_ENV = "OPENPOLYTOPIA_SERVER_PORT";
   private const string HOST_ARG = "--server-host";
@@ -44,6 +46,7 @@ public partial class NetworkNode : Node {
   private static readonly List<LobbyData> _lobbies = [];
   private static readonly Queue<IPacket> _pendingPackets = new();
   private static int _disconnectedFlag;
+  private static DateTime _reconnectAt = DateTime.MaxValue;
 
   /// <summary>
   /// Host to connect to
@@ -67,6 +70,7 @@ public partial class NetworkNode : Node {
 
   /// <summary>
   /// If true, the node connects to the server as soon as it enters the tree
+  /// and retries every <see cref="RECONNECT_DELAY"/> after a connection loss
   /// </summary>
   [Export]
   public bool AutoConnect { get; set; } = true;
@@ -179,6 +183,11 @@ public partial class NetworkNode : Node {
         OnDisconnected?.Invoke();
       }
 
+      // retry periodically after a connection loss
+      if (AutoConnect && DateTime.UtcNow >= _reconnectAt) {
+        ConnectToServer();
+      }
+
       return;
     }
 
@@ -215,14 +224,18 @@ public partial class NetworkNode : Node {
       return;
     }
 
+    // schedule the next automatic retry in case this attempt fails
+    _reconnectAt = DateTime.UtcNow + RECONNECT_DELAY;
+
     var (host, port) = ResolveServerAddress();
     _ = ConnectToServerAsync(host, port);
   }
 
   /// <summary>
-  /// Closes the shared connection
+  /// Closes the shared connection and stops the automatic reconnection
   /// </summary>
   public void Disconnect() {
+    _reconnectAt = DateTime.MaxValue;
     _connection?.Dispose();
     _connection = null;
     _handshakeDone = false;
@@ -338,9 +351,14 @@ public partial class NetworkNode : Node {
   private static void Send(IPacket packet) {
     var connection = _connection;
 
+    // without a connection there is no telling when the packet could go out, drop it
+    if (connection == null) {
+      return;
+    }
+
     // queue the packet while the handshake is in flight, connecting takes a moment;
     // the queue gets flushed after the handshake and dropped on a failed connection
-    if (connection == null || !_handshakeDone) {
+    if (!_handshakeDone) {
       _pendingPackets.Enqueue(packet);
       return;
     }
@@ -363,6 +381,9 @@ public partial class NetworkNode : Node {
         if (!handshakeResponse.Ok) {
           GD.PushError("Server refused the connection: incompatible version");
           Disconnect();
+
+          // let the scenes surface the refusal; retrying would fail the same way
+          OnDisconnected?.Invoke();
           break;
         }
 

@@ -42,11 +42,16 @@ layout_mode = 2
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 placeholder_text = "Insert your nickname here..."
+max_length = 32
 
 [node name="Button" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Play"
+
+[node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
 
 [node name="NetworkNode" type="Node" parent="."]
 script = ExtResource("3_netnode")

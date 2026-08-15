@@ -9,8 +9,9 @@ using Packets;
 /// Accepts TCP connections and manages one <see cref="NetworkConnection"/> per client
 /// </summary>
 /// <remarks>
-/// Outgoing packets go through one queue per client, so they get delivered
-/// in the order they were enqueued and a slow client can't delay the others.
+/// Outgoing packets go through one bounded queue per client, so they get delivered
+/// in the order they were enqueued and a slow client can't delay the others
+/// nor grow the memory of the server by never draining his queue.
 /// Every <see cref="KEEP_ALIVE_INTERVAL"/> it sends a <see cref="KeepAlivePacket"/> to every client
 /// and disconnects the ones that didn't send anything back for longer than <see cref="TIMEOUT"/>;
 /// clients that don't complete a handshake within <see cref="HANDSHAKE_TIMEOUT"/> get disconnected too
@@ -22,6 +23,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
   private static readonly TimeSpan HANDSHAKE_TIMEOUT = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan SEND_TIMEOUT = TimeSpan.FromSeconds(10);
+
+  /// <summary>
+  /// Max frames queued for a single client; way more than lobby traffic ever needs
+  /// </summary>
+  private const int MAX_QUEUED_FRAMES = 256;
 
   private readonly TcpListener _listener = bindAddress == null
     ? TcpListener.Create(port)
@@ -132,6 +138,7 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   /// <param name="id">the id of the client</param>
   public void Kick(uint id) {
     if (_clients.TryGetValue(id, out var client)) {
+      client.Kicked = true;
       client.Outgoing.Writer.TryComplete();
     }
   }
@@ -150,7 +157,7 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   /// <param name="frame">the framed packet to send</param>
   public void SendTo(uint id, byte[] frame) {
     if (_clients.TryGetValue(id, out var client)) {
-      client.Outgoing.Writer.TryWrite(frame);
+      Enqueue(client, frame);
     }
   }
 
@@ -167,7 +174,7 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   public void Broadcast(byte[] frame) {
     foreach (var client in _clients.Values) {
       if (client.HandshakeDone) {
-        client.Outgoing.Writer.TryWrite(frame);
+        Enqueue(client, frame);
       }
     }
   }
@@ -181,6 +188,21 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
     var frame = PacketProtocol.FramePacket(packet);
     foreach (var id in ids) {
       SendTo(id, frame);
+    }
+  }
+
+  /// <summary>
+  /// Queues a frame for a client
+  /// </summary>
+  /// <remarks>
+  /// A full queue means the client reads too slowly to keep up with the server,
+  /// so he gets disconnected instead of eating up memory
+  /// </remarks>
+  /// <param name="client">the client to queue the frame for</param>
+  /// <param name="frame">the framed packet to queue</param>
+  private static void Enqueue(Client client, byte[] frame) {
+    if (!client.Outgoing.Writer.TryWrite(frame) && !client.Kicked) {
+      client.Connection.Close();
     }
   }
 
@@ -276,11 +298,15 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
     public NetworkConnection Connection { get; } = connection;
     public DateTime ConnectedAt { get; } = DateTime.UtcNow;
     public volatile bool HandshakeDone;
+    public volatile bool Kicked;
 
     /// <summary>
     /// Packets waiting to be sent to this client
     /// </summary>
+    /// <remarks>
+    /// Bounded, so a client that stops draining it can't grow the memory of the server forever
+    /// </remarks>
     public Channel<byte[]> Outgoing { get; } =
-      Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
+      Channel.CreateBounded<byte[]>(new BoundedChannelOptions(MAX_QUEUED_FRAMES) { SingleReader = true });
   }
 }

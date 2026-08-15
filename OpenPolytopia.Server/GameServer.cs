@@ -133,7 +133,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         List<LobbyData> updated = [];
         _lobbyManager.RenamePlayerInLobbies(connection.Id, name, updated);
         foreach (var lobby in updated) {
-          _server.Broadcast(PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby }));
+          _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
         }
       }
 
@@ -182,7 +182,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       _server.SendTo(connection.Id, new CreateLobbyResponsePacket { Result = result, LobbyId = lobby?.Id ?? 0 });
 
       if (lobby != null) {
-        _server.Broadcast(PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby }));
+        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
     }
     finally {
@@ -213,7 +213,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       _server.SendTo(connection.Id, new JoinLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
       if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
-        _server.Broadcast(PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby }));
+        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
     }
     finally {
@@ -232,10 +232,10 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         // remove the lobby if it became empty
         if (lobby.PlayersCount == 0) {
           _lobbyManager.RemoveLobby(lobby.Id);
-          _server.Broadcast(PacketProtocol.FramePacket(new LobbyDeletedPacket { LobbyId = lobby.Id }));
+          _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
         }
         else {
-          _server.Broadcast(PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby }));
+          _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
         }
       }
     }
@@ -252,7 +252,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       _server.SendTo(connection.Id, new SetReadyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
       if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
-        _server.Broadcast(PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby }));
+        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
     }
     finally {
@@ -270,11 +270,11 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       _lobbyManager.RemovePlayerFromAllLobbies(connection.Id, updated, deletedIds);
 
       foreach (var lobby in updated) {
-        _server.Broadcast(PacketProtocol.FramePacket(new LobbyUpdatedPacket { Lobby = lobby }));
+        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
 
       foreach (var id in deletedIds) {
-        _server.Broadcast(PacketProtocol.FramePacket(new LobbyDeletedPacket { LobbyId = id }));
+        _server.Broadcast(new LobbyDeletedPacket { LobbyId = id });
       }
     }
     finally {
