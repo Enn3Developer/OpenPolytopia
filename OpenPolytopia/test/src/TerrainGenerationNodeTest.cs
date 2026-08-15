@@ -57,6 +57,25 @@ public class TerrainGenerationNodeTest(Node testScene) : TestClass(testScene) {
   }
 
   [Test]
+  public async Task TestQueuedGeneration() {
+    var node = new TerrainGenerationNode {
+      GenerateOnReady = false, GridSize = 16, Seed = 42, PlayerTribes = [(int)TribeType.Imperius]
+    };
+
+    var generated = 0;
+    node.MapGenerated += () => generated++;
+
+    // a call made while a generation is running must generate its own map
+    var first = node.GenerateMapAsync();
+    var second = node.GenerateMapAsync();
+    await first;
+    await second;
+
+    generated.ShouldBe(2);
+    node.Free();
+  }
+
+  [Test]
   public async Task TestInvalidPlayers() {
     var node = new TerrainGenerationNode { GenerateOnReady = false, PlayerTribes = [] };
 

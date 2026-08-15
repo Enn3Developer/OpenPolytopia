@@ -142,18 +142,24 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     var (grid, _, _) = await GenerateMapAsync();
 
     var ruins = 0;
+    var waterRuins = 0;
     for (var i = 0u; i < SIZE * SIZE; i++) {
       if (grid[i].Ruin) {
         ruins++;
+        if (grid[i].Kind is TileKind.Water or TileKind.Ocean) {
+          waterRuins++;
+        }
 
         // ruins never spawn on a tile with a resource
         grid[i].Modifier.ShouldBe(0);
       }
     }
 
-    // one ruin every 40 tiles
-    ruins.ShouldBeGreaterThan(0);
-    ruins.ShouldBeLessThanOrEqualTo((int)(SIZE * SIZE / 40));
+    // one ruin every 40 tiles, at most a third of them on water; at least the land ruins
+    // must always be placed
+    var total = (int)(SIZE * SIZE / 40);
+    ruins.ShouldBeInRange(total - (total / 3), total);
+    waterRuins.ShouldBeLessThanOrEqualTo(total / 3);
   }
 
   [Test]

@@ -54,9 +54,10 @@ public partial class TerrainGenerationNode : Node {
   /// Land/water balance of the smoothing passes
   /// </summary>
   /// <remarks>
-  /// Lower values produce more compact continents while higher values produce rougher coasts
+  /// Lower values erode the land into the ocean while higher values expand it; the range is
+  /// limited because values outside it erode or flood the whole map
   /// </remarks>
-  [Export(PropertyHint.Range, "0,8,1")]
+  [Export(PropertyHint.Range, "3,6,1")]
   public int Relief { get; set; } = 4;
 
   /// <summary>
@@ -105,7 +106,7 @@ public partial class TerrainGenerationNode : Node {
   /// </remarks>
   public Player[]? Players { get; private set; }
 
-  // currently running generation, so concurrent calls can't race each other
+  // latest queued generation, so concurrent calls chain instead of racing each other
   private Task? _generation;
 
   /// <summary>
@@ -132,7 +133,8 @@ public partial class TerrainGenerationNode : Node {
   /// can be called again to regenerate the map; emits <see cref="MapGenerated"/> when done.
   /// <br/>
   /// If a generation is already running (for example the one started by
-  /// <see cref="GenerateOnReady"/>), this waits for it instead of starting another one
+  /// <see cref="GenerateOnReady"/>), this waits for it to finish and then generates another
+  /// map, so the parameters set before this call are always used
   /// </remarks>
   /// <exception cref="InvalidOperationException">
   /// if <see cref="PlayerTribes"/> is empty, has more than 15 players or contains an invalid tribe
@@ -145,19 +147,32 @@ public partial class TerrainGenerationNode : Node {
   /// </code>
   /// </example>
   public async Task GenerateMapAsync() {
-    // if a generation is already running, wait for it instead of racing it
-    if (_generation != null) {
-      await _generation;
-      return;
-    }
-
-    _generation = GenerateInternalAsync();
+    // queue this generation after the running one, so this call always generates a fresh map
+    // with the current parameters instead of returning a map built from stale ones
+    var current = GenerateAfterAsync(_generation);
+    _generation = current;
     try {
-      await _generation;
+      await current;
     }
     finally {
-      _generation = null;
+      // a queued generation may have replaced this one already
+      if (_generation == current) {
+        _generation = null;
+      }
     }
+  }
+
+  private async Task GenerateAfterAsync(Task? previous) {
+    if (previous != null) {
+      try {
+        await previous;
+      }
+      catch (Exception) {
+        // the previous generation already reported its failure to its own caller
+      }
+    }
+
+    await GenerateInternalAsync();
   }
 
   private async Task GenerateInternalAsync() {

@@ -12,7 +12,8 @@ using System.Runtime.CompilerServices;
 /// <item>Capital placement: capitals are placed on land maximizing the distance between each other</item>
 /// <item>Terrain assignment: every tile gets the biome of the nearest capital and rolls
 /// mountain/forest/water using the tribe terrain rates</item>
-/// <item>Village placement: villages are placed on free land at least 2 tiles away from other villages</item>
+/// <item>Village placement: about one village every 9 eligible tiles, at least 2 tiles away
+/// from any other city or village</item>
 /// <item>Resource spawning: resources spawn only within 2 tiles of a city or village,
 /// with reduced rates on the outer ring</item>
 /// <item>Ruins: <c>tiles / 40</c> ancient ruins, at most a third of them on water</item>
@@ -52,6 +53,9 @@ public class TerrainGeneration(
   // one ruin every RUINS_DIVISOR tiles, at most a third of them on water
   private const int RUINS_DIVISOR = 40;
 
+  // one village every VILLAGE_DIVISOR eligible tiles
+  private const int VILLAGE_DIVISOR = 9;
+
   // Tile.City is 8 bits so there can't be more than 255 cities in a grid
   private const int MAX_CITIES = 255;
 
@@ -87,8 +91,9 @@ public class TerrainGeneration(
   /// Land/water balance of the smoothing passes
   /// </summary>
   /// <remarks>
-  /// A cell stays land when at most <c>Relief</c> of the 9 cells around it are water,
-  /// so lower values produce more compact continents while higher values produce rougher coasts
+  /// A cell stays land when at most <c>Relief</c> of the 9 cells around it are water, so lower
+  /// values erode the land into the ocean while higher values expand it; below 3 the smoothing
+  /// passes can erode the whole map into ocean
   /// </remarks>
   public int Relief { get; init; } = 4;
 
@@ -429,7 +434,8 @@ public class TerrainGeneration(
   /// </summary>
   /// <remarks>
   /// Villages spawn on free field/forest tiles at least 1 tile away from the map border and
-  /// 2 tiles away from any other city or village, until no free tile remains
+  /// 2 tiles away from any other city or village; about one village every 9 eligible tiles
+  /// is placed so villages don't saturate the land
   /// </remarks>
   private async Task GenerateCitiesAsync() {
     var size = (int)grid.Size;
@@ -446,7 +452,11 @@ public class TerrainGeneration(
       }
     }
 
-    while (candidates.Count > 0 && _citiesCount < MAX_CITIES) {
+    // bound the number of villages, otherwise the random placement would maximally pack the
+    // land with a village every 2 tiles
+    var target = Math.Max(1, candidates.Count / VILLAGE_DIVISOR);
+    var placed = 0;
+    while (placed < target && candidates.Count > 0 && _citiesCount < MAX_CITIES) {
       var position = _rng.Next(candidates.Count);
       var index = candidates[position];
       candidates.RemoveAt(position);
@@ -469,6 +479,7 @@ public class TerrainGeneration(
       });
 
       MarkCityZone(index);
+      placed++;
     }
   }
 
