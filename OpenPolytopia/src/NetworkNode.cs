@@ -47,6 +47,8 @@ public partial class NetworkNode : Node {
   private static readonly Queue<IPacket> _pendingPackets = new();
   private static int _disconnectedFlag;
   private static DateTime _reconnectAt = DateTime.MaxValue;
+  private static string? _requestedName;
+  private static string? _acceptedName;
 
   /// <summary>
   /// Host to connect to
@@ -207,6 +209,10 @@ public partial class NetworkNode : Node {
       _connection = null;
       _lobbies.Clear();
       _pendingPackets.Clear();
+
+      // wait before the first retry, the server could still be going down
+      _reconnectAt = DateTime.UtcNow + RECONNECT_DELAY;
+
       OnLobbiesChanged?.Invoke();
       OnDisconnected?.Invoke();
     }
@@ -251,7 +257,10 @@ public partial class NetworkNode : Node {
   /// Registers the player on the server or renames him
   /// </summary>
   /// <param name="name">the new player's name</param>
-  public void SetName(string name) => Send(new SetNamePacket { Name = name });
+  public void SetName(string name) {
+    _requestedName = name;
+    Send(new SetNamePacket { Name = name });
+  }
 
   /// <summary>
   /// Queries the server for all the lobbies
@@ -391,6 +400,11 @@ public partial class NetworkNode : Node {
         _handshakeDone = true;
         OnConnected?.Invoke();
 
+        // register again after a reconnection, the server forgot this player
+        if (_acceptedName != null) {
+          Send(new SetNamePacket { Name = _acceptedName });
+        }
+
         // send the packets queued while connecting; stop if a handler disconnected
         while (_handshakeDone && _pendingPackets.TryDequeue(out var pending)) {
           Send(pending);
@@ -400,6 +414,11 @@ public partial class NetworkNode : Node {
         RefreshLobbies();
         break;
       case SetNameResponsePacket setNameResponse:
+        if (setNameResponse.Ok) {
+          // remember the name to register again after a reconnection
+          _acceptedName = _requestedName;
+        }
+
         OnNameSet?.Invoke(setNameResponse.Ok);
         break;
       case GetLobbiesResponsePacket lobbiesResponse:

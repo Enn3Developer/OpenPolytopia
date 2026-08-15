@@ -23,6 +23,7 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
   private static readonly TimeSpan HANDSHAKE_TIMEOUT = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan SEND_TIMEOUT = TimeSpan.FromSeconds(10);
+  private static readonly TimeSpan ACCEPT_RETRY_DELAY = TimeSpan.FromSeconds(1);
 
   /// <summary>
   /// Max frames queued for a single client; way more than lobby traffic ever needs
@@ -74,8 +75,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
           tcpClient = await _listener.AcceptTcpClientAsync(_cts.Token);
         }
         catch (SocketException e) {
-          // transient failure, like a connection aborted mid-handshake; keep accepting the others
+          // transient failure, like a connection aborted mid-handshake; keep accepting the others.
+          // back off a little so a persistent failure, like running out of file descriptors,
+          // doesn't turn this into a busy loop
           Console.Error.WriteLine($"Failed to accept a connection: {e.Message}");
+          await Task.Delay(ACCEPT_RETRY_DELAY, _cts.Token);
           continue;
         }
 

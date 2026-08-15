@@ -200,7 +200,9 @@ public class LobbyManager {
         deleted.Add(lobby.Id);
       }
       else {
-        // the disconnected player could be the last not-ready one
+        // the disconnected player could be the last not-ready one,
+        // or he could drop the lobby below the minimum to start
+        lobby.Starting = false;
         TryMarkStarting(lobby);
         updated.Add(lobby);
       }
