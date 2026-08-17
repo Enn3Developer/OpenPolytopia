@@ -42,7 +42,7 @@ public class TechTreeDefinition {
   /// <see cref="SubTreeTech.MAX_NODES"/> nodes or if the same node id is used more than once
   /// </exception>
   /// <exception cref="ArgumentNullException">
-  /// if the list of the branches or the list of the nodes of a branch is null
+  /// if <c>data</c>, the list of the branches, a branch or the list of the nodes of a branch is null
   /// </exception>
   /// <example>
   /// <code>
@@ -51,11 +51,17 @@ public class TechTreeDefinition {
   /// </code>
   /// </example>
   public static TechTreeDefinition FromSerializedData(TechTreeSerializedData data) {
+    ArgumentNullException.ThrowIfNull(data);
+
     // required only checks that the json set the property, and a json null sets it just fine
     ArgumentNullException.ThrowIfNull(data.Branches);
 
     var branches = new Dictionary<BranchType, string[]>(data.Branches.Count);
     foreach (var branch in data.Branches) {
+      // a json null is an element of the list like any other, and nothing looks at the required members of a branch
+      // that never got built
+      ArgumentNullException.ThrowIfNull(branch);
+
       // the json converter of BranchType accepts numbers too, so a branch that doesn't exist can get this far
       if (!Enum.IsDefined(branch.Type)) {
         throw new ArgumentException($"branch {branch.Type} isn't a valid branch", nameof(data));
@@ -105,20 +111,27 @@ public class TechTreeDefinition {
   /// node keeps its <see cref="NodeTech.Tier"/>
   /// </remarks>
   /// <exception cref="ArgumentException">
-  /// if an override doesn't have an id, if a replaced node isn't in the tree or if the new id is already used by
-  /// another node
+  /// if an override doesn't have a node to replace or an id, if a replaced node isn't in the tree or if the new id is
+  /// already used by another node
   /// </exception>
-  /// <exception cref="ArgumentNullException">if an override is null</exception>
+  /// <exception cref="ArgumentNullException">if <c>overrides</c> or one of the overrides is null</exception>
   /// <example>
   /// <code>
   /// var definition = baseDefinition.Override([new TechOverride { Replaces = "fishing", Id = "free_diving" }]);
   /// </code>
   /// </example>
   public TechTreeDefinition Override(IEnumerable<TechOverride> overrides) {
+    ArgumentNullException.ThrowIfNull(overrides);
+
     var branches = _branches.ToDictionary(branch => branch.Key, branch => branch.Value.ToArray());
     foreach (var techOverride in overrides) {
       // an override writes an id in the tree like the json does, so it needs the same check on it
       ArgumentNullException.ThrowIfNull(techOverride, nameof(overrides));
+
+      if (string.IsNullOrWhiteSpace(techOverride.Replaces)) {
+        throw new ArgumentException($"the override with id {techOverride.Id} doesn't replace anything",
+          nameof(overrides));
+      }
 
       if (string.IsNullOrWhiteSpace(techOverride.Id)) {
         throw new ArgumentException($"the override of {techOverride.Replaces} doesn't have an id", nameof(overrides));
@@ -207,7 +220,10 @@ public class TechTree {
   /// Initializes the tech tree from a definition, with nothing researched
   /// </summary>
   /// <param name="definition">the definition to build the tree from</param>
+  /// <exception cref="ArgumentNullException">if <c>definition</c> is null</exception>
   public TechTree(TechTreeDefinition definition) {
+    ArgumentNullException.ThrowIfNull(definition);
+
     _branches = Enum.GetValues<BranchType>()
       .ToDictionary(branch => branch, branch => new SubTreeTech(definition[branch]));
   }
@@ -285,11 +301,14 @@ public class SubTreeTech {
   /// if <c>ids</c> doesn't have exactly <see cref="MAX_NODES"/> ids, if an id is null or blank or if the same id is
   /// used twice
   /// </exception>
+  /// <exception cref="ArgumentNullException">if <c>ids</c> is null</exception>
   /// <remarks>
   /// A node is always looked up by its id, so an id that isn't an id is a slot no one can research nor price and two
   /// nodes sharing one make the second slot the unreachable one
   /// </remarks>
   public SubTreeTech(IReadOnlyList<string> ids) {
+    ArgumentNullException.ThrowIfNull(ids);
+
     if (ids.Count != MAX_NODES) {
       throw new ArgumentException($"a branch needs exactly {MAX_NODES} nodes, got {ids.Count}", nameof(ids));
     }

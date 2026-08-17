@@ -14,6 +14,12 @@ public class TechTreeTest {
     PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
   };
 
+  private static readonly JsonSerializerOptions _tribeOptions = new() {
+    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
+    TypeInfoResolver = TribeGenerationContext.Default,
+    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+  };
+
   private static readonly SpawnRate _spawnRate = new() {
     FruitRate = 1f, CropRate = 1f, AnimalRate = 1f, FishRate = 1f, MineralRate = 1f
   };
@@ -159,6 +165,13 @@ public class TechTreeTest {
   }
 
   [Fact]
+  public void TestNullBranch() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>("""{"branches": [null]}""", _techTreeOptions);
+    data.ShouldNotBeNull();
+    Should.Throw<ArgumentNullException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
   public void TestNullNode() {
     var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
@@ -188,6 +201,14 @@ public class TechTreeTest {
     data.ShouldNotBeNull();
     data.Branches[1].Nodes[0] = data.Branches[0].Nodes[0];
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestNullArguments() {
+    Should.Throw<ArgumentNullException>(() => TechTreeDefinition.FromSerializedData(null!));
+    Should.Throw<ArgumentNullException>(() => _definition.Override(null!));
+    Should.Throw<ArgumentNullException>(() => new SubTreeTech(null!));
+    Should.Throw<ArgumentNullException>(() => new TechTree(null!));
   }
 
   [Fact]
@@ -221,6 +242,14 @@ public class TechTreeTest {
       _definition.Override([new TechOverride { Replaces = "fishing", Id = "" }]));
     Should.Throw<ArgumentException>(() =>
       _definition.Override([new TechOverride { Replaces = "fishing", Id = null! }]));
+  }
+
+  [Fact]
+  public void TestOverrideWithoutReplaces() {
+    Should.Throw<ArgumentException>(() =>
+      _definition.Override([new TechOverride { Replaces = "", Id = "free_diving" }]));
+    Should.Throw<ArgumentException>(() =>
+      _definition.Override([new TechOverride { Replaces = null!, Id = "free_diving" }]));
   }
 
   [Fact]
@@ -275,11 +304,62 @@ public class TechTreeTest {
   }
 
   [Fact]
+  public void TestNullTribe() {
+    var tribeManager = new TribeManager();
+    Should.Throw<ArgumentNullException>(() => tribeManager.RegisterTribe(TribeType.Imperius, null!));
+    Should.Throw<ArgumentNullException>(() => tribeManager.RegisterTribes(null!));
+
+    var tribes = JsonSerializer.Deserialize<TribesSerializedData>("""{"tribes": null}""", _tribeOptions);
+    tribes.ShouldNotBeNull();
+    Should.Throw<ArgumentNullException>(() => tribeManager.RegisterTribes(tribes));
+  }
+
+  [Fact]
+  public void TestNullTribeFromJson() {
+    foreach (var json in new[] {
+      """{"tribes": [null]}""", """{"tribes": [{"tribe_type": "imperius", "tribe": null}]}"""
+    }) {
+      var tribes = JsonSerializer.Deserialize<TribesSerializedData>(json, _tribeOptions);
+      tribes.ShouldNotBeNull();
+      Should.Throw<ArgumentNullException>(() => new TribeManager().RegisterTribes(tribes));
+    }
+  }
+
+  [Fact]
+  public void TestDuplicatedTribe() {
+    var tribe = new Tribe {
+      StartingBranch = BranchType.Climbing,
+      StartingStars = 5,
+      SpawnRate = _spawnRate,
+      TerrainRate = _terrainRate
+    };
+    var tribeManager = new TribeManager();
+    tribeManager.RegisterTribe(TribeType.Imperius, tribe);
+    Should.Throw<ArgumentException>(() => tribeManager.RegisterTribe(TribeType.Imperius, tribe));
+  }
+
+  [Fact]
+  public void TestBranchTypeInJson() {
+    // JsonStringEnumConverter<T> doesn't read EnumMember on net8, so "climbing" only works because it's the name of
+    // the member lowercased; a branch of two words needs the converter with a naming policy in the options
+    var data = new BranchSerializedData { Type = BranchType.Climbing, Nodes = [.. _definition[BranchType.Climbing]] };
+    JsonSerializer.Serialize(data, _techTreeOptions).ShouldContain("\"Climbing\"");
+    JsonSerializer.Deserialize<BranchSerializedData>("""{"type": "climbing", "nodes": []}""", _techTreeOptions)
+      .ShouldNotBeNull().Type.ShouldBe(BranchType.Climbing);
+  }
+
+  [Fact]
   public void TestTribesResource() {
     var tribes = EmbeddedResources.LoadTribes();
     tribes.ShouldNotBeNull();
     var tribeManager = new TribeManager();
     tribeManager.RegisterTribes(tribes);
+    // every tribe of the resource has to build a tree, so an override naming nothing fails here and not mid game
+    foreach (var (type, tribe) in tribeManager.Tribes) {
+      var techTree = _definition.CreateTechTree(tribe);
+      techTree[tribe.StartingBranch].Nodes[0].Researched.ShouldBeTrue($"{type} doesn't start on anything");
+    }
+
     var imperius = tribeManager[TribeType.Imperius];
     imperius.ShouldNotBeNull();
     imperius.StartingBranch.ShouldBe(BranchType.Organization);
