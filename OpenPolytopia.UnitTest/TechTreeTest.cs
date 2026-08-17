@@ -14,12 +14,6 @@ public class TechTreeTest {
     PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
   };
 
-  private static readonly JsonSerializerOptions _tribeOptions = new() {
-    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
-    TypeInfoResolver = TribeGenerationContext.Default,
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-  };
-
   private static readonly SpawnRate _spawnRate = new() {
     FruitRate = 1f, CropRate = 1f, AnimalRate = 1f, FishRate = 1f, MineralRate = 1f
   };
@@ -31,7 +25,7 @@ public class TechTreeTest {
   private readonly TechTreeDefinition _definition = LoadDefinition();
 
   private static TechTreeDefinition LoadDefinition() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     return TechTreeDefinition.FromSerializedData(data);
   }
@@ -100,6 +94,14 @@ public class TechTreeTest {
   public void TestBranchNodesCount() => Should.Throw<ArgumentException>(() => new SubTreeTech(["climbing"]));
 
   [Fact]
+  public void TestBranchNodeWithoutId() {
+    Should.Throw<ArgumentException>(() =>
+      new SubTreeTech(["climbing", "mining", "meditation", "smithery", ""]));
+    Should.Throw<ArgumentException>(() =>
+      new SubTreeTech(["climbing", "mining", "meditation", "smithery", null!]));
+  }
+
+  [Fact]
   public void TestBranchDuplicatedNodes() =>
     Should.Throw<ArgumentException>(() =>
       new SubTreeTech(["climbing", "climbing", "meditation", "smithery", "philosophy"]));
@@ -114,7 +116,7 @@ public class TechTreeTest {
 
   [Fact]
   public void TestMissingBranch() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     data.Branches.RemoveAt(0);
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
@@ -122,7 +124,7 @@ public class TechTreeTest {
 
   [Fact]
   public void TestUndefinedBranch() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     data.Branches.Add(new BranchSerializedData { Type = (BranchType)42, Nodes = ["a", "b", "c", "d", "e"] });
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
@@ -148,8 +150,17 @@ public class TechTreeTest {
   }
 
   [Fact]
+  public void TestNullBranchNodes() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>("""
+                                                                  {"branches": [{"type": "climbing", "nodes": null}]}
+                                                                  """, _techTreeOptions);
+    data.ShouldNotBeNull();
+    Should.Throw<ArgumentNullException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
   public void TestNullNode() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     data.Branches[0].Nodes[1] = null!;
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
@@ -157,7 +168,7 @@ public class TechTreeTest {
 
   [Fact]
   public void TestDuplicatedBranch() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     data.Branches.Add(data.Branches[0]);
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
@@ -165,7 +176,7 @@ public class TechTreeTest {
 
   [Fact]
   public void TestBranchWithWrongNodesCount() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     data.Branches[0].Nodes.RemoveAt(0);
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
@@ -173,7 +184,7 @@ public class TechTreeTest {
 
   [Fact]
   public void TestDuplicatedNode() {
-    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    var data = EmbeddedResources.LoadTechTree();
     data.ShouldNotBeNull();
     data.Branches[1].Nodes[0] = data.Branches[0].Nodes[0];
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
@@ -203,6 +214,18 @@ public class TechTreeTest {
   public void TestOverrideDuplicatedNode() =>
     Should.Throw<ArgumentException>(() =>
       _definition.Override([new TechOverride { Replaces = "fishing", Id = "mining" }]));
+
+  [Fact]
+  public void TestOverrideWithoutId() {
+    Should.Throw<ArgumentException>(() =>
+      _definition.Override([new TechOverride { Replaces = "fishing", Id = "" }]));
+    Should.Throw<ArgumentException>(() =>
+      _definition.Override([new TechOverride { Replaces = "fishing", Id = null! }]));
+  }
+
+  [Fact]
+  public void TestNullOverride() =>
+    Should.Throw<ArgumentNullException>(() => _definition.Override([null!]));
 
   [Fact]
   public void TestChainedOverrides() {
@@ -253,7 +276,7 @@ public class TechTreeTest {
 
   [Fact]
   public void TestTribesResource() {
-    var tribes = JsonSerializer.Deserialize<TribesSerializedData>(EmbeddedResources.TribesData, _tribeOptions);
+    var tribes = EmbeddedResources.LoadTribes();
     tribes.ShouldNotBeNull();
     var tribeManager = new TribeManager();
     tribeManager.RegisterTribes(tribes);

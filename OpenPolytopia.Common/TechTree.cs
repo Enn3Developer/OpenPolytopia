@@ -52,7 +52,7 @@ public class TechTreeDefinition {
   /// </example>
   public static TechTreeDefinition FromSerializedData(TechTreeSerializedData data) {
     // required only checks that the json set the property, and a json null sets it just fine
-    ArgumentNullException.ThrowIfNull(data.Branches, "data.Branches");
+    ArgumentNullException.ThrowIfNull(data.Branches);
 
     var branches = new Dictionary<BranchType, string[]>(data.Branches.Count);
     foreach (var branch in data.Branches) {
@@ -61,7 +61,7 @@ public class TechTreeDefinition {
         throw new ArgumentException($"branch {branch.Type} isn't a valid branch", nameof(data));
       }
 
-      ArgumentNullException.ThrowIfNull(branch.Nodes, "data.Branches[].Nodes");
+      ArgumentNullException.ThrowIfNull(branch.Nodes);
 
       if (branch.Nodes.Any(string.IsNullOrWhiteSpace)) {
         throw new ArgumentException($"branch {branch.Type} has a node without an id", nameof(data));
@@ -105,8 +105,10 @@ public class TechTreeDefinition {
   /// node keeps its <see cref="NodeTech.Tier"/>
   /// </remarks>
   /// <exception cref="ArgumentException">
-  /// if a replaced node isn't in the tree or if the new id is already used by another node
+  /// if an override doesn't have an id, if a replaced node isn't in the tree or if the new id is already used by
+  /// another node
   /// </exception>
+  /// <exception cref="ArgumentNullException">if an override is null</exception>
   /// <example>
   /// <code>
   /// var definition = baseDefinition.Override([new TechOverride { Replaces = "fishing", Id = "free_diving" }]);
@@ -115,6 +117,13 @@ public class TechTreeDefinition {
   public TechTreeDefinition Override(IEnumerable<TechOverride> overrides) {
     var branches = _branches.ToDictionary(branch => branch.Key, branch => branch.Value.ToArray());
     foreach (var techOverride in overrides) {
+      // an override writes an id in the tree like the json does, so it needs the same check on it
+      ArgumentNullException.ThrowIfNull(techOverride, nameof(overrides));
+
+      if (string.IsNullOrWhiteSpace(techOverride.Id)) {
+        throw new ArgumentException($"the override of {techOverride.Replaces} doesn't have an id", nameof(overrides));
+      }
+
       var (branch, index) = Find(branches, techOverride.Replaces) ??
                             throw new ArgumentException($"node {techOverride.Replaces} isn't in the tree",
                               nameof(overrides));
@@ -273,15 +282,20 @@ public class SubTreeTech {
   /// </summary>
   /// <param name="ids">the ids of the nodes, ordered by slot</param>
   /// <exception cref="ArgumentException">
-  /// if <c>ids</c> doesn't have exactly <see cref="MAX_NODES"/> ids or if the same id is used twice
+  /// if <c>ids</c> doesn't have exactly <see cref="MAX_NODES"/> ids, if an id is null or blank or if the same id is
+  /// used twice
   /// </exception>
   /// <remarks>
-  /// The ids have to be distinct because a node is always looked up by its id, so the second node with the same id
-  /// would be a slot no one can research nor price
+  /// A node is always looked up by its id, so an id that isn't an id is a slot no one can research nor price and two
+  /// nodes sharing one make the second slot the unreachable one
   /// </remarks>
   public SubTreeTech(IReadOnlyList<string> ids) {
     if (ids.Count != MAX_NODES) {
       throw new ArgumentException($"a branch needs exactly {MAX_NODES} nodes, got {ids.Count}", nameof(ids));
+    }
+
+    if (ids.Any(string.IsNullOrWhiteSpace)) {
+      throw new ArgumentException("a branch can't have a node without an id", nameof(ids));
     }
 
     if (ids.Distinct().Count() != ids.Count) {
@@ -353,8 +367,8 @@ public class NodeTech {
   /// Whether the player has researched this node
   /// </summary>
   /// <remarks>
-  /// <see cref="SubTreeTech.Research"/> is the only way to mark a node, so it stays the single place where researching
-  /// something can be paid for
+  /// The researched state is set only inside this assembly and <see cref="SubTreeTech.Research"/> is the only place
+  /// doing it, so researching something has a single place where it can be paid for
   /// </remarks>
   public bool Researched { get; internal set; }
 
