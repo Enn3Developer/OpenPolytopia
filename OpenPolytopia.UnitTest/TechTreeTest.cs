@@ -74,7 +74,7 @@ public class TechTreeTest {
     branch.ComputeCost("climbing", 2).ShouldBe(6u);
     branch.ComputeCost("mining", 2).ShouldBe(8u);
     branch.ComputeCost("smithery", 2).ShouldBe(10u);
-    branch.ComputeCost("swimming", 2).ShouldBe(0u);
+    branch.ComputeCost("swimming", 2).ShouldBeNull();
   }
 
   [Fact]
@@ -88,14 +88,54 @@ public class TechTreeTest {
   }
 
   [Fact]
-  public void TestBranchNodesCount() =>
-    Should.Throw<ArgumentException>(() => new SubTreeTech([new NodeTech { Id = "climbing", Tier = 0 }]));
+  public void TestNodeTiers() {
+    var branch = _definition.CreateTechTree()[BranchType.Climbing];
+    branch.Nodes.Length.ShouldBe(SubTreeTech.MAX_NODES);
+    for (var index = 0; index < branch.Nodes.Length; index++) {
+      branch.Nodes[index].Tier.ShouldBe(SubTreeTech.TierOf(index));
+    }
+  }
+
+  [Fact]
+  public void TestBranchNodesCount() => Should.Throw<ArgumentException>(() => new SubTreeTech(["climbing"]));
+
+  [Fact]
+  public void TestIndependentTrees() {
+    var first = _definition.CreateTechTree();
+    var second = _definition.CreateTechTree();
+    first[BranchType.Climbing].Research("climbing").ShouldBeTrue();
+    second[BranchType.Climbing].HasResearched("climbing").ShouldBeFalse();
+  }
 
   [Fact]
   public void TestMissingBranch() {
     var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
     data.ShouldNotBeNull();
     data.Branches.RemoveAt(0);
+    Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestUndefinedBranch() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    data.ShouldNotBeNull();
+    data.Branches.Add(new BranchSerializedData { Type = (BranchType)42, Nodes = ["a", "b", "c", "d", "e"] });
+    Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestDuplicatedBranch() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    data.ShouldNotBeNull();
+    data.Branches.Add(data.Branches[0]);
+    Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestBranchWithWrongNodesCount() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    data.ShouldNotBeNull();
+    data.Branches[0].Nodes.RemoveAt(0);
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
   }
 

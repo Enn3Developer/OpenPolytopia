@@ -2,6 +2,7 @@ namespace OpenPolytopia.Common;
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
@@ -16,7 +17,7 @@ using System.Text.Json.Serialization;
 /// A definition is immutable, <see cref="Override"/> returns a new definition instead of modifying this one
 /// </remarks>
 public class TechTreeDefinition {
-  private readonly Dictionary<BranchType, string[]> _branches;
+  private readonly Dictionary<BranchType, ReadOnlyCollection<string>> _branches;
 
   /// <summary>
   /// Returns the node ids of a branch, ordered by slot
@@ -28,15 +29,17 @@ public class TechTreeDefinition {
       ? nodes
       : throw new ArgumentOutOfRangeException(nameof(branch), branch, "branch is invalid");
 
-  private TechTreeDefinition(Dictionary<BranchType, string[]> branches) => _branches = branches;
+  private TechTreeDefinition(Dictionary<BranchType, string[]> branches) {
+    _branches = branches.ToDictionary(branch => branch.Key, branch => Array.AsReadOnly(branch.Value));
+  }
 
   /// <summary>
   /// Builds a definition from the deserialized data of a tech tree
   /// </summary>
   /// <param name="data">the deserialized data of the tech tree</param>
   /// <exception cref="ArgumentException">
-  /// if a branch is missing, declared twice, doesn't have exactly <see cref="SubTreeTech.MAX_NODES"/> nodes or if the
-  /// same node id is used more than once
+  /// if a branch isn't a valid <see cref="BranchType"/>, is missing, is declared twice, doesn't have exactly
+  /// <see cref="SubTreeTech.MAX_NODES"/> nodes or if the same node id is used more than once
   /// </exception>
   /// <example>
   /// <code>
@@ -47,6 +50,11 @@ public class TechTreeDefinition {
   public static TechTreeDefinition FromSerializedData(TechTreeSerializedData data) {
     var branches = new Dictionary<BranchType, string[]>(data.Branches.Count);
     foreach (var branch in data.Branches) {
+      // the json converter of BranchType accepts numbers too, so a branch that doesn't exist can get this far
+      if (!Enum.IsDefined(branch.Type)) {
+        throw new ArgumentException($"branch {branch.Type} isn't a valid branch", nameof(data));
+      }
+
       if (branch.Nodes.Count != SubTreeTech.MAX_NODES) {
         throw new ArgumentException(
           $"branch {branch.Type} has {branch.Nodes.Count} nodes; every branch needs exactly {SubTreeTech.MAX_NODES} nodes",
@@ -93,7 +101,7 @@ public class TechTreeDefinition {
   /// </code>
   /// </example>
   public TechTreeDefinition Override(IEnumerable<TechOverride> overrides) {
-    var branches = _branches.ToDictionary(branch => branch.Key, branch => (string[])branch.Value.Clone());
+    var branches = _branches.ToDictionary(branch => branch.Key, branch => branch.Value.ToArray());
     foreach (var techOverride in overrides) {
       var (branch, index) = Find(branches, techOverride.Replaces) ??
                             throw new ArgumentException($"node {techOverride.Replaces} isn't in the tree",
@@ -119,6 +127,9 @@ public class TechTreeDefinition {
   /// </remarks>
   /// <exception cref="ArgumentException">
   /// if an override of the tribe is invalid, see <see cref="Override"/>
+  /// </exception>
+  /// <exception cref="ArgumentOutOfRangeException">
+  /// if <see cref="Tribe.StartingBranch"/> isn't a valid <see cref="BranchType"/>
   /// </exception>
   /// <example>
   /// <code>
@@ -154,6 +165,9 @@ public class TechTreeDefinition {
 /// <remarks>
 /// Every tech tree is built from a <see cref="TechTreeDefinition"/>, use
 /// <see cref="TechTreeDefinition.CreateTechTree"/> to get the tree of a tribe with its overrides already applied
+/// <br/>
+/// Every tree owns its nodes, so researching something on a tree never touches the definition nor the tree of another
+/// player
 /// </remarks>
 public class TechTree {
   private readonly Dictionary<BranchType, SubTreeTech> _branches;
@@ -172,10 +186,10 @@ public class TechTree {
   /// Initializes the tech tree from a definition, with nothing researched
   /// </summary>
   /// <param name="definition">the definition to build the tree from</param>
-  public TechTree(TechTreeDefinition definition) =>
+  public TechTree(TechTreeDefinition definition) {
     _branches = Enum.GetValues<BranchType>()
-      .ToDictionary(branch => branch, branch => new SubTreeTech(
-        [.. definition[branch].Select((id, index) => new NodeTech { Id = id, Tier = SubTreeTech.TierOf(index) })]));
+      .ToDictionary(branch => branch, branch => new SubTreeTech(definition[branch]));
+  }
 }
 
 /// <summary>
@@ -212,11 +226,12 @@ public class TechOverride {
 /// <summary>
 /// A subtree tech, or a branch
 /// </summary>
-/// <param name="nodes">array of nodes in the subtree</param>
-/// <exception cref="ArgumentException">if <c>nodes</c> doesn't have exactly <see cref="MAX_NODES"/> nodes</exception>
 /// <remarks>
 /// The nodes of a branch are always <see cref="MAX_NODES"/>; node 0: tier 0; node 1 and node 2: tier 1;
 /// node 3 and node 4: tier 2
+/// <br/>
+/// The tier of a node comes from its slot, so a branch builds its own nodes to make sure no node can ever get a tier
+/// that doesn't belong to its slot
 /// </remarks>
 public class SubTreeTech {
   /// <summary>
@@ -224,6 +239,9 @@ public class SubTreeTech {
   /// </summary>
   public const int MAX_NODES = 5;
 
+  /// <summary>
+  /// The nodes of this branch, ordered by slot
+  /// </summary>
   public NodeTech[] Nodes { get; }
 
   /// <summary>
@@ -232,12 +250,17 @@ public class SubTreeTech {
   /// <param name="id">the node id</param>
   public NodeTech? this[string id] => Nodes.FirstOrDefault(node => node.Id == id);
 
-  public SubTreeTech(NodeTech[] nodes) {
-    if (nodes.Length != MAX_NODES) {
-      throw new ArgumentException($"a branch needs exactly {MAX_NODES} nodes, got {nodes.Length}", nameof(nodes));
+  /// <summary>
+  /// Initializes a branch with its nodes, none of them researched
+  /// </summary>
+  /// <param name="ids">the ids of the nodes, ordered by slot</param>
+  /// <exception cref="ArgumentException">if <c>ids</c> doesn't have exactly <see cref="MAX_NODES"/> ids</exception>
+  public SubTreeTech(IReadOnlyList<string> ids) {
+    if (ids.Count != MAX_NODES) {
+      throw new ArgumentException($"a branch needs exactly {MAX_NODES} nodes, got {ids.Count}", nameof(ids));
     }
 
-    Nodes = nodes;
+    Nodes = [.. ids.Select((id, index) => new NodeTech { Id = id, Tier = TierOf(index) })];
   }
 
   /// <summary>
@@ -265,10 +288,13 @@ public class SubTreeTech {
   /// </summary>
   /// <param name="id">the node id</param>
   /// <param name="cities">number of cities owned by the player</param>
-  /// <returns>the cost for that node; 0 if no node has been found with that id</returns>
-  public uint ComputeCost(string id, uint cities) {
+  /// <returns>the cost for that node; null if no node has been found with that id</returns>
+  /// <remarks>
+  /// It returns null and not 0 because 0 is a price a caller can pay, so a node that doesn't exist would be free
+  /// </remarks>
+  public uint? ComputeCost(string id, uint cities) {
     var node = this[id];
-    return node == null ? 0 : (cities * (node.Tier + 1)) + 4;
+    return node == null ? null : (cities * (node.Tier + 1)) + 4;
   }
 
   /// <summary>
@@ -304,7 +330,10 @@ public class NodeTech {
   /// <summary>
   /// The tier of this node, it's what makes its cost grow
   /// </summary>
-  public required uint Tier { get; init; }
+  /// <remarks>
+  /// The tier is the one of the slot of the node, only <see cref="SubTreeTech"/> can set it
+  /// </remarks>
+  public uint Tier { get; internal init; }
 }
 
 public class BranchSerializedData {
