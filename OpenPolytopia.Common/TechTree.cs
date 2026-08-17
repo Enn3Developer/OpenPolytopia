@@ -41,6 +41,9 @@ public class TechTreeDefinition {
   /// if a branch isn't a valid <see cref="BranchType"/>, is missing, is declared twice, doesn't have exactly
   /// <see cref="SubTreeTech.MAX_NODES"/> nodes or if the same node id is used more than once
   /// </exception>
+  /// <exception cref="ArgumentNullException">
+  /// if the list of the branches or the list of the nodes of a branch is null
+  /// </exception>
   /// <example>
   /// <code>
   /// var data = JsonSerializer.Deserialize&lt;TechTreeSerializedData&gt;(EmbeddedResources.TechTreeData, options);
@@ -48,11 +51,20 @@ public class TechTreeDefinition {
   /// </code>
   /// </example>
   public static TechTreeDefinition FromSerializedData(TechTreeSerializedData data) {
+    // required only checks that the json set the property, and a json null sets it just fine
+    ArgumentNullException.ThrowIfNull(data.Branches, "data.Branches");
+
     var branches = new Dictionary<BranchType, string[]>(data.Branches.Count);
     foreach (var branch in data.Branches) {
       // the json converter of BranchType accepts numbers too, so a branch that doesn't exist can get this far
       if (!Enum.IsDefined(branch.Type)) {
         throw new ArgumentException($"branch {branch.Type} isn't a valid branch", nameof(data));
+      }
+
+      ArgumentNullException.ThrowIfNull(branch.Nodes, "data.Branches[].Nodes");
+
+      if (branch.Nodes.Any(string.IsNullOrWhiteSpace)) {
+        throw new ArgumentException($"branch {branch.Type} has a node without an id", nameof(data));
       }
 
       if (branch.Nodes.Count != SubTreeTech.MAX_NODES) {
@@ -239,28 +251,44 @@ public class SubTreeTech {
   /// </summary>
   public const int MAX_NODES = 5;
 
+  private readonly NodeTech[] _nodes;
+
   /// <summary>
   /// The nodes of this branch, ordered by slot
   /// </summary>
-  public NodeTech[] Nodes { get; }
+  /// <remarks>
+  /// It's read only because the slot of a node is what gives it its tier, so swapping a node with another one would
+  /// let it take a tier that isn't the one of its slot
+  /// </remarks>
+  public IReadOnlyList<NodeTech> Nodes => _nodes;
 
   /// <summary>
   /// Returns the node that has that id, or null if no node has been found
   /// </summary>
   /// <param name="id">the node id</param>
-  public NodeTech? this[string id] => Nodes.FirstOrDefault(node => node.Id == id);
+  public NodeTech? this[string id] => Array.Find(_nodes, node => node.Id == id);
 
   /// <summary>
   /// Initializes a branch with its nodes, none of them researched
   /// </summary>
   /// <param name="ids">the ids of the nodes, ordered by slot</param>
-  /// <exception cref="ArgumentException">if <c>ids</c> doesn't have exactly <see cref="MAX_NODES"/> ids</exception>
+  /// <exception cref="ArgumentException">
+  /// if <c>ids</c> doesn't have exactly <see cref="MAX_NODES"/> ids or if the same id is used twice
+  /// </exception>
+  /// <remarks>
+  /// The ids have to be distinct because a node is always looked up by its id, so the second node with the same id
+  /// would be a slot no one can research nor price
+  /// </remarks>
   public SubTreeTech(IReadOnlyList<string> ids) {
     if (ids.Count != MAX_NODES) {
       throw new ArgumentException($"a branch needs exactly {MAX_NODES} nodes, got {ids.Count}", nameof(ids));
     }
 
-    Nodes = [.. ids.Select((id, index) => new NodeTech { Id = id, Tier = TierOf(index) })];
+    if (ids.Distinct().Count() != ids.Count) {
+      throw new ArgumentException("a branch can't have the same node id twice", nameof(ids));
+    }
+
+    _nodes = [.. ids.Select((id, index) => new NodeTech { Id = id, Tier = TierOf(index) })];
   }
 
   /// <summary>
@@ -281,6 +309,10 @@ public class SubTreeTech {
   /// </summary>
   /// <param name="id">the node id</param>
   /// <returns>if the node has been researched; always false if no node has been found with that id</returns>
+  /// <remarks>
+  /// This is the shorthand for the check every caller wants, so a node that doesn't exist and a node no one researched
+  /// yet both answer false; use <see cref="this[string]"/> when the two cases have to be told apart
+  /// </remarks>
   public bool HasResearched(string id) => this[id]?.Researched ?? false;
 
   /// <summary>
@@ -320,7 +352,11 @@ public class NodeTech {
   /// <summary>
   /// Whether the player has researched this node
   /// </summary>
-  public bool Researched { get; set; }
+  /// <remarks>
+  /// <see cref="SubTreeTech.Research"/> is the only way to mark a node, so it stays the single place where researching
+  /// something can be paid for
+  /// </remarks>
+  public bool Researched { get; internal set; }
 
   /// <summary>
   /// The id of this node
@@ -331,7 +367,8 @@ public class NodeTech {
   /// The tier of this node, it's what makes its cost grow
   /// </summary>
   /// <remarks>
-  /// The tier is the one of the slot of the node, only <see cref="SubTreeTech"/> can set it
+  /// The tier is the one of the slot of the node, so only this assembly builds nodes and
+  /// <see cref="SubTreeTech"/> is the only type doing it
   /// </remarks>
   public uint Tier { get; internal init; }
 }

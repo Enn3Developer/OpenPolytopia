@@ -90,14 +90,19 @@ public class TechTreeTest {
   [Fact]
   public void TestNodeTiers() {
     var branch = _definition.CreateTechTree()[BranchType.Climbing];
-    branch.Nodes.Length.ShouldBe(SubTreeTech.MAX_NODES);
-    for (var index = 0; index < branch.Nodes.Length; index++) {
+    branch.Nodes.Count.ShouldBe(SubTreeTech.MAX_NODES);
+    for (var index = 0; index < branch.Nodes.Count; index++) {
       branch.Nodes[index].Tier.ShouldBe(SubTreeTech.TierOf(index));
     }
   }
 
   [Fact]
   public void TestBranchNodesCount() => Should.Throw<ArgumentException>(() => new SubTreeTech(["climbing"]));
+
+  [Fact]
+  public void TestBranchDuplicatedNodes() =>
+    Should.Throw<ArgumentException>(() =>
+      new SubTreeTech(["climbing", "climbing", "meditation", "smithery", "philosophy"]));
 
   [Fact]
   public void TestIndependentTrees() {
@@ -120,6 +125,33 @@ public class TechTreeTest {
     var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
     data.ShouldNotBeNull();
     data.Branches.Add(new BranchSerializedData { Type = (BranchType)42, Nodes = ["a", "b", "c", "d", "e"] });
+    Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestUndefinedBranchFromJson() {
+    // the guard exists because the converter takes numbers, so the json is the path that has to be checked
+    const string JSON = """
+                        {"branches": [{"type": 42, "nodes": ["a", "b", "c", "d", "e"]}]}
+                        """;
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(JSON, _techTreeOptions);
+    data.ShouldNotBeNull();
+    data.Branches[0].Type.ShouldBe((BranchType)42);
+    Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestNullBranches() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>("""{"branches": null}""", _techTreeOptions);
+    data.ShouldNotBeNull();
+    Should.Throw<ArgumentNullException>(() => TechTreeDefinition.FromSerializedData(data));
+  }
+
+  [Fact]
+  public void TestNullNode() {
+    var data = JsonSerializer.Deserialize<TechTreeSerializedData>(EmbeddedResources.TechTreeData, _techTreeOptions);
+    data.ShouldNotBeNull();
+    data.Branches[0].Nodes[1] = null!;
     Should.Throw<ArgumentException>(() => TechTreeDefinition.FromSerializedData(data));
   }
 
@@ -206,6 +238,17 @@ public class TechTreeTest {
     var techTree = _definition.CreateTechTree(tribe);
     techTree[BranchType.Fishing].HasResearched("free_diving").ShouldBeTrue();
     techTree[BranchType.Fishing].HasResearched("fishing").ShouldBeFalse();
+  }
+
+  [Fact]
+  public void TestTribeWithUndefinedStartingBranch() {
+    var tribe = new Tribe {
+      StartingBranch = (BranchType)42,
+      StartingStars = 5,
+      SpawnRate = _spawnRate,
+      TerrainRate = _terrainRate
+    };
+    Should.Throw<ArgumentException>(() => new TribeManager().RegisterTribe(TribeType.Imperius, tribe));
   }
 
   [Fact]

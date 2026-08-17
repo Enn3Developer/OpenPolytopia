@@ -23,6 +23,9 @@ public class TribeManager {
   /// </summary>
   /// <param name="type">the type of the tribe</param>
   /// <param name="tribe">the data of the tribe</param>
+  /// <exception cref="ArgumentException">
+  /// if <see cref="Tribe.StartingBranch"/> isn't a valid <see cref="BranchType"/>
+  /// </exception>
   /// <example>
   /// <code>
   /// var imperiusTribe = new Tribe {
@@ -32,12 +35,24 @@ public class TribeManager {
   /// tribeManager.RegisterTribe(TribeType.Imperius, imperiusTribe);
   /// </code>
   /// </example>
-  public void RegisterTribe(TribeType type, Tribe tribe) => Tribes.Add(type, tribe);
+  public void RegisterTribe(TribeType type, Tribe tribe) {
+    // same as the branches of the tech tree, the json converter accepts numbers so a branch that doesn't exist can
+    // get this far; the overrides can't be checked here because they need the definition of the tech tree
+    if (!Enum.IsDefined(tribe.StartingBranch)) {
+      throw new ArgumentException($"tribe {type} starts on {tribe.StartingBranch}, which isn't a valid branch",
+        nameof(tribe));
+    }
+
+    Tribes.Add(type, tribe);
+  }
 
   /// <summary>
   /// Register multiple tribes
   /// </summary>
   /// <param name="tribes">the deserialized data of all tribes to register</param>
+  /// <exception cref="ArgumentException">
+  /// if the <see cref="Tribe.StartingBranch"/> of a tribe isn't a valid <see cref="BranchType"/>
+  /// </exception>
   public void RegisterTribes(TribesSerializedData tribes) {
     foreach (var tribe in tribes.Tribes) {
       RegisterTribe(tribe.TribeType, tribe.Tribe);
