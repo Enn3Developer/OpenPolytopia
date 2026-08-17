@@ -1,26 +1,17 @@
 namespace OpenPolytopia.test.src;
 
-using System.Text.Json;
-using System.Text.Unicode;
 using Chickensoft.GoDotTest;
 using Godot;
 using Common;
 using Shouldly;
 
 public class TroopManagerTest(Node testScene) : TestClass(testScene) {
-  private static readonly JsonSerializerOptions _options = new() {
-    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
-    TypeInfoResolver = TroopGenerationContext.Default,
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-  };
-
   private TroopManager _troopManager = null!;
 
   [Setup]
   public void Setup() {
     _troopManager = new TroopManager(10);
-    var content = EmbeddedResources.TroopsData;
-    var troops = JsonSerializer.Deserialize<TroopsSerializedData>(content, _options);
+    var troops = EmbeddedResources.LoadTroops();
     troops.ShouldNotBeNull();
     _troopManager.RegisterTroops(troops);
   }

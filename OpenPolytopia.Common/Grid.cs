@@ -64,6 +64,19 @@ public class Grid(uint size) {
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public uint GridPositionToIndex(int x, int y) => (uint)((y * size) + x);
 
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public Vector2I IndexToGridPosition(uint index) {
+    var x = index % size;
+    var y = index / size;
+    return new Vector2I((int)x, (int)y);
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void IndexToGridPosition(uint index, out uint x, out uint y) {
+    x = index % size;
+    y = index / size;
+  }
+
   /// <summary>
   /// Modifies a given tile
   /// </summary>
@@ -251,7 +264,12 @@ public struct Tile {
   /// <summary>
   /// The type of the tile
   /// </summary>
-  public TileKind Kind => (TileKind)_inner.GetBits(THREE_BITS, TILEKIND_POSITION);
+  public TileKind Kind {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => (TileKind)_inner.GetBits(THREE_BITS, TILEKIND_POSITION);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    set => _inner.SetBits((ulong)value, THREE_BITS, TILEKIND_POSITION);
+  }
 
   /// <summary>
   /// The tile modifier castable to the corresponding enum
