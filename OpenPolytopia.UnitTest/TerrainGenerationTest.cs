@@ -16,7 +16,7 @@ public class TerrainGenerationTest {
     var tribeManager = new TribeManager();
     tribeManager.RegisterTribe(TribeType.Imperius,
       new Tribe {
-        StartingTech = new StartingTech { Branch = BranchType.Organization, Id = "organization" },
+        StartingBranch = BranchType.Organization,
         SpawnRate = new SpawnRate {
           FruitRate = 2.0f, CropRate = 1.0f, AnimalRate = 0.5f, MineralRate = 1.0f, FishRate = 1.0f
         },

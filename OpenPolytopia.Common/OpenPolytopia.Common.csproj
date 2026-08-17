@@ -24,6 +24,10 @@
     <EmbeddedResource Include="resources\tribes.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
+    <None Remove="resources\tech_tree.json"/>
+    <EmbeddedResource Include="resources\tech_tree.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

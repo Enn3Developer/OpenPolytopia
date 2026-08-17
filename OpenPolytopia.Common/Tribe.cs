@@ -50,9 +50,24 @@ public class TribeManager {
 /// </summary>
 public class Tribe {
   /// <summary>
-  /// The starting tech of a tribe
+  /// The branch a tribe starts with
   /// </summary>
-  public required StartingTech StartingTech { get; init; }
+  /// <remarks>
+  /// A tribe always starts with the tier 0 node of this branch already researched, whether it's the default node or
+  /// one of its <see cref="TechOverrides"/>
+  /// </remarks>
+  public required BranchType StartingBranch { get; init; }
+
+  /// <summary>
+  /// The nodes of the default tech tree this tribe replaces with its own
+  /// </summary>
+  /// <remarks>
+  /// A tribe without unique techs doesn't need to declare anything, so this is null most of the times
+  /// <br/>
+  /// It can't default to an empty list because the source generated deserializer skips property initializers on
+  /// types with required properties
+  /// </remarks>
+  public List<TechOverride>? TechOverrides { get; init; }
 
   /// <summary>
   /// The resource spawn rates of a tribe

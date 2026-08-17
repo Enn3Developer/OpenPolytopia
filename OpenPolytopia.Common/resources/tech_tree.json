@@ -1,0 +1,54 @@
+{
+  "branches": [
+    {
+      "type": "climbing",
+      "nodes": [
+        "climbing",
+        "mining",
+        "meditation",
+        "smithery",
+        "philosophy"
+      ]
+    },
+    {
+      "type": "fishing",
+      "nodes": [
+        "fishing",
+        "sailing",
+        "ramming",
+        "navigation",
+        "aquatism"
+      ]
+    },
+    {
+      "type": "hunting",
+      "nodes": [
+        "hunting",
+        "archery",
+        "forestry",
+        "spiritualism",
+        "mathematics"
+      ]
+    },
+    {
+      "type": "riding",
+      "nodes": [
+        "riding",
+        "roads",
+        "free_spirit",
+        "trade",
+        "chivalry"
+      ]
+    },
+    {
+      "type": "organization",
+      "nodes": [
+        "organization",
+        "farming",
+        "strategy",
+        "construction",
+        "diplomacy"
+      ]
+    }
+  ]
+}
