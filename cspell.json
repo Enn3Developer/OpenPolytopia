@@ -65,6 +65,7 @@
     "OPTOUT",
     "paramref",
     "pascalcase",
+    "pathfinding",
     "randomizer",
     "raymarch",
     "renovatebot",
