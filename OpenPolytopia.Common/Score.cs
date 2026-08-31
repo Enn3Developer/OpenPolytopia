@@ -1,7 +1,6 @@
 namespace OpenPolytopia.Common;
 
 using System.Runtime.CompilerServices;
-using FSharpLibrary;
 
 /// <summary>
 /// Score for a single player
@@ -17,8 +16,7 @@ public class Score {
   /// <summary>
   /// Add to score of player
   /// </summary>
-  /// <param name="type"> uint value of score <see cref="ScoreTypeModule.ScoreType"/></param>
+  /// <param name="type">the scoring event to add, see <see cref="ScoreType"/></param>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public void AddScore(ScoreTypeModule.ScoreType type) =>
-    ScoreValue += ScoreTypeModule.ScoreTypeToInt(type);
+  public void AddScore(ScoreType type) => ScoreValue += type.ToInt();
 }
