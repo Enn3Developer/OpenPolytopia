@@ -13,6 +13,10 @@ public class LobbyManager {
   /// <summary>
   /// Minimum players needed to start a game; solo games aren't allowed
   /// </summary>
+  /// <remarks>
+  /// <see cref="GameServer"/> already refuses to create a lobby smaller than this,
+  /// this keeps the rule from depending on a check living in another class
+  /// </remarks>
   private const uint MIN_PLAYERS_TO_START = 2;
 
   private readonly Dictionary<ulong, LobbyData> _lobbies = new();
@@ -96,9 +100,6 @@ public class LobbyManager {
     }
 
     lobby.Players.Remove(player);
-
-    // the leaving player could be the last not-ready one
-    TryMarkStarting(lobby);
     return LobbyActionResult.Ok;
   }
 
@@ -106,7 +107,7 @@ public class LobbyManager {
   /// Sets the ready state of a player in a lobby
   /// </summary>
   /// <remarks>
-  /// When every player in the lobby is ready, the lobby is marked as starting
+  /// When the lobby is full and every player in it is ready, the lobby is marked as starting
   /// </remarks>
   /// <param name="lobbyId">the id of the lobby</param>
   /// <param name="playerId">the id of the player</param>
@@ -133,16 +134,17 @@ public class LobbyManager {
   }
 
   /// <summary>
-  /// Marks a lobby as starting when it has at least <see cref="MIN_PLAYERS_TO_START"/> players
-  /// and every one of them is ready
+  /// Marks a lobby as starting when it is full and every player in it is ready
   /// </summary>
   /// <remarks>
-  /// Called after every change to the players of a lobby,
-  /// because removing the last not-ready player can start it too
+  /// Only <see cref="SetReady"/> can start a lobby: joining adds a not-ready player
+  /// and leaving drops the lobby below <see cref="LobbyData.MaxPlayers"/>
   /// </remarks>
   /// <param name="lobby">the lobby to check</param>
   private static void TryMarkStarting(LobbyData lobby) {
-    if (lobby.PlayersCount >= MIN_PLAYERS_TO_START && lobby.ReadyCount == lobby.PlayersCount) {
+    if (lobby.PlayersCount == lobby.MaxPlayers
+        && lobby.PlayersCount >= MIN_PLAYERS_TO_START
+        && lobby.ReadyCount == lobby.PlayersCount) {
       lobby.Starting = true;
     }
   }
@@ -200,10 +202,8 @@ public class LobbyManager {
         deleted.Add(lobby.Id);
       }
       else {
-        // the disconnected player could be the last not-ready one,
-        // or he could drop the lobby below the minimum to start
+        // the lobby isn't full anymore, so it stops starting
         lobby.Starting = false;
-        TryMarkStarting(lobby);
         updated.Add(lobby);
       }
     }

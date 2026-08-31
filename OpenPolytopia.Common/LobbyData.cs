@@ -61,7 +61,7 @@ public class LobbyData : INetworkSerializable {
   public bool Started;
 
   /// <summary>
-  /// If the game in the lobby is about to start (all players ready)
+  /// If the game in the lobby is about to start (lobby full and all players ready)
   /// </summary>
   public bool Starting;
 
