@@ -56,7 +56,6 @@
     <EmbeddedResource Remove=".github\**" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FSharpLibrary\FSharpLibrary.fsproj" />
     <ProjectReference Include="..\OpenPolytopia.Common\OpenPolytopia.Common.csproj" />
   </ItemGroup>
 </Project>
