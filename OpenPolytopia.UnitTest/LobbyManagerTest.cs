@@ -76,7 +76,7 @@ public class LobbyManagerTest {
   }
 
   [Fact]
-  public void TestInvalidLobbyDoesntConsumeId() {
+  public void TestInvalidLobbyDoesNotConsumeId() {
     _lobbyManager.CreateLobby(99, WORLD_SIZE, Player(1), out _).ShouldBe(LobbyActionResult.InvalidParameters);
 
     NewLobby(2, Player(1)).Id.ShouldBe(1u);
@@ -188,7 +188,7 @@ public class LobbyManagerTest {
   }
 
   [Fact]
-  public void TestLobbyDoesntStartWhenNotFull() {
+  public void TestLobbyDoesNotStartWhenNotFull() {
     var lobby = NewLobby(3, Player(1));
     _lobbyManager.JoinLobby(lobby.Id, Player(2));
 
@@ -201,7 +201,7 @@ public class LobbyManagerTest {
   }
 
   [Fact]
-  public void TestJoiningDoesntStartLobby() {
+  public void TestJoiningDoesNotStartLobby() {
     var lobby = NewLobby(2, Player(1));
     _lobbyManager.SetReady(lobby.Id, 1, true);
 
