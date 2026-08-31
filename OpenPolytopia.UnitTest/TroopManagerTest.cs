@@ -1,22 +1,20 @@
-namespace OpenPolytopia.test.src;
+namespace OpenPolytopia;
 
-using Chickensoft.GoDotTest;
 using Godot;
 using Common;
 using Shouldly;
 
-public class TroopManagerTest(Node testScene) : TestClass(testScene) {
+public class TroopManagerTest {
   private TroopManager _troopManager = null!;
 
-  [Setup]
-  public void Setup() {
+  public TroopManagerTest() {
     _troopManager = new TroopManager(10);
     var troops = EmbeddedResources.LoadTroops();
     troops.ShouldNotBeNull();
     _troopManager.RegisterTroops(troops);
   }
 
-  [Test]
+  [Fact]
   public void TestSpawnTroop() {
     _troopManager.SpawnTroop(new Vector2I(0, 0), 1, 1, TroopType.Warrior);
     _troopManager[0u].IsValid().ShouldBeTrue();
@@ -25,7 +23,7 @@ public class TroopManagerTest(Node testScene) : TestClass(testScene) {
     _troopManager[0u].City.ShouldBe(1u);
   }
 
-  [Test]
+  [Fact]
   public void TestDeleteTroop() {
     var position = new Vector2I(1, 0);
     _troopManager.SpawnTroop(position, 1, 1, TroopType.Warrior);
@@ -34,7 +32,7 @@ public class TroopManagerTest(Node testScene) : TestClass(testScene) {
     _troopManager[1].IsValid().ShouldBeFalse();
   }
 
-  [Test]
+  [Fact]
   public void TestMoveTroop() {
     var initialPosition = new Vector2I(2, 0);
     var finalPosition = new Vector2I(3, 0);
@@ -45,7 +43,7 @@ public class TroopManagerTest(Node testScene) : TestClass(testScene) {
     _troopManager[3].IsValid().ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestSetVeteran() {
     var position = new Vector2I(4, 0);
     _troopManager.SpawnTroop(position, 1, 1, TroopType.Warrior);
@@ -53,7 +51,7 @@ public class TroopManagerTest(Node testScene) : TestClass(testScene) {
     _troopManager[4].Veteran.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestModifyTroop() {
     var position = new Vector2I(5, 0);
     _troopManager.SpawnTroop(position, 1, 1, TroopType.Warrior);

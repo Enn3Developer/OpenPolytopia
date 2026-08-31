@@ -1,12 +1,11 @@
 namespace OpenPolytopia;
 
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class DamageCalculatorTest {
+  [Fact]
   public void TestEvenMatch() {
     // two full health warriors trade 5 damage each way
     DamageCalculator.ComputeMeleeDamage(2, 10, 10, 2, 10, 10, out var attackDamage, out var defenseDamage);
@@ -14,7 +13,7 @@ public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
     defenseDamage.ShouldBe(5u);
   }
 
-  [Test]
+  [Fact]
   public void TestWoundedAttacker() {
     // a wounded attacker hits for less and takes more in return
     DamageCalculator.ComputeMeleeDamage(2, 5, 10, 2, 10, 10, out var attackDamage, out var defenseDamage);
@@ -22,7 +21,7 @@ public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
     defenseDamage.ShouldBe(6u);
   }
 
-  [Test]
+  [Fact]
   public void TestWoundedDefender() {
     // a wounded defender takes more and retaliates for less
     DamageCalculator.ComputeMeleeDamage(2, 10, 10, 2, 5, 10, out var attackDamage, out var defenseDamage);
@@ -30,7 +29,7 @@ public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
     defenseDamage.ShouldBe(3u);
   }
 
-  [Test]
+  [Fact]
   public void TestDefenseBonus() {
     // the retaliation scales linearly with the defense, not with the bonus applied to it
     DamageCalculator.ComputeMeleeDamage(2, 10, 10, 2, 10, 10, out var attackDamage, out var defenseDamage, 1.5f);
@@ -42,7 +41,7 @@ public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
     defenseDamage.ShouldBe(7u);
   }
 
-  [Test]
+  [Fact]
   public void TestUnevenStats() {
     // a stronger attacker against a full health warrior
     DamageCalculator.ComputeMeleeDamage(3, 10, 10, 2, 10, 10, out var attackDamage, out var defenseDamage);
@@ -59,14 +58,14 @@ public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
     defenseDamage.ShouldBe(3u);
   }
 
-  [Test]
+  [Fact]
   public void TestRoundsHalvesUp() {
     // 5 * (2 / 4) * 4.5 rounds up to 5, banker's rounding would give 4
     DamageCalculator.ComputeMeleeDamage(2, 10, 10, 2, 10, 10, out var attackDamage, out _);
     attackDamage.ShouldBe(5u);
   }
 
-  [Test]
+  [Fact]
   public void TestRangedDamage() {
     // ranged attacks deal the melee attack damage without taking any retaliation
     DamageCalculator.ComputeMeleeDamage(2, 10, 10, 2, 5, 10, out var attackDamage, out _);
@@ -74,7 +73,7 @@ public class DamageCalculatorTest(Node testScene) : TestClass(testScene) {
     DamageCalculator.ComputeRangedDamage(2, 10, 10, 2, 10, 10, 1.5f).ShouldBe(4u);
   }
 
-  [Test]
+  [Fact]
   public void TestSplashDamage() {
     // splash is half the ranged damage, rounded down
     DamageCalculator.ComputeSplashDamage(2, 10, 10, 2, 10, 10).ShouldBe(2u);

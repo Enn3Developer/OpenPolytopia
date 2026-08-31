@@ -1,20 +1,19 @@
 namespace OpenPolytopia;
 
 using System.Threading.Tasks;
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class TileTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class TileTest {
+  [Fact]
   public void TestTileCreation() {
     const TileKind kind = TileKind.Mountain;
     var tile = new Tile(kind);
     tile.Kind.ShouldBe(kind);
   }
 
-  [Test]
+  [Fact]
   public void TestRoad() {
     var tile = new Tile(TileKind.Field);
     tile.Roads.ShouldBe(false);
@@ -22,7 +21,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.Roads.ShouldBe(true);
   }
 
-  [Test]
+  [Fact]
   public void TestRuin() {
     var tile = new Tile(TileKind.Field);
     tile.Ruin.ShouldBe(false);
@@ -30,7 +29,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.Ruin.ShouldBe(true);
   }
 
-  [Test]
+  [Fact]
   public void TestModifier() {
     const FieldTileModifier modifier = FieldTileModifier.Fruit;
     var tile = new Tile(TileKind.Field);
@@ -39,7 +38,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.GetTileModifier<FieldTileModifier>().ShouldBe(modifier);
   }
 
-  [Test]
+  [Fact]
   public void TestBuilding() {
     const FieldTileBuilding building = FieldTileBuilding.Market;
     var tile = new Tile(TileKind.Field);
@@ -48,7 +47,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.GetTileBuilding<FieldTileBuilding>().ShouldBe(building);
   }
 
-  [Test]
+  [Fact]
   public void TestOwner() {
     const int owner = 2;
     var tile = new Tile(TileKind.Field);
@@ -57,7 +56,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.Owner.ShouldBe(owner);
   }
 
-  [Test]
+  [Fact]
   public void TestBiome() {
     const TribeType biome = TribeType.Elyrion;
     var tile = new Tile(TileKind.Field);
@@ -66,7 +65,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.Biome.ShouldBe(biome);
   }
 
-  [Test]
+  [Fact]
   public void TestCity() {
     const int city = 20;
     var tile = new Tile(TileKind.Field);
@@ -75,7 +74,7 @@ public class TileTest(Node testScene) : TestClass(testScene) {
     tile.City.ShouldBe(city);
   }
 
-  [Test]
+  [Fact]
   public void TestWonder() {
     const Wonder wonder = Wonder.EmperorsTomb;
     var tile = new Tile(TileKind.Field);

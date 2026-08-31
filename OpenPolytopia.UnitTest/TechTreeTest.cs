@@ -1,12 +1,11 @@
 namespace OpenPolytopia;
 
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class TechTreeTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class TechTreeTest {
+  [Fact]
   public void TestStartingTech() {
     const BranchType branch = BranchType.Climbing;
     const string id = "climbing";
@@ -15,7 +14,7 @@ public class TechTreeTest(Node testScene) : TestClass(testScene) {
     techTree[branch].HasResearched(id).ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestStartingTech2() {
     const BranchType branch = BranchType.Climbing;
     const string id = "climbing";
@@ -23,7 +22,7 @@ public class TechTreeTest(Node testScene) : TestClass(testScene) {
     techTree[branch].HasResearched(id).ShouldBeFalse();
   }
 
-  [Test]
+  [Fact]
   public void TestResearch() {
     const BranchType branch = BranchType.Climbing;
     const string id = "climbing";
@@ -33,7 +32,7 @@ public class TechTreeTest(Node testScene) : TestClass(testScene) {
     techTree[branch].HasResearched(id).ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestComputeCost() {
     const BranchType branch = BranchType.Climbing;
     var id = "climbing";

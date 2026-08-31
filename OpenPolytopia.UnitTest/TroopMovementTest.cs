@@ -1,23 +1,21 @@
 namespace OpenPolytopia;
 
 using System.Threading.Tasks;
-using Chickensoft.GoDotTest;
 using Godot;
 using Common;
 using Shouldly;
 
-public class TroopMovementTest(Node testScene) : TestClass(testScene) {
+public class TroopMovementTest {
   private TroopManager _troopManager = null!;
 
-  [Setup]
-  public void Setup() {
+  public TroopMovementTest() {
     _troopManager = new TroopManager(10);
     var troops = EmbeddedResources.LoadTroops();
     troops.ShouldNotBeNull();
     _troopManager.RegisterTroops(troops);
   }
 
-  [Test]
+  [Fact]
   public async Task TestNumbersPathAsync() {
     _troopManager.SpawnTroop(new Vector2I(0, 0), 1, 1, TroopType.Warrior);
     var counter = 0;
@@ -29,7 +27,7 @@ public class TroopMovementTest(Node testScene) : TestClass(testScene) {
     counter.ShouldBe(3);
   }
 
-  [Test]
+  [Fact]
   public async Task TestMoveTroopToDiscoveredPathAsync() {
     var lastPos = new Vector2I(9, 9);
     _troopManager.SpawnTroop(lastPos, 1, 1, TroopType.Warrior);
@@ -44,7 +42,7 @@ public class TroopMovementTest(Node testScene) : TestClass(testScene) {
     }
   }
 
-  [Test]
+  [Fact]
   public async Task TestMoveMultipleTroopsAsync() {
     _troopManager.SpawnTroop(new Vector2I(5, 0), 1, 1, TroopType.Warrior);
     _troopManager.SpawnTroop(new Vector2I(6, 0), 1, 1, TroopType.Warrior);

@@ -1,24 +1,23 @@
 namespace OpenPolytopia;
 
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class GridTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class GridTest {
+  [Fact]
   public void TestPositionToIndex() {
     var grid = new Grid(10);
     grid.GridPositionToIndex(new Vector2I(2, 2)).ShouldBe(22u);
   }
 
-  [Test]
+  [Fact]
   public void TestIndexToPosition() {
     var grid = new Grid(10);
     grid.IndexToGridPosition(22u).ShouldBe(new Vector2I(2, 2));
   }
 
-  [Test]
+  [Fact]
   public void TestModifyTile() {
     var grid = new Grid(10);
     grid.ModifyTile(0, (ref Tile tile) => tile.Owner = 2);

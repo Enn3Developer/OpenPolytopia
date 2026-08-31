@@ -1,13 +1,12 @@
 namespace OpenPolytopia;
 
 using System.Linq;
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class DirectionsTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class DirectionsTest {
+  [Fact]
   public void TestCardinalVectors() {
     Direction.Up.ToVector2I().ShouldBe(new Vector2I(0, -1));
     Direction.Down.ToVector2I().ShouldBe(new Vector2I(0, 1));
@@ -15,7 +14,7 @@ public class DirectionsTest(Node testScene) : TestClass(testScene) {
     Direction.Right.ToVector2I().ShouldBe(new Vector2I(1, 0));
   }
 
-  [Test]
+  [Fact]
   public void TestDiagonalVectors() {
     Direction.UpLeft.ToVector2I().ShouldBe(new Vector2I(-1, -1));
     Direction.UpRight.ToVector2I().ShouldBe(new Vector2I(1, -1));
@@ -23,7 +22,7 @@ public class DirectionsTest(Node testScene) : TestClass(testScene) {
     Direction.DownRight.ToVector2I().ShouldBe(new Vector2I(1, 1));
   }
 
-  [Test]
+  [Fact]
   public void TestDiagonalsAreCardinalSums() {
     Direction.UpLeft.ToVector2I().ShouldBe(Direction.Up.ToVector2I() + Direction.Left.ToVector2I());
     Direction.UpRight.ToVector2I().ShouldBe(Direction.Up.ToVector2I() + Direction.Right.ToVector2I());
@@ -31,14 +30,14 @@ public class DirectionsTest(Node testScene) : TestClass(testScene) {
     Direction.DownRight.ToVector2I().ShouldBe(Direction.Down.ToVector2I() + Direction.Right.ToVector2I());
   }
 
-  [Test]
+  [Fact]
   public void TestAllDirectionsAreDistinct() {
     // a duplicated vector means a whole direction is unreachable when pathfinding
     WrapperDirection.Directions.Length.ShouldBe(8);
     WrapperDirection.Directions.Distinct().Count().ShouldBe(8);
   }
 
-  [Test]
+  [Fact]
   public void TestOppositeDirectionsCancelOut() {
     (Direction.Up.ToVector2I() + Direction.Down.ToVector2I()).ShouldBe(Vector2I.Zero);
     (Direction.Left.ToVector2I() + Direction.Right.ToVector2I()).ShouldBe(Vector2I.Zero);
@@ -46,7 +45,7 @@ public class DirectionsTest(Node testScene) : TestClass(testScene) {
     (Direction.UpRight.ToVector2I() + Direction.DownLeft.ToVector2I()).ShouldBe(Vector2I.Zero);
   }
 
-  [Test]
+  [Fact]
   public void TestHorizontalAndVertical() {
     WrapperDirection.Horizontal.ShouldBe(new[] { new Vector2I(-1, 0), new Vector2I(1, 0) });
     WrapperDirection.Vertical.ShouldBe(new[] { new Vector2I(0, -1), new Vector2I(0, 1) });
@@ -55,7 +54,7 @@ public class DirectionsTest(Node testScene) : TestClass(testScene) {
     WrapperDirection.Horizontal.Intersect(WrapperDirection.Vertical).ShouldBeEmpty();
   }
 
-  [Test]
+  [Fact]
   public void TestEveryNeighborIsReachable() {
     // every tile around the origin must be covered exactly once
     var origin = new Vector2I(0, 0);
