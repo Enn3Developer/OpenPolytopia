@@ -31,12 +31,16 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   // guards _lobbyManager and _playerNames: packet handlers run on many client tasks
   private readonly SemaphoreSlim _stateLock = new(1, 1);
 
+  private readonly PacketDispatcher<NetworkConnection> _dispatcher = new();
+
   private readonly CancellationTokenSource _cts = new();
 
   /// <summary>
   /// Runs the server until <see cref="Stop"/> gets called
   /// </summary>
   public async Task RunAsync() {
+    RegisterHandlers();
+
     _server.OnPacketReceived += ManagePacketAsync;
     _server.OnClientDisconnected += connection => _ = ClientDisconnectedAsync(connection);
 
@@ -77,32 +81,32 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       return;
     }
 
-    switch (packet) {
-      // register the player or rename him
-      case SetNamePacket setName:
-        await ManageSetNameAsync(connection, setName);
-        break;
-      // respond with all the lobbies currently on the server
-      case GetLobbiesPacket:
-        await ManageGetLobbiesAsync(connection);
-        break;
-      // create a new lobby with the sender inside
-      case CreateLobbyPacket createLobby:
-        await ManageCreateLobbyAsync(connection, createLobby);
-        break;
-      // add the sender to an existing lobby
-      case JoinLobbyPacket joinLobby:
-        await ManageJoinLobbyAsync(connection, joinLobby);
-        break;
-      // remove the sender from a lobby
-      case LeaveLobbyPacket leaveLobby:
-        await ManageLeaveLobbyAsync(connection, leaveLobby);
-        break;
-      // update the ready state of the sender in a lobby
-      case SetReadyPacket setReady:
-        await ManageSetReadyAsync(connection, setReady);
-        break;
+    if (!await _dispatcher.DispatchAsync(connection, packet)) {
+      // a client sending a packet the server never handles, e.g. a response packet
+      Console.Error.WriteLine($"Unhandled {packet.GetType().Name} from client {connection.Id}");
     }
+  }
+
+  /// <summary>
+  /// Registers a handler for every packet the server accepts
+  /// </summary>
+  /// <remarks>
+  /// <see cref="HandshakePacket"/> isn't registered here: it has to run before the handshake gate
+  /// in <see cref="DispatchPacketAsync"/>
+  /// </remarks>
+  private void RegisterHandlers() {
+    // register the player or rename him
+    _dispatcher.Register<SetNamePacket>(ManageSetNameAsync);
+    // respond with all the lobbies currently on the server
+    _dispatcher.Register<GetLobbiesPacket>((connection, _) => ManageGetLobbiesAsync(connection));
+    // create a new lobby with the sender inside
+    _dispatcher.Register<CreateLobbyPacket>(ManageCreateLobbyAsync);
+    // add the sender to an existing lobby
+    _dispatcher.Register<JoinLobbyPacket>(ManageJoinLobbyAsync);
+    // remove the sender from a lobby
+    _dispatcher.Register<LeaveLobbyPacket>(ManageLeaveLobbyAsync);
+    // update the ready state of the sender in a lobby
+    _dispatcher.Register<SetReadyPacket>(ManageSetReadyAsync);
   }
 
   private void ManageHandshake(NetworkConnection connection, HandshakePacket packet) {
