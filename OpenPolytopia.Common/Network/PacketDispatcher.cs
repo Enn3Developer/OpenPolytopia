@@ -38,6 +38,34 @@ public class PacketDispatcher<TContext> {
     });
 
   /// <summary>
+  /// Runs the handler registered for the packet without awaiting it
+  /// </summary>
+  /// <remarks>
+  /// For callers that can't await, e.g. code running on the Godot main thread.
+  /// Only handlers registered with <see cref="Register{T}(Action{TContext, T})"/> are allowed:
+  /// an asynchronous one would keep running after this method returns
+  /// </remarks>
+  /// <param name="context">what to hand to the handler along with the packet</param>
+  /// <param name="packet">the packet to dispatch</param>
+  /// <returns><c>true</c> if a handler ran, <c>false</c> if no handler is registered for this packet type</returns>
+  /// <exception cref="InvalidOperationException">if the handler didn't complete synchronously</exception>
+  public bool Dispatch(TContext context, IPacket packet) {
+    if (!_handlers.TryGetValue(packet.GetType(), out var handler)) {
+      return false;
+    }
+
+    var task = handler(context, packet);
+    if (!task.IsCompleted) {
+      throw new InvalidOperationException(
+        $"An asynchronous handler is registered for {packet.GetType().Name}, dispatch it with DispatchAsync");
+    }
+
+    // hand back the exceptions the handler threw instead of leaving them on the task
+    task.GetAwaiter().GetResult();
+    return true;
+  }
+
+  /// <summary>
   /// Runs the handler registered for the packet
   /// </summary>
   /// <param name="context">what to hand to the handler along with the packet</param>

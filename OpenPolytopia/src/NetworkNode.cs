@@ -50,6 +50,8 @@ public partial class NetworkNode : Node {
   private static string? _requestedName;
   private static string? _acceptedName;
 
+  private readonly PacketDispatcher<NetworkNode> _dispatcher = new();
+
   /// <summary>
   /// Host to connect to
   /// </summary>
@@ -139,6 +141,29 @@ public partial class NetworkNode : Node {
   /// Fired when the game of a lobby this player joined starts
   /// </summary>
   public event Action<GameStartedPacket>? OnGameStarted;
+
+  /// <summary>
+  /// Registers a handler for every packet the server sends
+  /// </summary>
+  public NetworkNode() {
+    // register the player id and flush everything that waited for the handshake
+    _dispatcher.Register<HandshakeResponsePacket>((_, packet) => ManageHandshakeResponse(packet));
+    // confirm or refuse the name the player asked for
+    _dispatcher.Register<SetNameResponsePacket>((_, packet) => ManageSetNameResponse(packet));
+    // replace the lobby list with the one the server sent
+    _dispatcher.Register<GetLobbiesResponsePacket>((_, packet) => ManageGetLobbiesResponse(packet));
+    // report the outcome of a lobby action back to the scenes
+    _dispatcher.Register<CreateLobbyResponsePacket>((_, packet) =>
+      OnLobbyCreated?.Invoke(packet.Result, packet.LobbyId));
+    _dispatcher.Register<JoinLobbyResponsePacket>((_, packet) => OnLobbyJoined?.Invoke(packet.Result, packet.LobbyId));
+    _dispatcher.Register<LeaveLobbyResponsePacket>((_, packet) => OnLobbyLeft?.Invoke(packet.Result, packet.LobbyId));
+    _dispatcher.Register<SetReadyResponsePacket>((_, packet) => OnReadySet?.Invoke(packet.Result, packet.LobbyId));
+    // keep the local lobby list in sync with the server
+    _dispatcher.Register<LobbyUpdatedPacket>((_, packet) => ManageLobbyUpdated(packet));
+    _dispatcher.Register<LobbyDeletedPacket>((_, packet) => ManageLobbyDeleted(packet));
+    // hand the game data over to the scenes
+    _dispatcher.Register<GameStartedPacket>((_, packet) => OnGameStarted?.Invoke(packet));
+  }
 
   /// <summary>
   /// Takes over the shared connection and connects to the server if needed
@@ -385,80 +410,71 @@ public partial class NetworkNode : Node {
   }
 
   private void ProcessPacket(IPacket packet) {
-    switch (packet) {
-      case HandshakeResponsePacket handshakeResponse:
-        if (!handshakeResponse.Ok) {
-          GD.PushError("Server refused the connection: incompatible version");
-          Disconnect();
+    if (!_dispatcher.Dispatch(this, packet)) {
+      // the server sending something the client never handles means the two disagree on the protocol
+      GD.PushError($"Unhandled {packet.GetType().Name} from the server");
+    }
+  }
 
-          // let the scenes surface the refusal; retrying would fail the same way
-          OnDisconnected?.Invoke();
-          break;
-        }
+  private void ManageHandshakeResponse(HandshakeResponsePacket packet) {
+    if (!packet.Ok) {
+      GD.PushError("Server refused the connection: incompatible version");
+      Disconnect();
 
-        _playerId = handshakeResponse.PlayerId;
-        _handshakeDone = true;
-        OnConnected?.Invoke();
+      // let the scenes surface the refusal; retrying would fail the same way
+      OnDisconnected?.Invoke();
+      return;
+    }
 
-        // register again after a reconnection, the server forgot this player
-        if (_acceptedName != null) {
-          Send(new SetNamePacket { Name = _acceptedName });
-        }
+    _playerId = packet.PlayerId;
+    _handshakeDone = true;
+    OnConnected?.Invoke();
 
-        // send the packets queued while connecting; stop if a handler disconnected
-        while (_handshakeDone && _pendingPackets.TryDequeue(out var pending)) {
-          Send(pending);
-        }
+    // register again after a reconnection, the server forgot this player
+    if (_acceptedName != null) {
+      Send(new SetNamePacket { Name = _acceptedName });
+    }
 
-        // get the initial lobby list
-        RefreshLobbies();
-        break;
-      case SetNameResponsePacket setNameResponse:
-        if (setNameResponse.Ok) {
-          // remember the name to register again after a reconnection
-          _acceptedName = _requestedName;
-        }
+    // send the packets queued while connecting; stop if a handler disconnected
+    while (_handshakeDone && _pendingPackets.TryDequeue(out var pending)) {
+      Send(pending);
+    }
 
-        OnNameSet?.Invoke(setNameResponse.Ok);
-        break;
-      case GetLobbiesResponsePacket lobbiesResponse:
-        _lobbies.Clear();
-        _lobbies.AddRange(lobbiesResponse.Lobbies);
-        OnLobbiesChanged?.Invoke();
-        break;
-      case CreateLobbyResponsePacket createLobbyResponse:
-        OnLobbyCreated?.Invoke(createLobbyResponse.Result, createLobbyResponse.LobbyId);
-        break;
-      case JoinLobbyResponsePacket joinLobbyResponse:
-        OnLobbyJoined?.Invoke(joinLobbyResponse.Result, joinLobbyResponse.LobbyId);
-        break;
-      case LeaveLobbyResponsePacket leaveLobbyResponse:
-        OnLobbyLeft?.Invoke(leaveLobbyResponse.Result, leaveLobbyResponse.LobbyId);
-        break;
-      case SetReadyResponsePacket setReadyResponse:
-        OnReadySet?.Invoke(setReadyResponse.Result, setReadyResponse.LobbyId);
-        break;
-      case LobbyUpdatedPacket lobbyUpdated:
-        // replace the old lobby data in place if present
-        var oldIndex = _lobbies.FindIndex(lobby => lobby.Id == lobbyUpdated.Lobby.Id);
-        if (oldIndex >= 0) {
-          _lobbies[oldIndex] = lobbyUpdated.Lobby;
-        }
-        else {
-          _lobbies.Add(lobbyUpdated.Lobby);
-        }
+    // get the initial lobby list
+    RefreshLobbies();
+  }
 
-        OnLobbiesChanged?.Invoke();
-        break;
-      case LobbyDeletedPacket lobbyDeleted:
-        if (_lobbies.RemoveAll(lobby => lobby.Id == lobbyDeleted.LobbyId) > 0) {
-          OnLobbiesChanged?.Invoke();
-        }
+  private void ManageSetNameResponse(SetNameResponsePacket packet) {
+    if (packet.Ok) {
+      // remember the name to register again after a reconnection
+      _acceptedName = _requestedName;
+    }
 
-        break;
-      case GameStartedPacket gameStarted:
-        OnGameStarted?.Invoke(gameStarted);
-        break;
+    OnNameSet?.Invoke(packet.Ok);
+  }
+
+  private void ManageGetLobbiesResponse(GetLobbiesResponsePacket packet) {
+    _lobbies.Clear();
+    _lobbies.AddRange(packet.Lobbies);
+    OnLobbiesChanged?.Invoke();
+  }
+
+  private void ManageLobbyUpdated(LobbyUpdatedPacket packet) {
+    // replace the old lobby data in place if present
+    var oldIndex = _lobbies.FindIndex(lobby => lobby.Id == packet.Lobby.Id);
+    if (oldIndex >= 0) {
+      _lobbies[oldIndex] = packet.Lobby;
+    }
+    else {
+      _lobbies.Add(packet.Lobby);
+    }
+
+    OnLobbiesChanged?.Invoke();
+  }
+
+  private void ManageLobbyDeleted(LobbyDeletedPacket packet) {
+    if (_lobbies.RemoveAll(lobby => lobby.Id == packet.LobbyId) > 0) {
+      OnLobbiesChanged?.Invoke();
     }
   }
 }
