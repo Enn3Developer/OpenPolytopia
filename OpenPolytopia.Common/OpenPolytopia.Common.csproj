@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="DotNext.Threading" Version="5.25.2"/>
-    <PackageReference Include="GodotSharp" Version="4.5.0"/>
+    <PackageReference Include="GodotSharp" Version="4.7.2"/>
   </ItemGroup>
 
   <ItemGroup>
