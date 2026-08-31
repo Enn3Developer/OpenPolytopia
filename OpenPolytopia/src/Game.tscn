@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://cywpu6lxdjhuu"]
+[gd_scene load_steps=4 format=3 uid="uid://cywpu6lxdjhuu"]
 
 [ext_resource type="Script" uid="uid://bnycq21rdq54b" path="res://src/Game.cs" id="1_17mmo"]
+[ext_resource type="PackedScene" uid="uid://badtuu46ibki5" path="res://src/Lobby.tscn" id="2_lobby"]
+[ext_resource type="Script" uid="uid://dcn2kq8wfxg0v" path="res://src/NetworkNode.cs" id="3_netnode"]
 
 [node name="Control" type="Control"]
 layout_mode = 3
@@ -10,6 +12,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_17mmo")
+LobbyScene = ExtResource("2_lobby")
 
 [node name="Label" type="Label" parent="."]
 layout_mode = 1
@@ -39,11 +42,19 @@ layout_mode = 2
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 placeholder_text = "Insert your nickname here..."
+max_length = 32
 
 [node name="Button" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Play"
+
+[node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="NetworkNode" type="Node" parent="."]
+script = ExtResource("3_netnode")
 
 [connection signal="text_changed" from="CenterContainer/VBoxContainer/LineEdit" to="." method="OnNameChanged"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Button" to="." method="OnPlayPressed"]

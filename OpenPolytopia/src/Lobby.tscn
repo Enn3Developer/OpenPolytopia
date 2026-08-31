@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://badtuu46ibki5"]
+[gd_scene load_steps=3 format=3 uid="uid://badtuu46ibki5"]
 
 [ext_resource type="Script" uid="uid://5y8x70doldk0" path="res://src/Lobby.cs" id="1_ciqg2"]
+[ext_resource type="Script" uid="uid://dcn2kq8wfxg0v" path="res://src/NetworkNode.cs" id="2_netnode"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
@@ -10,3 +11,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ciqg2")
+
+[node name="NetworkNode" type="Node" parent="."]
+script = ExtResource("2_netnode")
