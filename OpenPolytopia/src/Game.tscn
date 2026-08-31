@@ -1,10 +1,10 @@
-[gd_scene load_steps=4 format=3 uid="uid://cywpu6lxdjhuu"]
+[gd_scene format=3 uid="uid://cywpu6lxdjhuu"]
 
 [ext_resource type="Script" uid="uid://bnycq21rdq54b" path="res://src/Game.cs" id="1_17mmo"]
 [ext_resource type="PackedScene" uid="uid://badtuu46ibki5" path="res://src/Lobby.tscn" id="2_lobby"]
 [ext_resource type="Script" uid="uid://dcn2kq8wfxg0v" path="res://src/NetworkNode.cs" id="3_netnode"]
 
-[node name="Control" type="Control"]
+[node name="Control" type="Control" unique_id=74950801]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -14,7 +14,7 @@ grow_vertical = 2
 script = ExtResource("1_17mmo")
 LobbyScene = ExtResource("2_lobby")
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="." unique_id=288974844]
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -26,8 +26,8 @@ grow_horizontal = 2
 theme_override_font_sizes/font_size = 64
 text = "OpenPolytopia"
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
-layout_mode = 2
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=2110047442]
+layout_mode = 0
 offset_left = 555.0
 offset_top = 308.0
 offset_right = 596.0
@@ -35,25 +35,25 @@ offset_bottom = 339.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer" unique_id=1799682963]
 layout_mode = 2
 
-[node name="LineEdit" type="LineEdit" parent="CenterContainer/VBoxContainer"]
+[node name="LineEdit" type="LineEdit" parent="CenterContainer/VBoxContainer" unique_id=437749577]
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 placeholder_text = "Insert your nickname here..."
 max_length = 32
 
-[node name="Button" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="Button" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1720505842]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Play"
 
-[node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+[node name="StatusLabel" type="Label" parent="CenterContainer/VBoxContainer" unique_id=167176205]
 layout_mode = 2
 horizontal_alignment = 1
 
-[node name="NetworkNode" type="Node" parent="."]
+[node name="NetworkNode" type="Node" parent="." unique_id=455371619]
 script = ExtResource("3_netnode")
 
 [connection signal="text_changed" from="CenterContainer/VBoxContainer/LineEdit" to="." method="OnNameChanged"]
