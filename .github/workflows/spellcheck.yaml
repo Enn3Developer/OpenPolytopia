@@ -13,10 +13,10 @@ jobs:
       run:
         working-directory: '.'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         name: 🧾 Checkout
 
-      - uses: streetsidesoftware/cspell-action@v7
+      - uses: streetsidesoftware/cspell-action@v9
         name: 📝 Check Spelling
         with:
           config: './cspell.json'
