@@ -64,12 +64,13 @@ public class PacketTest {
 
   [Fact]
   public void TestGetLobbiesResponse() {
-    var lobby = new LobbyData { Id = 123, MaxPlayers = 4 };
+    var lobby = new LobbyData { Id = 123, MaxPlayers = 4, WorldSize = 16 };
     lobby.Players.Add(new LobbyPlayerData { PlayerId = 7, Name = "Test", Tribe = 2, Ready = true });
     var packet = RoundTrip(new GetLobbiesResponsePacket { Lobbies = [lobby] });
     packet.Lobbies.Count.ShouldBe(1);
     packet.Lobbies[0].Id.ShouldBe(123u);
     packet.Lobbies[0].MaxPlayers.ShouldBe(4u);
+    packet.Lobbies[0].WorldSize.ShouldBe(16u);
     packet.Lobbies[0].Players.Count.ShouldBe(1);
     packet.Lobbies[0].Players[0].PlayerId.ShouldBe(7u);
     packet.Lobbies[0].Players[0].Name.ShouldBe("Test");
@@ -80,8 +81,9 @@ public class PacketTest {
 
   [Fact]
   public void TestCreateLobby() {
-    var packet = RoundTrip(new CreateLobbyPacket { MaxPlayers = 8, Tribe = 3 });
+    var packet = RoundTrip(new CreateLobbyPacket { MaxPlayers = 8, WorldSize = 18, Tribe = 3 });
     packet.MaxPlayers.ShouldBe(8u);
+    packet.WorldSize.ShouldBe(18u);
     packet.Tribe.ShouldBe(3u);
   }
 
@@ -135,11 +137,12 @@ public class PacketTest {
 
   [Fact]
   public void TestLobbyUpdated() {
-    var lobby = new LobbyData { Id = 55, MaxPlayers = 2 };
+    var lobby = new LobbyData { Id = 55, MaxPlayers = 2, WorldSize = 11 };
     lobby.Players.Add(new LobbyPlayerData { PlayerId = 9, Name = "Test", Tribe = 1 });
     var packet = RoundTrip(new LobbyUpdatedPacket { Lobby = lobby });
     packet.Lobby.Id.ShouldBe(55u);
     packet.Lobby.MaxPlayers.ShouldBe(2u);
+    packet.Lobby.WorldSize.ShouldBe(11u);
     packet.Lobby.Players.Count.ShouldBe(1);
     packet.Lobby.Players[0].Name.ShouldBe("Test");
   }

@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenPolytopia.Common\OpenPolytopia.Common.csproj" />
+    <ProjectReference Include="..\OpenPolytopia.Server\OpenPolytopia.Server.csproj" />
   </ItemGroup>
 
 </Project>
