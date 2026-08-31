@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: '📝 Change Version'
-        uses: vers-one/dotnet-project-version-updater@v1.7
+        uses: vers-one/dotnet-project-version-updater@v1.8
         with:
           file: "OpenPolytopia/OpenPolytopia.csproj"
           version: ${{ github.event.inputs.version }}
