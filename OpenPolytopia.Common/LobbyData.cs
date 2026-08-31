@@ -56,6 +56,11 @@ public class LobbyData : INetworkSerializable {
   public uint MaxPlayers;
 
   /// <summary>
+  /// Size of the world the game will be played on
+  /// </summary>
+  public uint WorldSize;
+
+  /// <summary>
   /// If the game in the lobby has started
   /// </summary>
   public bool Started;
@@ -89,6 +94,7 @@ public class LobbyData : INetworkSerializable {
   public void Serialize(List<byte> bytes) {
     Id.Serialize(bytes);
     MaxPlayers.Serialize(bytes);
+    WorldSize.Serialize(bytes);
     Started.Serialize(bytes);
     Starting.Serialize(bytes);
     Players.Serialize(bytes);
@@ -97,6 +103,7 @@ public class LobbyData : INetworkSerializable {
   public void Deserialize(byte[] bytes, ref uint index) {
     Id.Deserialize(bytes, ref index);
     MaxPlayers.Deserialize(bytes, ref index);
+    WorldSize.Deserialize(bytes, ref index);
     Started.Deserialize(bytes, ref index);
     Starting.Deserialize(bytes, ref index);
     Players.Deserialize(bytes, ref index);

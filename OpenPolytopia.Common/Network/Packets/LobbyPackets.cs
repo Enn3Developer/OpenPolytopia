@@ -36,17 +36,24 @@ public class CreateLobbyPacket : IPacket {
   public uint MaxPlayers;
 
   /// <summary>
+  /// Size of the world the game will be played on
+  /// </summary>
+  public uint WorldSize;
+
+  /// <summary>
   /// Tribe chosen by the player creating the lobby
   /// </summary>
   public uint Tribe;
 
   public void Serialize(List<byte> bytes) {
     MaxPlayers.Serialize(bytes);
+    WorldSize.Serialize(bytes);
     Tribe.Serialize(bytes);
   }
 
   public void Deserialize(byte[] bytes, ref uint index) {
     MaxPlayers.Deserialize(bytes, ref index);
+    WorldSize.Deserialize(bytes, ref index);
     Tribe.Deserialize(bytes, ref index);
   }
 }

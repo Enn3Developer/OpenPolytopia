@@ -167,7 +167,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
       }
-      else if (packet.MaxPlayers is < 2 or > 16 || !Enum.IsDefined((TribeType)packet.Tribe)) {
+      else if (!Enum.IsDefined((TribeType)packet.Tribe)) {
         result = LobbyActionResult.InvalidParameters;
       }
       // one lobby per player and a global cap, or a client could flood the server
@@ -178,9 +178,9 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         result = LobbyActionResult.TooManyLobbies;
       }
       else {
-        result = LobbyActionResult.Ok;
-        lobby = _lobbyManager.CreateLobby(packet.MaxPlayers,
-          new LobbyPlayerData { PlayerId = connection.Id, Name = name, Tribe = packet.Tribe });
+        // the lobby rules themselves are checked by the manager, so a lobby is never half-valid
+        result = _lobbyManager.CreateLobby(packet.MaxPlayers, packet.WorldSize,
+          new LobbyPlayerData { PlayerId = connection.Id, Name = name, Tribe = packet.Tribe }, out lobby);
       }
 
       _server.SendTo(connection.Id, new CreateLobbyResponsePacket { Result = result, LobbyId = lobby?.Id ?? 0 });
@@ -232,14 +232,14 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
       _server.SendTo(connection.Id, new LeaveLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
-      if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
-        // remove the lobby if it became empty
-        if (lobby.PlayersCount == 0) {
-          _lobbyManager.RemoveLobby(lobby.Id);
-          _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
+      if (result == LobbyActionResult.Ok) {
+        // the manager drops a lobby as soon as its last player leaves, so a missing
+        // lobby here means it became empty
+        if (_lobbyManager[packet.LobbyId] is { } lobby) {
+          _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
         }
         else {
-          _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
+          _server.Broadcast(new LobbyDeletedPacket { LobbyId = packet.LobbyId });
         }
       }
     }

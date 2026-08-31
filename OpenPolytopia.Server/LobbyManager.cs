@@ -10,15 +10,6 @@ using OpenPolytopia.Common.Network.Packets;
 /// This class isn't thread-safe, <see cref="GameServer"/> serializes every access through its own lock
 /// </remarks>
 public class LobbyManager {
-  /// <summary>
-  /// Minimum players needed to start a game; solo games aren't allowed
-  /// </summary>
-  /// <remarks>
-  /// <see cref="GameServer"/> already refuses to create a lobby smaller than this,
-  /// this keeps the rule from depending on a check living in another class
-  /// </remarks>
-  private const uint MIN_PLAYERS_TO_START = 2;
-
   private readonly Dictionary<ulong, LobbyData> _lobbies = new();
   private ulong _nextId;
 
@@ -41,13 +32,26 @@ public class LobbyManager {
   /// <summary>
   /// Creates a new lobby and adds the creator to it
   /// </summary>
+  /// <remarks>
+  /// A lobby is never created in an invalid state: the world has to be able to host every player
+  /// </remarks>
   /// <param name="maxPlayers">max players that can join the lobby</param>
+  /// <param name="worldSize">size of the world the game will be played on</param>
   /// <param name="creator">the player creating the lobby</param>
-  /// <returns>the new lobby</returns>
-  public LobbyData CreateLobby(uint maxPlayers, LobbyPlayerData creator) {
-    var lobby = new LobbyData { Id = ++_nextId, MaxPlayers = maxPlayers, Players = [creator] };
+  /// <param name="lobby">the new lobby, or <see langword="null"/> if it couldn't be created</param>
+  /// <returns>the result of the operation</returns>
+  public LobbyActionResult CreateLobby(uint maxPlayers, uint worldSize, LobbyPlayerData creator,
+    out LobbyData? lobby) {
+    if (!LobbyRules.IsValidLobby(maxPlayers, worldSize)) {
+      lobby = null;
+      return LobbyActionResult.InvalidParameters;
+    }
+
+    lobby = new LobbyData {
+      Id = ++_nextId, MaxPlayers = maxPlayers, WorldSize = worldSize, Players = [creator]
+    };
     _lobbies[lobby.Id] = lobby;
-    return lobby;
+    return LobbyActionResult.Ok;
   }
 
   /// <summary>
@@ -100,6 +104,12 @@ public class LobbyManager {
     }
 
     lobby.Players.Remove(player);
+
+    // an empty lobby has nothing left to wait for
+    if (lobby.PlayersCount == 0) {
+      _lobbies.Remove(lobby.Id);
+    }
+
     return LobbyActionResult.Ok;
   }
 
@@ -143,7 +153,7 @@ public class LobbyManager {
   /// <param name="lobby">the lobby to check</param>
   private static void TryMarkStarting(LobbyData lobby) {
     if (lobby.PlayersCount == lobby.MaxPlayers
-        && lobby.PlayersCount >= MIN_PLAYERS_TO_START
+        && lobby.PlayersCount >= LobbyRules.MIN_PLAYERS
         && lobby.ReadyCount == lobby.PlayersCount) {
       lobby.Starting = true;
     }
