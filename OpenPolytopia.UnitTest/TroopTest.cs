@@ -1,12 +1,11 @@
 namespace OpenPolytopia;
 
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class TroopTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class TroopTest {
+  [Fact]
   public void TestVeteran() {
     var troop = new TroopData();
     troop.Veteran.ShouldBeFalse();
@@ -14,7 +13,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Veteran.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestAttacked() {
     var troop = new TroopData();
     troop.Attacked.ShouldBeFalse();
@@ -22,7 +21,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Attacked.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestMoved() {
     var troop = new TroopData();
     troop.Moved.ShouldBeFalse();
@@ -30,7 +29,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Moved.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestCity() {
     const uint city = 2;
     var troop = new TroopData();
@@ -39,7 +38,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.City.ShouldBe(city);
   }
 
-  [Test]
+  [Fact]
   public void TestHp() {
     const uint hp = 2;
     var troop = new TroopData();
@@ -48,7 +47,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Hp.ShouldBe(hp);
   }
 
-  [Test]
+  [Fact]
   public void TestType() {
     const TroopType type = TroopType.Archer;
     var troop = new TroopData();
@@ -57,7 +56,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Type.ShouldBe(type);
   }
 
-  [Test]
+  [Fact]
   public void TestPlayer() {
     const uint player = 2;
     var troop = new TroopData();
@@ -66,7 +65,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Player.ShouldBe(player);
   }
 
-  [Test]
+  [Fact]
   public void TestResetActions() {
     var troop = new TroopData { Attacked = true, Moved = true };
     troop.ResetActions();
@@ -74,7 +73,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.Moved.ShouldBeFalse();
   }
 
-  [Test]
+  [Fact]
   public void TestIsValid() {
     var troop = new TroopData();
     troop.IsValid().ShouldBeFalse();
@@ -82,7 +81,7 @@ public class TroopTest(Node testScene) : TestClass(testScene) {
     troop.IsValid().ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestDelete() {
     var troop = new TroopData { Player = 2 };
     troop.IsValid().ShouldBeTrue();

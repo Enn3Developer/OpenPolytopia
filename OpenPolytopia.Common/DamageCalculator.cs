@@ -23,8 +23,10 @@ public class DamageCalculator {
     var attackForce = attack * ((float)hp / maxHp);
     var defenseForce = enemyDefense * ((float)enemyHp / enemyMaxHp) * enemyDefenseBonus;
     var totalDamage = attackForce + defenseForce;
-    attackDamage = (uint)MathF.Round((attackForce / totalDamage) * attack * 4.5f);
-    defenseDamage = (uint)MathF.Round((defenseForce / totalDamage) * defenseForce * 4.5f);
+    // Polytopia rounds halves up, while MathF.Round defaults to banker's rounding
+    attackDamage = (uint)MathF.Round((attackForce / totalDamage) * attack * 4.5f, MidpointRounding.AwayFromZero);
+    defenseDamage =
+      (uint)MathF.Round((defenseForce / totalDamage) * enemyDefense * 4.5f, MidpointRounding.AwayFromZero);
   }
 
   /// <summary>

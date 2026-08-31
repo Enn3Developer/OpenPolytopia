@@ -1,12 +1,11 @@
 namespace OpenPolytopia;
 
 using Godot;
-using Chickensoft.GoDotTest;
 using Common;
 using Shouldly;
 
-public class ScoreTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class ScoreTest {
+  [Fact]
   public void TestPlayerScore() {
     var playerOneScore = new Score();
     playerOneScore.ScoreValue.ShouldBe(0);
@@ -16,14 +15,14 @@ public class ScoreTest(Node testScene) : TestClass(testScene) {
     playerOneScore.ScoreValue.ShouldBe(20);
   }
 
-  [Test]
+  [Fact]
   public void TestNegativeScore() {
     var playerOneScore = new Score();
     playerOneScore.AddScore(ScoreType.LoseCity(8));
     playerOneScore.ScoreValue.ShouldBe(0);
   }
 
-  [Test]
+  [Fact]
   public void TestLoseCity() {
     var playerOneScore = new Score();
     playerOneScore.AddScore(ScoreType.VillageConquered);
@@ -34,14 +33,14 @@ public class ScoreTest(Node testScene) : TestClass(testScene) {
     playerOneScore.ScoreValue.ShouldBe(0);
   }
 
-  [Test]
+  [Fact]
   public void TestTroopSpawned() {
     var playerOneScore = new Score();
     playerOneScore.AddScore(ScoreType.TroopSpawned(3, 2));
     playerOneScore.ScoreValue.ShouldBe(45);
   }
 
-  [Test]
+  [Fact]
   public void TestLoseTroop() {
     var playerOneScore = new Score();
     playerOneScore.AddScore(ScoreType.TroopSpawned(2, 2));
@@ -50,7 +49,7 @@ public class ScoreTest(Node testScene) : TestClass(testScene) {
     playerOneScore.ScoreValue.ShouldBe(15);
   }
 
-  [Test]
+  [Fact]
   public void TestDestroyedUndoesBuilt() {
     var playerOneScore = new Score();
     playerOneScore.AddScore(ScoreType.MonumentsBuilt);

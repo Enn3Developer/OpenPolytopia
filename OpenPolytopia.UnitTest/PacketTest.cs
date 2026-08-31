@@ -3,14 +3,13 @@ namespace OpenPolytopia;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using Chickensoft.GoDotTest;
 using Common;
 using Common.Network;
 using Common.Network.Packets;
 using Godot;
 using Shouldly;
 
-public class PacketTest(Node testScene) : TestClass(testScene) {
+public class PacketTest {
   private static T RoundTrip<T>(T packet) where T : IPacket, new() {
     List<byte> bytes = [];
     packet.Serialize(bytes);
@@ -26,44 +25,44 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     return await PacketProtocol.ReadPacketAsync(stream);
   }
 
-  [Test]
+  [Fact]
   public void TestHandshake() {
     var packet = RoundTrip(new HandshakePacket { Version = "0.1.0" });
     packet.Version.ShouldBe("0.1.0");
   }
 
-  [Test]
+  [Fact]
   public void TestHandshakeResponse() {
     var packet = RoundTrip(new HandshakeResponsePacket { Ok = true, PlayerId = 42 });
     packet.Ok.ShouldBeTrue();
     packet.PlayerId.ShouldBe(42u);
   }
 
-  [Test]
+  [Fact]
   public void TestKeepAlive() {
     var packet = RoundTrip(new KeepAlivePacket());
     packet.ShouldNotBeNull();
   }
 
-  [Test]
+  [Fact]
   public void TestSetName() {
     var packet = RoundTrip(new SetNamePacket { Name = "Tester àèù" });
     packet.Name.ShouldBe("Tester àèù");
   }
 
-  [Test]
+  [Fact]
   public void TestSetNameResponse() {
     var packet = RoundTrip(new SetNameResponsePacket { Ok = true });
     packet.Ok.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestGetLobbies() {
     var packet = RoundTrip(new GetLobbiesPacket());
     packet.ShouldNotBeNull();
   }
 
-  [Test]
+  [Fact]
   public void TestGetLobbiesResponse() {
     var lobby = new LobbyData { Id = 123, MaxPlayers = 4 };
     lobby.Players.Add(new LobbyPlayerData { PlayerId = 7, Name = "Test", Tribe = 2, Ready = true });
@@ -79,62 +78,62 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     packet.Lobbies[0].ReadyCount.ShouldBe(1u);
   }
 
-  [Test]
+  [Fact]
   public void TestCreateLobby() {
     var packet = RoundTrip(new CreateLobbyPacket { MaxPlayers = 8, Tribe = 3 });
     packet.MaxPlayers.ShouldBe(8u);
     packet.Tribe.ShouldBe(3u);
   }
 
-  [Test]
+  [Fact]
   public void TestCreateLobbyResponse() {
     var packet = RoundTrip(new CreateLobbyResponsePacket { Result = LobbyActionResult.Ok, LobbyId = 99 });
     packet.Result.ShouldBe(LobbyActionResult.Ok);
     packet.LobbyId.ShouldBe(99u);
   }
 
-  [Test]
+  [Fact]
   public void TestJoinLobby() {
     var packet = RoundTrip(new JoinLobbyPacket { LobbyId = 21, Tribe = 4 });
     packet.LobbyId.ShouldBe(21u);
     packet.Tribe.ShouldBe(4u);
   }
 
-  [Test]
+  [Fact]
   public void TestJoinLobbyResponse() {
     var packet = RoundTrip(new JoinLobbyResponsePacket { Result = LobbyActionResult.LobbyFull, LobbyId = 5 });
     packet.Result.ShouldBe(LobbyActionResult.LobbyFull);
     packet.LobbyId.ShouldBe(5u);
   }
 
-  [Test]
+  [Fact]
   public void TestLeaveLobby() {
     var packet = RoundTrip(new LeaveLobbyPacket { LobbyId = 33 });
     packet.LobbyId.ShouldBe(33u);
   }
 
-  [Test]
+  [Fact]
   public void TestLeaveLobbyResponse() {
     var packet = RoundTrip(new LeaveLobbyResponsePacket { Result = LobbyActionResult.NotInLobby, LobbyId = 33 });
     packet.Result.ShouldBe(LobbyActionResult.NotInLobby);
     packet.LobbyId.ShouldBe(33u);
   }
 
-  [Test]
+  [Fact]
   public void TestSetReady() {
     var packet = RoundTrip(new SetReadyPacket { LobbyId = 11, Ready = true });
     packet.LobbyId.ShouldBe(11u);
     packet.Ready.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public void TestSetReadyResponse() {
     var packet = RoundTrip(new SetReadyResponsePacket { Result = LobbyActionResult.Ok, LobbyId = 11 });
     packet.Result.ShouldBe(LobbyActionResult.Ok);
     packet.LobbyId.ShouldBe(11u);
   }
 
-  [Test]
+  [Fact]
   public void TestLobbyUpdated() {
     var lobby = new LobbyData { Id = 55, MaxPlayers = 2 };
     lobby.Players.Add(new LobbyPlayerData { PlayerId = 9, Name = "Test", Tribe = 1 });
@@ -145,13 +144,13 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     packet.Lobby.Players[0].Name.ShouldBe("Test");
   }
 
-  [Test]
+  [Fact]
   public void TestLobbyDeleted() {
     var packet = RoundTrip(new LobbyDeletedPacket { LobbyId = 55 });
     packet.LobbyId.ShouldBe(55u);
   }
 
-  [Test]
+  [Fact]
   public void TestGameStarted() {
     var packet = RoundTrip(new GameStartedPacket {
       LobbyId = 3, Players = [new LobbyPlayerData { PlayerId = 1, Name = "A" }, new LobbyPlayerData { PlayerId = 2, Name = "B" }]
@@ -161,7 +160,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     packet.Players[1].Name.ShouldBe("B");
   }
 
-  [Test]
+  [Fact]
   public void TestFraming() {
     PacketRegistrar.RegisterAllPackets();
     var packet = new HandshakePacket { Version = "0.1.0" };
@@ -177,14 +176,14 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     packetId.ShouldBe(1u);
   }
 
-  [Test]
+  [Fact]
   public async Task TestReadPacket() {
     PacketRegistrar.RegisterAllPackets();
     var packet = await ReadBackAsync(PacketProtocol.FramePacket(new SetNamePacket { Name = "Tester" }));
     packet.ShouldBeOfType<SetNamePacket>().Name.ShouldBe("Tester");
   }
 
-  [Test]
+  [Fact]
   public async Task TestReadManyPackets() {
     PacketRegistrar.RegisterAllPackets();
     List<byte> bytes = [];
@@ -198,7 +197,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     setReady.Ready.ShouldBeTrue();
   }
 
-  [Test]
+  [Fact]
   public async Task TestReadSkipsUnknownPacket() {
     PacketRegistrar.RegisterAllPackets();
 
@@ -216,7 +215,7 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     (await PacketProtocol.ReadPacketAsync(stream)).ShouldBeOfType<KeepAlivePacket>();
   }
 
-  [Test]
+  [Fact]
   public async Task TestReadRejectsTinyPacket() {
     // a packet must contain at least the 4 bytes of the packet id
     List<byte> bytes = [];
@@ -224,14 +223,14 @@ public class PacketTest(Node testScene) : TestClass(testScene) {
     await Should.ThrowAsync<ProtocolViolationException>(() => ReadBackAsync([.. bytes]));
   }
 
-  [Test]
+  [Fact]
   public async Task TestReadRejectsOversizedPacket() {
     List<byte> bytes = [];
     (NetworkConstants.MAX_PACKET_SIZE + 1).Serialize(bytes);
     await Should.ThrowAsync<ProtocolViolationException>(() => ReadBackAsync([.. bytes]));
   }
 
-  [Test]
+  [Fact]
   public async Task TestReadRejectsMalformedPayload() {
     PacketRegistrar.RegisterAllPackets();
 

@@ -1,12 +1,11 @@
 namespace OpenPolytopia;
 
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class CityDataTest(Node testScene) : TestClass(testScene) {
-  [Test]
+public class CityDataTest {
+  [Fact]
   public void TestOwner() {
     const int owner = 2;
     var cityData = new CityData();
@@ -15,7 +14,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Owner.ShouldBe(owner);
   }
 
-  [Test]
+  [Fact]
   public void TestLevel() {
     const int level = 2;
     var cityData = new CityData();
@@ -24,7 +23,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Level.ShouldBe(level);
   }
 
-  [Test]
+  [Fact]
   public void TestMaxPopulation() {
     const int level = 2;
     var cityData = new CityData();
@@ -33,7 +32,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.MaxPopulation.ShouldBe(level + 1);
   }
 
-  [Test]
+  [Fact]
   public void TestPopulation() {
     const int population = 2;
     var cityData = new CityData();
@@ -42,7 +41,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Population.ShouldBe(population);
   }
 
-  [Test]
+  [Fact]
   public void TestTroops() {
     const int troops = 2;
     var cityData = new CityData();
@@ -51,7 +50,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Troops.ShouldBe(troops);
   }
 
-  [Test]
+  [Fact]
   public void TestParks() {
     const int parks = 2;
     var cityData = new CityData();
@@ -60,7 +59,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Parks.ShouldBe(parks);
   }
 
-  [Test]
+  [Fact]
   public void TestWall() {
     const bool wall = true;
     var cityData = new CityData();
@@ -69,7 +68,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Wall.ShouldBe(wall);
   }
 
-  [Test]
+  [Fact]
   public void TestForge() {
     const bool forge = true;
     var cityData = new CityData();
@@ -78,7 +77,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Forge.ShouldBe(forge);
   }
 
-  [Test]
+  [Fact]
   public void TestCapital() {
     const bool capital = true;
     var cityData = new CityData();
@@ -87,7 +86,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Capital.ShouldBe(capital);
   }
 
-  [Test]
+  [Fact]
   public void TestConnected() {
     const bool connected = true;
     var cityData = new CityData();
@@ -96,7 +95,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Connected.ShouldBe(connected);
   }
 
-  [Test]
+  [Fact]
   public void TestStars() {
     const int level = 2;
     var cityData = new CityData();
@@ -111,7 +110,7 @@ public class CityDataTest(Node testScene) : TestClass(testScene) {
     cityData.Stars.ShouldBe(7);
   }
 
-  [Test]
+  [Fact]
   public void TestLevelUp() {
     var cityData = new CityData();
     var result = cityData.LevelUp();

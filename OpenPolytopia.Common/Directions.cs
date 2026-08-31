@@ -28,16 +28,15 @@ public static class WrapperDirection {
     new(1, 0),
     new(-1, -1),
     new(1, -1),
-    new(-1, -1),
+    new(-1, 1),
     new(1, 1)
   ];
 
   /// <summary>
-  /// Cast all movement vectors for full 8-directional movement
+  /// Movement vector of a single direction
   /// </summary>
-  /// <remarks>
-  /// Precomputed array of Vector2I values extracted from Directions.
-  /// </remarks>
+  /// <param name="direction">the direction to convert</param>
+  /// <returns>the matching entry of <see cref="Directions"/></returns>
   public static Vector2I ToVector2I(this Direction direction) => Directions[(int)direction];
 
   /// <summary>
@@ -55,7 +54,7 @@ public static class WrapperDirection {
   /// Up and down movement vectors for vertical constraints
   /// </summary>
   /// <remarks>
-  /// Contains vectors: (0, 1) and (0, -1)
+  /// Contains vectors: (0, -1) and (0, 1)
   /// </remarks>
   public static readonly Vector2I[] Vertical = [
     Direction.Up.ToVector2I(),

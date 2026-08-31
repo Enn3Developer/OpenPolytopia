@@ -2,12 +2,11 @@ namespace OpenPolytopia;
 
 using System;
 using System.Threading.Tasks;
-using Chickensoft.GoDotTest;
 using Common;
 using Godot;
 using Shouldly;
 
-public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
+public class TerrainGenerationTest {
   private const uint SIZE = 16;
   private const int SEED = 42;
 
@@ -31,7 +30,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     return (grid, cityManager, players);
   }
 
-  [Test]
+  [Fact]
   public async Task TestCapitals() {
     var (grid, cityManager, players) = await GenerateMapAsync();
 
@@ -59,7 +58,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     capitals.ShouldBe(players.Length);
   }
 
-  [Test]
+  [Fact]
   public async Task TestTerrain() {
     var (grid, _, _) = await GenerateMapAsync();
 
@@ -79,7 +78,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     water.ShouldBeGreaterThan(0);
   }
 
-  [Test]
+  [Fact]
   public async Task TestVillages() {
     var (grid, cityManager, players) = await GenerateMapAsync();
 
@@ -111,7 +110,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     villages.ShouldBeGreaterThan(0);
   }
 
-  [Test]
+  [Fact]
   public async Task TestResourcesNearCities() {
     var (grid, cityManager, _) = await GenerateMapAsync();
 
@@ -137,7 +136,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     }
   }
 
-  [Test]
+  [Fact]
   public async Task TestRuins() {
     var (grid, _, _) = await GenerateMapAsync();
 
@@ -162,7 +161,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     waterRuins.ShouldBeLessThanOrEqualTo(total / 3);
   }
 
-  [Test]
+  [Fact]
   public async Task TestInvalidPlayers() {
     var grid = new Grid(SIZE);
     var terrainGeneration = new TerrainGeneration(grid, new CityManager(grid), new TribeManager(), []);
@@ -170,7 +169,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     await Should.ThrowAsync<InvalidOperationException>(terrainGeneration.GenerateMapAsync);
   }
 
-  [Test]
+  [Fact]
   public async Task TestSingleUse() {
     var grid = new Grid(SIZE);
     var players = new[] { new Player(TribeType.Imperius, 1) };
@@ -181,7 +180,7 @@ public class TerrainGenerationTest(Node testScene) : TestClass(testScene) {
     await Should.ThrowAsync<InvalidOperationException>(terrainGeneration.GenerateMapAsync);
   }
 
-  [Test]
+  [Fact]
   public async Task TestDeterministicSeed() {
     var (first, _, _) = await GenerateMapAsync();
     var (second, _, _) = await GenerateMapAsync();
