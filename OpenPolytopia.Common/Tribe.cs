@@ -23,6 +23,11 @@ public class TribeManager {
   /// </summary>
   /// <param name="type">the type of the tribe</param>
   /// <param name="tribe">the data of the tribe</param>
+  /// <exception cref="ArgumentException">
+  /// if <see cref="Tribe.StartingBranch"/> isn't a valid <see cref="BranchType"/> or if the tribe is already
+  /// registered
+  /// </exception>
+  /// <exception cref="ArgumentNullException">if <c>tribe</c> is null</exception>
   /// <example>
   /// <code>
   /// var imperiusTribe = new Tribe {
@@ -32,14 +37,43 @@ public class TribeManager {
   /// tribeManager.RegisterTribe(TribeType.Imperius, imperiusTribe);
   /// </code>
   /// </example>
-  public void RegisterTribe(TribeType type, Tribe tribe) => Tribes.Add(type, tribe);
+  public void RegisterTribe(TribeType type, Tribe tribe) {
+    ArgumentNullException.ThrowIfNull(tribe);
+
+    // same as the branches of the tech tree, the json converter accepts numbers so a branch that doesn't exist can
+    // get this far; the overrides can't be checked here because they need the definition of the tech tree
+    if (!Enum.IsDefined(tribe.StartingBranch)) {
+      throw new ArgumentException($"tribe {type} starts on {tribe.StartingBranch}, which isn't a valid branch",
+        nameof(tribe));
+    }
+
+    // Add says an item with the same key is already there, the tech tree says which branch is declared twice
+    if (!Tribes.TryAdd(type, tribe)) {
+      throw new ArgumentException($"tribe {type} is registered more than once", nameof(type));
+    }
+  }
 
   /// <summary>
   /// Register multiple tribes
   /// </summary>
   /// <param name="tribes">the deserialized data of all tribes to register</param>
+  /// <exception cref="ArgumentException">
+  /// if the <see cref="Tribe.StartingBranch"/> of a tribe isn't a valid <see cref="BranchType"/> or if a tribe is
+  /// declared more than once
+  /// </exception>
+  /// <exception cref="ArgumentNullException">
+  /// if <c>tribes</c>, the list of the tribes, a tribe or the data of a tribe is null
+  /// </exception>
   public void RegisterTribes(TribesSerializedData tribes) {
+    ArgumentNullException.ThrowIfNull(tribes);
+
+    // required only checks that the json set the property, and a json null sets it just fine
+    ArgumentNullException.ThrowIfNull(tribes.Tribes);
+
     foreach (var tribe in tribes.Tribes) {
+      // a json null is an element of the list like any other, the data of the tribe is checked by RegisterTribe
+      ArgumentNullException.ThrowIfNull(tribe);
+
       RegisterTribe(tribe.TribeType, tribe.Tribe);
     }
   }
@@ -50,9 +84,24 @@ public class TribeManager {
 /// </summary>
 public class Tribe {
   /// <summary>
-  /// The starting tech of a tribe
+  /// The branch a tribe starts with
   /// </summary>
-  public required StartingTech StartingTech { get; init; }
+  /// <remarks>
+  /// A tribe always starts with the tier 0 node of this branch already researched, whether it's the default node or
+  /// one of its <see cref="TechOverrides"/>
+  /// </remarks>
+  public required BranchType StartingBranch { get; init; }
+
+  /// <summary>
+  /// The nodes of the default tech tree this tribe replaces with its own
+  /// </summary>
+  /// <remarks>
+  /// A tribe without unique techs doesn't need to declare anything, so this is null most of the times
+  /// <br/>
+  /// It can't default to an empty list because the source generated deserializer skips property initializers on
+  /// types with required properties
+  /// </remarks>
+  public List<TechOverride>? TechOverrides { get; init; }
 
   /// <summary>
   /// The resource spawn rates of a tribe

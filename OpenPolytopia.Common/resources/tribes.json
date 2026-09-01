@@ -3,10 +3,7 @@
     {
       "tribe_type": "imperius",
       "tribe": {
-        "starting_tech": {
-          "branch": "organization",
-          "id": "organization"
-        },
+        "starting_branch": "organization",
         "spawn_rate": {
           "fruit_rate": 2.0,
           "crop_rate": 1.0,

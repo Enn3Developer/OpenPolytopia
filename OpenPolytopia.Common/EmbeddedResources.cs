@@ -9,7 +9,8 @@ public static class EmbeddedResources {
   // serialization conventions shared by all the json resources
   private static readonly JsonSerializerOptions _jsonOptions = new() {
     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
-    TypeInfoResolver = JsonTypeInfoResolver.Combine(TribeGenerationContext.Default, TroopGenerationContext.Default),
+    TypeInfoResolver = JsonTypeInfoResolver.Combine(TribeGenerationContext.Default, TroopGenerationContext.Default,
+      TechTreeGenerationContext.Default),
     PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
   };
 
@@ -24,6 +25,11 @@ public static class EmbeddedResources {
   public static string TribesData => GetResource("OpenPolytopia.Common.resources.tribes.json");
 
   /// <summary>
+  /// Get the tech tree data from the json file
+  /// </summary>
+  public static string TechTreeData => GetResource("OpenPolytopia.Common.resources.tech_tree.json");
+
+  /// <summary>
   /// Deserializes the troops from the embedded json file
   /// </summary>
   /// <returns>the troops data, or null if the json is empty</returns>
@@ -36,6 +42,13 @@ public static class EmbeddedResources {
   /// <returns>the tribes data, or null if the json is empty</returns>
   public static TribesSerializedData? LoadTribes() =>
     JsonSerializer.Deserialize<TribesSerializedData>(TribesData, _jsonOptions);
+
+  /// <summary>
+  /// Deserializes the tech tree from the embedded json file
+  /// </summary>
+  /// <returns>the tech tree data, or null if the json is empty</returns>
+  public static TechTreeSerializedData? LoadTechTree() =>
+    JsonSerializer.Deserialize<TechTreeSerializedData>(TechTreeData, _jsonOptions);
 
   /// <summary>
   /// Returns the content of an embedded resource
