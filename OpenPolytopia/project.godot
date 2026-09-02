@@ -27,6 +27,10 @@ shader_language/warnings/treat_warnings_as_errors=true
 
 project/assembly_name="OpenPolytopia"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/polytopia_data/plugin.cfg")
+
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
