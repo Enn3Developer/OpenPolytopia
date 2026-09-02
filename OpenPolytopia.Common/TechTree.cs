@@ -232,7 +232,7 @@ public class TechTree {
 /// <summary>
 /// Branch types
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<BranchType>))]
+[JsonConverter(typeof(CamelCaseEnumConverter<BranchType>))]
 public enum BranchType {
   [EnumMember(Value = "climbing")] Climbing,
   [EnumMember(Value = "fishing")] Fishing,

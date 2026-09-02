@@ -328,7 +328,7 @@ public class Troop {
 /// <summary>
 /// Possible skills that troops can have
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<Skill>))]
+[JsonConverter(typeof(CamelCaseEnumConverter<Skill>))]
 public enum Skill {
   [EnumMember(Value = "amphibious")] Amphibious,
   [EnumMember(Value = "carry")] Carry,
@@ -356,7 +356,7 @@ public enum Skill {
   [EnumMember(Value = "detect")] Detect
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<TroopType>))]
+[JsonConverter(typeof(CamelCaseEnumConverter<TroopType>))]
 public enum TroopType {
   [EnumMember(Value = "warrior")] Warrior,
   [EnumMember(Value = "archer")] Archer,
