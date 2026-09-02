@@ -5,10 +5,12 @@ using System.Linq;
 using Chickensoft.GoDotTest;
 using Common;
 using Data;
-using Data.Editor;
 using Godot;
 using Shouldly;
 using FileAccess = Godot.FileAccess;
+#if TOOLS
+using Data.Editor;
+#endif
 
 public class JsonDataTest(Node testScene) : TestClass(testScene) {
   private const string TROOPS = "res://resources/troops.json";
@@ -155,6 +157,8 @@ public class JsonDataTest(Node testScene) : TestClass(testScene) {
     Should.Throw<ArgumentException>(() => JsonData.Save(new Resource(), "user://troops.json"));
   }
 
+  // the loader and the saver only exist in editor builds
+#if TOOLS
   [Test]
   public void TestLoader() {
     var loader = new JsonDataLoader();
@@ -200,4 +204,5 @@ public class JsonDataTest(Node testScene) : TestClass(testScene) {
     saver._Save(new TribesResource { Tribes = [null!] }, path, 0).ShouldBe(Error.CantCreate);
     FileAccess.FileExists(path).ShouldBeFalse();
   }
+#endif
 }
