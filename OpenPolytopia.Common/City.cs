@@ -165,9 +165,9 @@ public struct CityData : ITileCustomData {
   /// </remarks>
   public int Owner {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    get => (int)_inner.GetBits(FOUR_BITS, OWNER_POSITION);
+    get => (int)_inner.GetBits(FIVE_BITS, OWNER_POSITION);
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    set => _inner.SetBits((uint)value, FOUR_BITS, OWNER_POSITION);
+    set => _inner.SetBits((uint)value, FIVE_BITS, OWNER_POSITION);
   }
 
   /// <summary>

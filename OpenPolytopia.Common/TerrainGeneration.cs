@@ -56,8 +56,11 @@ public class TerrainGeneration(
   // one village every VILLAGE_DIVISOR eligible tiles
   private const int VILLAGE_DIVISOR = 9;
 
-  // Tile.City is 8 bits so there can't be more than 255 cities in a grid
+  // registering more cities than this makes CityManager throw
   private const int MAX_CITIES = 255;
+
+  // biggest lobby a game can be started from
+  private const int MAX_PLAYERS = 16;
 
   // zone map values, used for village spacing and resource spawning
   private const byte ZONE_FREE = 0;
@@ -128,17 +131,16 @@ public class TerrainGeneration(
         "the map has already been generated; create a new TerrainGeneration to generate another map");
     }
 
-    // Tile.Owner is 4 bits, so there can't be more than 15 players
-    if (players.Length is 0 or > 15) {
+    if (players.Length is 0 or > MAX_PLAYERS) {
       throw new InvalidOperationException(
-        $"invalid number of players: {players.Length}; must be between 1 and 15");
+        $"invalid number of players: {players.Length}; must be between 1 and {MAX_PLAYERS}");
     }
 
     var seenIds = 0;
     foreach (var player in players) {
-      // player ids must fit in the 4-bit Tile.Owner field, where 0 means no owner
-      if (player.Id is < 1 or > 15) {
-        throw new InvalidOperationException($"invalid player id: {player.Id}; must be between 1 and 15");
+      // 0 is the id of the tiles nobody owns, so no player can have it
+      if (player.Id is < 1 or > MAX_PLAYERS) {
+        throw new InvalidOperationException($"invalid player id: {player.Id}; must be between 1 and {MAX_PLAYERS}");
       }
 
       // a duplicate id would merge the territories of two players

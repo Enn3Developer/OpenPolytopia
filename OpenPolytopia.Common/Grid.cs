@@ -181,10 +181,10 @@ public struct Tile {
   private const int TILEKIND_POSITION = 59;
   private const int TILE_MODIFIER_POSITION = 57;
   private const int TILE_BUILDING_POSITION = 54;
-  private const int TILE_OWNER_POSITION = 50;
-  private const int TILE_BIOME_POSITION = 45;
-  private const int CITY_POSITION = 37;
-  private const int WONDER_POSITION = 33;
+  private const int TILE_OWNER_POSITION = 49;
+  private const int TILE_BIOME_POSITION = 44;
+  private const int CITY_POSITION = 36;
+  private const int WONDER_POSITION = 32;
   private const int CUSTOM_DATA_POSITION = 0;
 
   private const int ONE_BIT = 1;
@@ -202,7 +202,7 @@ public struct Tile {
   /// <remarks>
   /// This is represented as the number of bits set to 1, not as the number itself
   /// </remarks>
-  public const ulong MAX_CUSTOM_DATA_BITS = 8_589_934_591;
+  public const ulong MAX_CUSTOM_DATA_BITS = 4_294_967_295;
 
   /// <summary>
   /// Returns the corresponding modifier enum's <see cref="Type"/> from a <see cref="Kind"/>
@@ -232,11 +232,11 @@ public struct Tile {
   /// <item>[2, 4] -> <see cref="Kind"/></item>
   /// <item>[5, 6] -> Tile modifier</item>
   /// <item>[7, 9] -> Tile buildings</item>
-  /// <item>[10, 13] -> Tile owner; if 0 no owner</item>
-  /// <item>[14, 18] -> Tribe biome</item>
-  /// <item>[19, 26] -> City ID; if 0 no city</item>
-  /// <item>[27, 30] -> Wonder</item>
-  /// <item>[31, 63] -> Custom data</item>
+  /// <item>[10, 14] -> Tile owner; if 0 no owner</item>
+  /// <item>[15, 19] -> Tribe biome</item>
+  /// <item>[20, 27] -> City ID; if 0 no city</item>
+  /// <item>[28, 31] -> Wonder</item>
+  /// <item>[32, 63] -> Custom data</item>
   /// </list>
   /// </summary>
   private ulong _inner;
@@ -299,9 +299,9 @@ public struct Tile {
   /// </remarks>
   public int Owner {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    get => (int)_inner.GetBits(FOUR_BITS, TILE_OWNER_POSITION);
+    get => (int)_inner.GetBits(FIVE_BITS, TILE_OWNER_POSITION);
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    set => _inner.SetBits((ulong)value, FOUR_BITS, TILE_OWNER_POSITION);
+    set => _inner.SetBits((ulong)value, FIVE_BITS, TILE_OWNER_POSITION);
   }
 
   /// <summary>
