@@ -1,5 +1,6 @@
 namespace OpenPolytopia.Server;
 
+using System.Diagnostics.CodeAnalysis;
 using OpenPolytopia.Common;
 using OpenPolytopia.Common.Gameplay;
 using OpenPolytopia.Common.Network;
@@ -313,8 +314,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// Resigns a disconnected player from the game they were playing, if any
   /// </summary>
   /// <remarks>
-  /// The connection is already unmapped from the game by the time this runs; <see cref="GameSession.PlayerIdOf"/>
-  /// still resolves it because only the connection-to-game map, not the session's own player map, was touched
+  /// The connection is forgotten first, so the packets that follow only reach the players still connected
   /// </remarks>
   /// <param name="connection">the connection that just disconnected</param>
   private void DisconnectFromGame(NetworkConnection connection) {
@@ -338,10 +338,19 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     }
 
     if (result.GameOver) {
-      _server.BroadcastTo(session.ConnectionIds,
-        new GameOverPacket { GameId = session.Id, Winner = (uint)result.Winner, Players = session.TakeUpdate().Players });
-      _gameManager.RemoveGame(session.Id);
+      EndGame(session);
     }
+  }
+
+  /// <summary>
+  /// Tells the players of a finished game who won and forgets the game
+  /// </summary>
+  /// <param name="session">the session whose game is over</param>
+  private void EndGame(GameSession session) {
+    _server.BroadcastTo(session.ConnectionIds, new GameOverPacket {
+      GameId = session.Id, Winner = (uint)session.Game.Winner, Players = session.TakeUpdate().Players
+    });
+    _gameManager.RemoveGame(session.Id);
   }
 
   private async Task StartLobbiesLoopAsync(CancellationToken ct) {
@@ -390,17 +399,15 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// false; meaningless otherwise
   /// </param>
   /// <returns>true if a session was found and the connection is a player in it</returns>
-  private bool TryResolveSession(NetworkConnection connection, ulong gameId, out GameSession session,
-    out int playerId, out GameActionResult result) {
-    var found = _gameManager[gameId];
-    if (found == null) {
-      session = null!;
+  private bool TryResolveSession(NetworkConnection connection, ulong gameId,
+    [NotNullWhen(true)] out GameSession? session, out int playerId, out GameActionResult result) {
+    session = _gameManager[gameId];
+    if (session == null) {
       playerId = 0;
       result = GameActionResult.GameNotFound;
       return false;
     }
 
-    session = found;
     playerId = session.PlayerIdOf(connection.Id);
     if (playerId == 0) {
       result = GameActionResult.NotInGame;
@@ -574,10 +581,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
       // a capture can only end the game by eliminating the previous owner
       if (result.EliminatedPlayer != 0 && session.Game.Over) {
-        _server.BroadcastTo(session.ConnectionIds, new GameOverPacket {
-          GameId = packet.GameId, Winner = (uint)session.Game.Winner, Players = session.TakeUpdate().Players
-        });
-        _gameManager.RemoveGame(packet.GameId);
+        EndGame(session);
       }
     }
     finally {
@@ -601,10 +605,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       }
 
       if (result.GameOver) {
-        _server.BroadcastTo(session.ConnectionIds, new GameOverPacket {
-          GameId = packet.GameId, Winner = (uint)result.Winner, Players = session.TakeUpdate().Players
-        });
-        _gameManager.RemoveGame(packet.GameId);
+        EndGame(session);
       }
       else {
         _server.BroadcastTo(session.ConnectionIds, new TurnStartedPacket {

@@ -82,7 +82,7 @@ public class GameManager {
   }
 
   /// <summary>
-  /// Removes a game and unmaps every one of its players
+  /// Removes a game and forgets the connections of every one of its players
   /// </summary>
   /// <param name="id">the id of the game to remove</param>
   public void RemoveGame(ulong id) {
@@ -96,7 +96,7 @@ public class GameManager {
   }
 
   /// <summary>
-  /// Unmaps a connection from the game it was playing
+  /// Forgets the connection of a player, so it stops resolving to the game it was playing
   /// </summary>
   /// <remarks>
   /// The game itself is left untouched: the other players may still be playing it, and the caller decides whether

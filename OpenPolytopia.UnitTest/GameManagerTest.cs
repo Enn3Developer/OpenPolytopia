@@ -73,7 +73,7 @@ public class GameManagerTest {
   }
 
   [Fact]
-  public async Task TestRemovePlayerUnmapsAndReturnsSession() {
+  public async Task TestRemovePlayerForgetsConnectionAndReturnsSession() {
     var lobby = NewLobby();
     var session = await CreateGameAsync(lobby);
 
@@ -91,7 +91,7 @@ public class GameManagerTest {
     _gameManager.RemovePlayer(999, out _).ShouldBeNull();
 
   [Fact]
-  public async Task TestRemoveGameUnmapsEveryConnection() {
+  public async Task TestRemoveGameForgetsEveryConnection() {
     var lobby = NewLobby();
     var session = await CreateGameAsync(lobby);
 
