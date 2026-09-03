@@ -65,7 +65,7 @@ public partial class Game {
   /// <param name="target">the position of the troop to attack</param>
   /// <returns>the outcome of the attack, see <see cref="AttackResult"/></returns>
   public AttackResult Attack(int playerId, Vector2I from, Vector2I target) {
-    var turnResult = CheckTurn(playerId, out _);
+    var turnResult = CheckTurn(playerId, out var player);
     if (turnResult != GameActionResult.Ok) {
       return RejectedAttack(turnResult);
     }
@@ -110,7 +110,8 @@ public partial class Game {
       return RejectedAttack(GameActionResult.OutOfRange);
     }
 
-    return ResolveAttack(from, target, attacker, attackerDef, defender, distance);
+    var canClimb = player.TechTree.HasResearched(TechIds.CLIMBING);
+    return ResolveAttack(from, target, attacker, attackerDef, defender, distance, canClimb);
   }
 
   /// <summary>
@@ -224,9 +225,10 @@ public partial class Game {
   /// <param name="attackerDef">the attacker's troop definition</param>
   /// <param name="defender">the defender's data</param>
   /// <param name="distance">the Chebyshev distance between attacker and defender</param>
+  /// <param name="canClimb">whether the attacker's player has researched <see cref="TechIds.CLIMBING"/></param>
   /// <returns>the resolved <see cref="AttackResult"/></returns>
   private AttackResult ResolveAttack(Vector2I from, Vector2I target, TroopData attacker, Troop attackerDef,
-    TroopData defender, int distance) {
+    TroopData defender, int distance, bool canClimb) {
     var defenderDef = Troops[defender.Type];
     var defenderBonus = DefenseBonus(target, defender, defenderDef);
 
@@ -259,9 +261,11 @@ public partial class Game {
 
     var attackerPosition = from;
     if (!attackerKilled) {
-      // a melee kill (distance 1) pulls the attacker onto the vacated tile, unless it's Stiff; this doesn't count
-      // as a move, so the troop's Moved flag from before the attack is carried over unchanged
-      if (defenderKilled && distance == 1 && !attackerDef.Skills.HasSkill(Skill.Stiff)) {
+      // a melee kill (distance 1) pulls the attacker onto the vacated tile, unless it's Stiff or it couldn't stand
+      // there anyway (a warrior sinking a boat stays ashore); this doesn't count as a move, so the troop's Moved flag
+      // from before the attack is carried over unchanged
+      if (defenderKilled && distance == 1 && !attackerDef.Skills.HasSkill(Skill.Stiff) &&
+          attackerDef.Skills.CanEnter(Grid[target], canClimb)) {
         Troops.MoveTroop(from, target);
         var wasMoved = attacker.Moved;
         Troops.ModifyTroop(target, (ref TroopData data) => data.Moved = wasMoved);

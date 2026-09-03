@@ -104,6 +104,24 @@ public class GameTroopsTest {
   }
 
   [Fact]
+  public void TestMeleeKillDoesNotMoveAttackerOntoTerrainItCannotEnter() {
+    var game = GameTestFixture.NewStartedGame();
+    var attackerPos = GameTestFixture.P(2, 2);
+    var defenderPos = GameTestFixture.P(3, 2);
+    game.Grid.ModifyTile(defenderPos, (ref Tile tile) => tile.Kind = TileKind.Water);
+    game.Troops.SpawnTroop(attackerPos, 1, 0, TroopType.Warrior);
+    game.Troops.SpawnTroop(defenderPos, 2, 0, TroopType.Scout);
+    game.Troops.ModifyTroop(defenderPos, (ref TroopData data) => data.Hp = 1);
+
+    var result = game.Attack(1, attackerPos, defenderPos);
+
+    result.DefenderKilled.ShouldBeTrue();
+    result.AttackerPosition.ShouldBe(attackerPos); // a warrior can't stand on water, so it stays ashore
+    game.Troops[attackerPos].Attacked.ShouldBeTrue();
+    game.Troops[defenderPos].IsValid().ShouldBeFalse();
+  }
+
+  [Fact]
   public void TestRangedKillDoesNotMoveAttackerIn() {
     var game = GameTestFixture.NewStartedGame();
     var attackerPos = GameTestFixture.P(2, 2);

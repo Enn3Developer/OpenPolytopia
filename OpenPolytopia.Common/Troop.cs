@@ -402,7 +402,8 @@ public static class SkillsExtension {
   /// </summary>
   /// <remarks>
   /// This only checks terrain permission (kind and climbing tech); it doesn't check whether the tile is occupied
-  /// or reachable within a troop's movement budget, see <see cref="TroopMovement.ReachableTiles"/> for that
+  /// or reachable within a troop's movement budget, see <see cref="TroopMovement.ReachableTiles"/> for that.
+  /// A bridge (a road on water) counts as land here; the direction it can be crossed in is a movement concern
   /// </remarks>
   /// <param name="skills">the skills of the troop trying to enter</param>
   /// <param name="tile">the tile to enter</param>
@@ -419,10 +420,11 @@ public static class SkillsExtension {
       return tile.Kind is TileKind.Water or TileKind.Ocean;
     }
 
-    // land troops: everything but water/ocean, mountains gated behind the climbing tech
+    // land troops: everything but water/ocean, mountains gated behind the climbing tech, water only over a bridge
     return tile.Kind switch {
       TileKind.Field or TileKind.Forest or TileKind.Village => true,
       TileKind.Mountain => canClimb,
+      TileKind.Water => tile.Roads,
       _ => false
     };
   }

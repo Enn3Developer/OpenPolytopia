@@ -149,4 +149,20 @@ public class TroopMovementTest {
     reachable.ShouldNotContain(new Vector2I(1, 0)); // can't enter water at all
     reachable.ShouldNotContain(new Vector2I(2, 0)); // and can't use it as a stepping stone either
   }
+
+  [Fact]
+  public void TestLandTroopCrossesBridgeOnlyAlongItsDirection() {
+    var grid = new Grid(10);
+    grid.ModifyTile(new Vector2I(5, 5), (ref Tile tile) => {
+      tile.Kind = TileKind.Water;
+      tile.Roads = true;
+      tile.SetCustomData(new BridgeData { Direction = BridgeDirection.Horizontal });
+    });
+    _troopManager.SpawnTroop(new Vector2I(4, 5), 1, 1, TroopType.Warrior); // west of the bridge
+    _troopManager.SpawnTroop(new Vector2I(5, 4), 1, 1, TroopType.Warrior); // north of it
+    var movement = new TroopMovement(_troopManager, grid);
+
+    movement.ReachableTiles(new Vector2I(4, 5)).ShouldContain(new Vector2I(5, 5)); // a bridge is walkable water
+    movement.ReachableTiles(new Vector2I(5, 4)).ShouldNotContain(new Vector2I(5, 5)); // but only along its direction
+  }
 }
