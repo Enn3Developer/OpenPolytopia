@@ -181,7 +181,7 @@ public class TerrainRate {
 /// <remarks>
 /// There can only be max 32 tribes
 /// </remarks>
-[JsonConverter(typeof(JsonStringEnumConverter<TribeType>))]
+[JsonConverter(typeof(CamelCaseEnumConverter<TribeType>))]
 public enum TribeType {
   [EnumMember(Value = "imperius")] Imperius = 0,
   [EnumMember(Value = "bardur")] Bardur = 1,
@@ -194,7 +194,7 @@ public enum TribeType {
 /// <summary>
 /// Enum containing all resource types
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ResourceType>))]
+[JsonConverter(typeof(CamelCaseEnumConverter<ResourceType>))]
 public enum ResourceType {
   [EnumMember(Value = "none")] None,
   [EnumMember(Value = "fruit")] Fruit,

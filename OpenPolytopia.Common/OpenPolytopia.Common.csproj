@@ -15,19 +15,11 @@
   <ItemGroup>
   </ItemGroup>
 
+  <!-- the game data lives in the godot project so it can be edited from the editor, see OpenPolytopia/src/Data -->
   <ItemGroup>
-    <None Remove="resources\troops.json"/>
-    <EmbeddedResource Include="resources\troops.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <None Remove="resources\tribes.json"/>
-    <EmbeddedResource Include="resources\tribes.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <None Remove="resources\tech_tree.json"/>
-    <EmbeddedResource Include="resources\tech_tree.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
+    <EmbeddedResource Include="..\OpenPolytopia\resources\troops.json" LogicalName="OpenPolytopia.Common.resources.troops.json"/>
+    <EmbeddedResource Include="..\OpenPolytopia\resources\tribes.json" LogicalName="OpenPolytopia.Common.resources.tribes.json"/>
+    <EmbeddedResource Include="..\OpenPolytopia\resources\tech_tree.json" LogicalName="OpenPolytopia.Common.resources.tech_tree.json"/>
   </ItemGroup>
 
 </Project>

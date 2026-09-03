@@ -340,10 +340,9 @@ public class TechTreeTest {
 
   [Fact]
   public void TestBranchTypeInJson() {
-    // JsonStringEnumConverter<T> doesn't read EnumMember on net8, so "climbing" only works because it's the name of
-    // the member lowercased; a branch of two words needs the converter with a naming policy in the options
+    // the enums are written with the same camelCase names found in the json files (see CamelCaseEnumConverter)
     var data = new BranchSerializedData { Type = BranchType.Climbing, Nodes = [.. _definition[BranchType.Climbing]] };
-    JsonSerializer.Serialize(data, _techTreeOptions).ShouldContain("\"Climbing\"");
+    JsonSerializer.Serialize(data, _techTreeOptions).ShouldContain("\"climbing\"", Case.Sensitive);
     JsonSerializer.Deserialize<BranchSerializedData>("""{"type": "climbing", "nodes": []}""", _techTreeOptions)
       .ShouldNotBeNull().Type.ShouldBe(BranchType.Climbing);
   }
