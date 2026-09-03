@@ -201,7 +201,7 @@ public struct TroopData {
   /// <summary>
   /// Inner representation of the troop data.
   ///
-  /// Using 0 as the left-most bit and 63 as the right-most bit
+  /// Using 0 as the left-most bit and 31 as the right-most bit
   /// <list type="bullet">
   /// <item>0 -> is veteran</item>
   /// <item>1 -> has attacked</item>
