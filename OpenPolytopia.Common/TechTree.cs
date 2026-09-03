@@ -227,6 +227,65 @@ public class TechTree {
     _branches = Enum.GetValues<BranchType>()
       .ToDictionary(branch => branch, branch => new SubTreeTech(definition[branch]));
   }
+
+  /// <summary>
+  /// Finds a node by id, searching every branch
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <returns>the node; null if no branch has a node with that id</returns>
+  public NodeTech? Find(string id) => _branches.Values.Select(branch => branch[id]).FirstOrDefault(node => node != null);
+
+  /// <summary>
+  /// Whether a node has been researched
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <returns>if the node has been researched; always false if no node has been found with that id</returns>
+  public bool HasResearched(string id) => Find(id)?.Researched ?? false;
+
+  /// <summary>
+  /// Whether a node can be researched right now
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <returns>
+  /// false if the node doesn't exist, is already researched or its parent (if it has one) isn't researched yet
+  /// </returns>
+  public bool CanResearch(string id) => _branches.Values.Any(branch => branch.CanResearch(id));
+
+  /// <summary>
+  /// Computes the cost of a node
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <param name="cities">number of cities owned by the player</param>
+  /// <returns>the cost of the node; null if no branch has a node with that id</returns>
+  public uint? ComputeCost(string id, uint cities) =>
+    _branches.Values.Select(branch => branch.ComputeCost(id, cities)).FirstOrDefault(cost => cost != null);
+
+  /// <summary>
+  /// Marks a node as researched
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <returns>if the node has been marked; false if no branch has a node with that id</returns>
+  public bool Research(string id) => _branches.Values.Any(branch => branch.Research(id));
+
+  /// <summary>
+  /// Returns the ids of every researched node
+  /// </summary>
+  /// <returns>the ids, in branch declaration order then slot order</returns>
+  public IEnumerable<string> ResearchedIds() =>
+    Enum.GetValues<BranchType>()
+      .SelectMany(branch => this[branch].Nodes)
+      .Where(node => node.Researched)
+      .Select(node => node.Id);
+}
+
+/// <summary>
+/// Ids of the tech nodes referenced directly by code; every other node is pure data
+/// </summary>
+public static class TechIds {
+  /// <summary>
+  /// Unlocks land troops entering mountains
+  /// </summary>
+  public const string CLIMBING = "climbing";
 }
 
 /// <summary>
@@ -375,6 +434,48 @@ public class SubTreeTech {
 
     tech.Researched = true;
     return true;
+  }
+
+  /// <summary>
+  /// Returns the slot of the node a node depends on
+  /// </summary>
+  /// <param name="index">the slot of the node</param>
+  /// <returns>the slot of the parent; -1 if the node is tier 0 and has no parent</returns>
+  /// <remarks>
+  /// Slot 1 and slot 2 both need slot 0 (tier 0); slot 3 needs slot 1; slot 4 needs slot 2
+  /// </remarks>
+  /// <exception cref="ArgumentOutOfRangeException">if <c>index</c> isn't a slot of the branch</exception>
+  public static int ParentOf(int index) =>
+    index switch {
+      0 => -1,
+      1 or 2 => 0,
+      3 => 1,
+      4 => 2,
+      _ => throw new ArgumentOutOfRangeException(nameof(index), index, $"index must be between 0 and {MAX_NODES - 1}")
+    };
+
+  /// <summary>
+  /// Returns the slot of a node
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <returns>the slot; -1 if no node has been found with that id</returns>
+  public int IndexOf(string id) => Array.FindIndex(_nodes, node => node.Id == id);
+
+  /// <summary>
+  /// Whether a node can be researched right now
+  /// </summary>
+  /// <param name="id">the node id</param>
+  /// <returns>
+  /// false if the node doesn't exist, is already researched or its parent (if it has one) isn't researched yet
+  /// </returns>
+  public bool CanResearch(string id) {
+    var index = IndexOf(id);
+    if (index == -1 || _nodes[index].Researched) {
+      return false;
+    }
+
+    var parent = ParentOf(index);
+    return parent == -1 || _nodes[parent].Researched;
   }
 }
 

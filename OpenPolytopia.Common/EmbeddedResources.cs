@@ -11,7 +11,7 @@ public static class EmbeddedResources {
   private static readonly JsonSerializerOptions _jsonOptions = new() {
     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(UnicodeRanges.All),
     TypeInfoResolver = JsonTypeInfoResolver.Combine(TribeGenerationContext.Default, TroopGenerationContext.Default,
-      TechTreeGenerationContext.Default),
+      TechTreeGenerationContext.Default, BuildingGenerationContext.Default),
     PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     WriteIndented = true,
     // optional lists (see Tribe.TechOverrides) are left out of the files instead of being written as null
@@ -34,6 +34,11 @@ public static class EmbeddedResources {
   public static string TechTreeData => GetResource("OpenPolytopia.Common.resources.tech_tree.json");
 
   /// <summary>
+  /// Get the buildings data from the json file
+  /// </summary>
+  public static string BuildingsData => GetResource("OpenPolytopia.Common.resources.buildings.json");
+
+  /// <summary>
   /// Deserializes the troops from the embedded json file
   /// </summary>
   /// <returns>the troops data, or null if the json is empty</returns>
@@ -50,6 +55,12 @@ public static class EmbeddedResources {
   /// </summary>
   /// <returns>the tech tree data, or null if the json is empty</returns>
   public static TechTreeSerializedData? LoadTechTree() => ParseTechTree(TechTreeData);
+
+  /// <summary>
+  /// Deserializes the buildings from the embedded json file
+  /// </summary>
+  /// <returns>the buildings data, or null if the json is empty</returns>
+  public static BuildingsSerializedData? LoadBuildings() => ParseBuildings(BuildingsData);
 
   /// <summary>
   /// Deserializes troops from a json document following the schema of <c>troops.json</c>
@@ -79,6 +90,15 @@ public static class EmbeddedResources {
     JsonSerializer.Deserialize<TechTreeSerializedData>(json, _jsonOptions);
 
   /// <summary>
+  /// Deserializes buildings from a json document following the schema of <c>buildings.json</c>
+  /// </summary>
+  /// <param name="json">the json document</param>
+  /// <returns>the buildings data, or null if the json is empty</returns>
+  /// <exception cref="JsonException">threw when the json doesn't follow the schema</exception>
+  public static BuildingsSerializedData? ParseBuildings(string json) =>
+    JsonSerializer.Deserialize<BuildingsSerializedData>(json, _jsonOptions);
+
+  /// <summary>
   /// Serializes troops to a json document following the schema of <c>troops.json</c>
   /// </summary>
   /// <param name="troops">the troops data</param>
@@ -99,6 +119,14 @@ public static class EmbeddedResources {
   /// <returns>the indented json document</returns>
   public static string Serialize(TechTreeSerializedData techTree) =>
     JsonSerializer.Serialize(techTree, _jsonOptions);
+
+  /// <summary>
+  /// Serializes buildings to a json document following the schema of <c>buildings.json</c>
+  /// </summary>
+  /// <param name="buildings">the buildings data</param>
+  /// <returns>the indented json document</returns>
+  public static string Serialize(BuildingsSerializedData buildings) =>
+    JsonSerializer.Serialize(buildings, _jsonOptions);
 
   /// <summary>
   /// Returns the content of an embedded resource

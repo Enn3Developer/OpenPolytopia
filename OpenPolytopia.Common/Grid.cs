@@ -3,6 +3,8 @@ namespace OpenPolytopia.Common;
 using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 using Godot;
 
 /// <summary>
@@ -414,18 +416,29 @@ public struct Tile {
     var value = data.ToULong();
     _inner.SetBits(value, MAX_CUSTOM_DATA_BITS, CUSTOM_DATA_POSITION);
   }
+
+  /// <summary>
+  /// The packed representation of the tile, for serialization
+  /// </summary>
+  public ulong Raw {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => _inner;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    set => _inner = value;
+  }
 }
 
 /// <summary>
 /// Describes the type of the tile without modifiers
 /// </summary>
+[JsonConverter(typeof(CamelCaseEnumConverter<TileKind>))]
 public enum TileKind {
-  Field = 0,
-  Mountain = 1,
-  Forest = 2,
-  Water = 3,
-  Ocean = 4,
-  Village = 5
+  [EnumMember(Value = "field")] Field = 0,
+  [EnumMember(Value = "mountain")] Mountain = 1,
+  [EnumMember(Value = "forest")] Forest = 2,
+  [EnumMember(Value = "water")] Water = 3,
+  [EnumMember(Value = "ocean")] Ocean = 4,
+  [EnumMember(Value = "village")] Village = 5
 }
 
 public enum FieldTileModifier {

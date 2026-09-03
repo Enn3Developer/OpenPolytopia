@@ -11,7 +11,8 @@
         "skills": [
           "dash",
           "fortify"
-        ]
+        ],
+        "cost": 2
       }
     },
     {
@@ -25,7 +26,9 @@
         "skills": [
           "dash",
           "fortify"
-        ]
+        ],
+        "cost": 3,
+        "required_tech": "archery"
       }
     },
     {
@@ -38,7 +41,9 @@
         "range": 1,
         "skills": [
           "fortify"
-        ]
+        ],
+        "cost": 3,
+        "required_tech": "strategy"
       }
     },
     {
@@ -53,7 +58,9 @@
           "dash",
           "fortify",
           "escape"
-        ]
+        ],
+        "cost": 3,
+        "required_tech": "riding"
       }
     },
     {
@@ -70,7 +77,9 @@
           "infiltrate",
           "dash",
           "scout"
-        ]
+        ],
+        "cost": 8,
+        "required_tech": "diplomacy"
       }
     },
     {
@@ -85,7 +94,8 @@
           "dash",
           "surprise",
           "independent"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -100,7 +110,9 @@
           "heal",
           "convert",
           "detect"
-        ]
+        ],
+        "cost": 5,
+        "required_tech": "philosophy"
       }
     },
     {
@@ -113,7 +125,9 @@
         "range": 1,
         "skills": [
           "dash"
-        ]
+        ],
+        "cost": 5,
+        "required_tech": "smithery"
       }
     },
     {
@@ -124,7 +138,9 @@
         "defense": 0,
         "movement": 1,
         "range": 3,
-        "skills": []
+        "skills": [],
+        "cost": 8,
+        "required_tech": "mathematics"
       }
     },
     {
@@ -139,7 +155,9 @@
           "dash",
           "fortify",
           "persist"
-        ]
+        ],
+        "cost": 8,
+        "required_tech": "chivalry"
       }
     },
     {
@@ -150,7 +168,8 @@
         "defense": 4,
         "movement": 1,
         "range": 1,
-        "skills": []
+        "skills": [],
+        "cost": 0
       }
     },
     {
@@ -165,7 +184,8 @@
           "carry",
           "floating",
           "water"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -182,7 +202,8 @@
           "water",
           "dash",
           "scout"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -198,7 +219,8 @@
           "floating",
           "water",
           "dash"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -215,7 +237,8 @@
           "water",
           "splash",
           "stiff"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -232,7 +255,8 @@
           "water",
           "stomp",
           "stiff"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -251,7 +275,8 @@
           "sneak",
           "infiltrate",
           "scout"
-        ]
+        ],
+        "cost": 0
       }
     },
     {
@@ -267,7 +292,8 @@
           "surprise",
           "independent",
           "dash"
-        ]
+        ],
+        "cost": 0
       }
     }
   ]

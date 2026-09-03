@@ -108,6 +108,67 @@ public class TechTreeTest {
   }
 
   [Fact]
+  public void TestCanResearchTier1WithoutTier0() {
+    var branch = _definition.CreateTechTree()[BranchType.Climbing];
+    branch.CanResearch("mining").ShouldBeFalse();
+    branch.Research("climbing");
+    branch.CanResearch("mining").ShouldBeTrue();
+  }
+
+  [Fact]
+  public void TestSlot3NeedsSlot1NotSlot2() {
+    var branch = _definition.CreateTechTree()[BranchType.Climbing];
+    branch.Research("climbing");
+    branch.Research("meditation"); // slot 2
+    branch.CanResearch("smithery").ShouldBeFalse(); // slot 3 needs slot 1 (mining), not slot 2 (meditation)
+    branch.Research("mining"); // slot 1
+    branch.CanResearch("smithery").ShouldBeTrue();
+  }
+
+  [Fact]
+  public void TestParentOf() {
+    SubTreeTech.ParentOf(0).ShouldBe(-1);
+    SubTreeTech.ParentOf(1).ShouldBe(0);
+    SubTreeTech.ParentOf(2).ShouldBe(0);
+    SubTreeTech.ParentOf(3).ShouldBe(1);
+    SubTreeTech.ParentOf(4).ShouldBe(2);
+    Should.Throw<ArgumentOutOfRangeException>(() => SubTreeTech.ParentOf(SubTreeTech.MAX_NODES));
+  }
+
+  [Fact]
+  public void TestFindAcrossBranches() {
+    var techTree = _definition.CreateTechTree();
+    techTree.Find("mining").ShouldNotBeNull().Id.ShouldBe("mining");
+    techTree.Find("swimming").ShouldBeNull();
+  }
+
+  [Fact]
+  public void TestResearchAcrossBranches() {
+    var techTree = _definition.CreateTechTree();
+    techTree.HasResearched("sailing").ShouldBeFalse();
+    techTree.CanResearch("sailing").ShouldBeFalse();
+    techTree.Research("fishing").ShouldBeTrue();
+    techTree.CanResearch("sailing").ShouldBeTrue();
+    techTree.Research("sailing").ShouldBeTrue();
+    techTree.HasResearched("sailing").ShouldBeTrue();
+    techTree.ComputeCost("sailing", 2).ShouldBe(8u);
+    techTree.ComputeCost("swimming", 2).ShouldBeNull();
+    techTree.Research("swimming").ShouldBeFalse();
+  }
+
+  [Fact]
+  public void TestResearchedIdsAfterCreateTechTree() {
+    var tribe = new Tribe {
+      StartingBranch = BranchType.Climbing,
+      StartingStars = 5,
+      SpawnRate = _spawnRate,
+      TerrainRate = _terrainRate
+    };
+    var techTree = _definition.CreateTechTree(tribe);
+    techTree.ResearchedIds().ShouldBe(["climbing"]);
+  }
+
+  [Fact]
   public void TestBranchDuplicatedNodes() =>
     Should.Throw<ArgumentException>(() =>
       new SubTreeTech(["climbing", "climbing", "meditation", "smithery", "philosophy"]));
