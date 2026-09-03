@@ -133,6 +133,21 @@ public class GameTest {
   }
 
   [Fact]
+  public void TestEliminationScoresLostTroops() {
+    var game = GameTestFixture.NewStartedGame(2);
+    var p1 = game.Players[0];
+    var capitalId = game.CityIdsOf(p1.Id).Single();
+    // the score can't go below 0, so give the player something to lose
+    p1.Score.AddScore(ScoreType.ClaimedTile);
+
+    game.Resign(p1.Id);
+
+    // the starting warrior costs 2 stars, so losing it is worth -(2 * 5 + 5)
+    p1.Score.ScoreValue.ShouldBe(ScoreType.ClaimedTile.ToInt() - ScoreType.TroopSpawned(1, 2).ToInt());
+    game.Cities[capitalId].Troops.ShouldBe(0);
+  }
+
+  [Fact]
   public void TestLastPlayerStandingWins() {
     var game = GameTestFixture.NewStartedGame(3);
     var (p1, p2, p3) = (game.Players[0].Id, game.Players[1].Id, game.Players[2].Id);

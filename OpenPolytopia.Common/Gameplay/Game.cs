@@ -273,10 +273,6 @@ public partial class Game {
   /// <summary>
   /// Kills a troop: removes it, decrements its city's troop count and scores the loss to its owner
   /// </summary>
-  /// <remarks>
-  /// This is combat death, so it scores <see cref="ScoreType.LoseTroop"/>; a plain elimination doesn't go through
-  /// this, see <see cref="Eliminate"/>
-  /// </remarks>
   /// <param name="index">the grid index of the troop</param>
   internal void KillTroop(uint index) {
     var troop = Troops[index];
@@ -296,10 +292,11 @@ public partial class Game {
   }
 
   /// <summary>
-  /// Eliminates a player from the game: removes every one of their troops and checks whether the game is over
+  /// Eliminates a player from the game: kills every one of their troops and checks whether the game is over
   /// </summary>
   /// <remarks>
-  /// Unlike <see cref="KillTroop"/> this is a plain removal, not a kill: it never scores <see cref="ScoreType.LoseTroop"/>
+  /// The troops go through <see cref="KillTroop"/> so the losses are scored and the troop counts of their cities
+  /// stay right
   /// </remarks>
   /// <param name="player">the player to eliminate</param>
   internal void Eliminate(PlayerState player) {
@@ -309,7 +306,7 @@ public partial class Game {
     var troopIndexes = Troops.Troops().Where(entry => entry.Troop.Player == (uint)player.Id)
       .Select(entry => entry.Index).ToList();
     foreach (var index in troopIndexes) {
-      Troops.DeleteTroop(Grid.IndexToGridPosition(index));
+      KillTroop(index);
     }
 
     CheckGameOver();
