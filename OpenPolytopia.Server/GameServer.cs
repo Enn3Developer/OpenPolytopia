@@ -189,7 +189,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
       }
-      else if (!Enum.IsDefined((TribeType)packet.Tribe)) {
+      // only a registered tribe can be played: the game refuses to start with one it has no data for
+      else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
       // one lobby per player and a global cap, or a client could flood the server
@@ -224,7 +225,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
       }
-      else if (!Enum.IsDefined((TribeType)packet.Tribe)) {
+      // only a registered tribe can be played: the game refuses to start with one it has no data for
+      else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
       // one lobby per player, or a client could flood the server
@@ -323,6 +325,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       return;
     }
 
+    // resigning only passes the turn when it was the resigning player's turn; otherwise nothing changes for the others
+    var heldTheTurn = session.Game.CurrentPlayer == playerId;
     var result = session.Game.Resign(playerId);
     if (result.Result != GameActionResult.Ok) {
       return;
@@ -331,14 +335,13 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     _server.BroadcastTo(session.ConnectionIds,
       new PlayerEliminatedPacket { GameId = session.Id, PlayerId = (uint)playerId, Update = session.TakeUpdate() });
 
-    if (result.NextPlayer != 0) {
+    if (result.GameOver) {
+      EndGame(session);
+    }
+    else if (heldTheTurn) {
       _server.BroadcastTo(session.ConnectionIds, new TurnStartedPacket {
         GameId = session.Id, Turn = result.Turn, PlayerId = (uint)result.NextPlayer, Update = session.TakeUpdate()
       });
-    }
-
-    if (result.GameOver) {
-      EndGame(session);
     }
   }
 
@@ -361,15 +364,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         await _stateLock.WaitAsync(ct);
         try {
           foreach (var lobby in _lobbyManager.TakeStartingLobbies()) {
-            var session = await _gameManager.CreateGameAsync(lobby, _gameData);
-
-            Console.WriteLine($"Starting game for lobby {lobby.Id} with {lobby.PlayersCount} players");
-
-            // notify the players that their game started, send them its full state and remove the lobby from the list
-            var connectionIds = lobby.Players.Select(player => player.PlayerId).ToList();
-            _server.BroadcastTo(connectionIds, new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
-            _server.BroadcastTo(connectionIds, session.BuildState());
-            _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
+            await StartLobbyAsync(lobby);
           }
         }
         finally {
@@ -380,6 +375,33 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     catch (OperationCanceledException) {
       // server stopping
     }
+  }
+
+  /// <summary>
+  /// Turns a lobby whose players are all ready into a running game
+  /// </summary>
+  /// <remarks>
+  /// The lobby is already gone from the manager by now, so a failure here still tells every client the lobby is
+  /// deleted instead of leaving them waiting on it, and never takes the start loop down with it
+  /// </remarks>
+  /// <param name="lobby">the lobby to start</param>
+  private async Task StartLobbyAsync(LobbyData lobby) {
+    var connectionIds = lobby.Players.Select(player => player.PlayerId).ToList();
+
+    try {
+      var session = await _gameManager.CreateGameAsync(lobby, _gameData);
+
+      Console.WriteLine($"Starting game for lobby {lobby.Id} with {lobby.PlayersCount} players");
+
+      // notify the players that their game started and send them its full state
+      _server.BroadcastTo(connectionIds, new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
+      _server.BroadcastTo(connectionIds, session.BuildState());
+    }
+    catch (Exception e) {
+      Console.Error.WriteLine($"Couldn't start the game for lobby {lobby.Id}: {e}");
+    }
+
+    _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
   }
 
   /// <summary>
