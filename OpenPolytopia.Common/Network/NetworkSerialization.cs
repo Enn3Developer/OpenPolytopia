@@ -282,6 +282,11 @@ public static class StringListSerialization {
   /// <param name="index">the index to start reading from; advanced past the read bytes</param>
   public static void Deserialize(this List<string> list, byte[] bytes, ref uint index) {
     var length = UIntSerialization.Read(bytes, ref index);
+    // every string costs at least its own length prefix, so a count that can't fit the buffer is bogus
+    if (length > (bytes.Length - index) / sizeof(uint)) {
+      throw new ArgumentOutOfRangeException(nameof(bytes), length, "the list length exceeds the remaining bytes");
+    }
+
     for (var i = 0; i < length; i++) {
       list.Add(StringSerialization.Read(bytes, ref index));
     }
