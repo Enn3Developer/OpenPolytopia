@@ -116,10 +116,10 @@ public class CityDataTest {
     var result = cityData.LevelUp();
     result.ShouldBe(false);
     cityData.Level = 1;
-    cityData.Population = 2;
+    cityData.Population = 3; // one more than MaxPopulation (2): the overflow must carry over
     result = cityData.LevelUp();
     result.ShouldBe(true);
     cityData.Level.ShouldBe(2);
-    cityData.Population.ShouldBe(0);
+    cityData.Population.ShouldBe(1);
   }
 }
