@@ -165,6 +165,14 @@ public class TroopManager(uint size) {
     callback(ref _grid[GridPositionToIndex(position)]);
 
   /// <summary>
+  /// Modifies the troop
+  /// </summary>
+  /// <param name="index">the index of the troop in the grid</param>
+  /// <param name="callback">function callback used to modify the troop</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void ModifyTroop(uint index, ActionRef<TroopData> callback) => callback(ref _grid[index]);
+
+  /// <summary>
   /// Overwrites the packed representation of the troop at an index, for loading a full state
   /// </summary>
   /// <param name="index">the index of the troop in the grid</param>
