@@ -1,5 +1,6 @@
 namespace OpenPolytopia;
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -266,6 +267,17 @@ public class PacketTest {
     var index = 0u;
     Vector2ISerialization.Read(bytes.ToArray(), ref index).ShouldBe(new Vector2I(-3, -7));
     index.ShouldBe((uint)bytes.Count);
+  }
+
+  [Fact]
+  public void TestArraySerializationRejectsOversizedLength() {
+    // a length prefix bigger than the payload must fail before allocating, like every other malformed payload
+    List<byte> bytes = [];
+    uint.MaxValue.Serialize(bytes);
+    var index = 0u;
+    Should.Throw<ArgumentOutOfRangeException>(() => UIntArraySerialization.Read(bytes.ToArray(), ref index));
+    index = 0;
+    Should.Throw<ArgumentOutOfRangeException>(() => ULongArraySerialization.Read(bytes.ToArray(), ref index));
   }
 
   [Fact]

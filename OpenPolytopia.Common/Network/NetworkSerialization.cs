@@ -204,6 +204,11 @@ public static class UIntArraySerialization {
   /// <returns>a freshly allocated array with the deserialized values</returns>
   public static uint[] Read(byte[] bytes, ref uint index) {
     var length = UIntSerialization.Read(bytes, ref index);
+    // the length comes off the wire, so it must fit the buffer before anything gets allocated for it
+    if (length > (bytes.Length - index) / sizeof(uint)) {
+      throw new ArgumentOutOfRangeException(nameof(bytes), length, "the array length exceeds the remaining bytes");
+    }
+
     var values = new uint[length];
     for (var i = 0; i < length; i++) {
       values[i] = UIntSerialization.Read(bytes, ref index);
@@ -238,6 +243,11 @@ public static class ULongArraySerialization {
   /// <returns>a freshly allocated array with the deserialized values</returns>
   public static ulong[] Read(byte[] bytes, ref uint index) {
     var length = UIntSerialization.Read(bytes, ref index);
+    // the length comes off the wire, so it must fit the buffer before anything gets allocated for it
+    if (length > (bytes.Length - index) / sizeof(ulong)) {
+      throw new ArgumentOutOfRangeException(nameof(bytes), length, "the array length exceeds the remaining bytes");
+    }
+
     var values = new ulong[length];
     for (var i = 0; i < length; i++) {
       values[i] = ULongSerialization.Read(bytes, ref index);
