@@ -71,6 +71,14 @@ public class TroopManager(uint size) {
   public void RegisterTroop(TroopType type, Troop troop) => _troops.Add(type, troop);
 
   /// <summary>
+  /// Whether a troop type has been registered
+  /// </summary>
+  /// <param name="type">the troop type</param>
+  /// <returns>true if <see cref="RegisterTroop"/> was called for this type</returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public bool IsRegistered(TroopType type) => _troops.ContainsKey(type);
+
+  /// <summary>
   /// Registers all the troops
   /// </summary>
   /// <param name="troopsSerializedData">the troops deserialized</param>
@@ -374,6 +382,52 @@ public class Troop {
   /// Id of the tech that unlocks the troop; null when no tech is needed
   /// </summary>
   public string? RequiredTech { get; init; }
+}
+
+/// <summary>
+/// Helpers over a troop's <see cref="Skill"/> list
+/// </summary>
+public static class SkillsExtension {
+  /// <summary>
+  /// Whether a troop has a given skill
+  /// </summary>
+  /// <param name="skills">the skills of the troop</param>
+  /// <param name="skill">the skill to look for</param>
+  /// <returns>true if <paramref name="skill"/> is one of <paramref name="skills"/></returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static bool HasSkill(this Skill[] skills, Skill skill) => Array.IndexOf(skills, skill) >= 0;
+
+  /// <summary>
+  /// Whether skills allow entering a given tile's terrain
+  /// </summary>
+  /// <remarks>
+  /// This only checks terrain permission (kind and climbing tech); it doesn't check whether the tile is occupied
+  /// or reachable within a troop's movement budget, see <see cref="TroopMovement.ReachableTiles"/> for that.
+  /// A bridge (a road on water) counts as land here; the direction it can be crossed in is a movement concern
+  /// </remarks>
+  /// <param name="skills">the skills of the troop trying to enter</param>
+  /// <param name="tile">the tile to enter</param>
+  /// <param name="canClimb">whether the troop's player has researched <see cref="TechIds.CLIMBING"/></param>
+  /// <returns>true if a troop with these skills may enter the tile</returns>
+  public static bool CanEnter(this Skill[] skills, Tile tile, bool canClimb) {
+    if (skills.HasSkill(Skill.Fly)) {
+      // flying troops ignore every terrain restriction
+      return true;
+    }
+
+    if (skills.HasSkill(Skill.Water)) {
+      // naval troops only ever sail on water
+      return tile.Kind is TileKind.Water or TileKind.Ocean;
+    }
+
+    // land troops: everything but water/ocean, mountains gated behind the climbing tech, water only over a bridge
+    return tile.Kind switch {
+      TileKind.Field or TileKind.Forest or TileKind.Village => true,
+      TileKind.Mountain => canClimb,
+      TileKind.Water => tile.Roads,
+      _ => false
+    };
+  }
 }
 
 /// <summary>

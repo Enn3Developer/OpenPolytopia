@@ -321,7 +321,7 @@ public partial class Game {
 
     var ownTroops = Troops.Troops().Where(entry => entry.Troop.Player == (uint)player.Id).ToList();
     foreach (var (index, troop) in ownTroops) {
-      var maxHp = Troops[troop.Type].MaxHp + (troop.Veteran ? 5u : 0u);
+      var maxHp = MaxHpOf(troop);
       var canHeal = !troop.Moved && !troop.Attacked && troop.Hp < maxHp;
 
       // a troop standing on a tile it owns heals more; read before ResetActions overwrites Moved/Attacked below
