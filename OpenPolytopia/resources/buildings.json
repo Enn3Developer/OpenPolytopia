@@ -1,0 +1,177 @@
+{
+  "buildings": [
+    {
+      "type": "fruit",
+      "building": {
+        "kind": "field",
+        "tile_building": 0,
+        "cost": 2,
+        "required_tech": "organization",
+        "population": 1,
+        "requires_resource": "fruit",
+        "consumes_resource": true
+      }
+    },
+    {
+      "type": "hunting",
+      "building": {
+        "kind": "forest",
+        "tile_building": 0,
+        "cost": 2,
+        "required_tech": "hunting",
+        "population": 1,
+        "requires_resource": "animal",
+        "consumes_resource": true
+      }
+    },
+    {
+      "type": "fishing",
+      "building": {
+        "kind": "water",
+        "tile_building": 0,
+        "cost": 2,
+        "required_tech": "fishing",
+        "population": 1,
+        "requires_resource": "fish",
+        "consumes_resource": true
+      }
+    },
+    {
+      "type": "farm",
+      "building": {
+        "kind": "field",
+        "tile_building": 7,
+        "cost": 5,
+        "required_tech": "farming",
+        "population": 2,
+        "requires_resource": "crop",
+        "consumes_resource": false
+      }
+    },
+    {
+      "type": "mine",
+      "building": {
+        "kind": "mountain",
+        "tile_building": 1,
+        "cost": 5,
+        "required_tech": "mining",
+        "population": 2,
+        "requires_resource": "mineral",
+        "consumes_resource": false
+      }
+    },
+    {
+      "type": "lumberHut",
+      "building": {
+        "kind": "forest",
+        "tile_building": 1,
+        "cost": 3,
+        "required_tech": "forestry",
+        "population": 1
+      }
+    },
+    {
+      "type": "port",
+      "building": {
+        "kind": "water",
+        "tile_building": 1,
+        "cost": 7,
+        "required_tech": "sailing",
+        "population": 1
+      }
+    },
+    {
+      "type": "windmill",
+      "building": {
+        "kind": "field",
+        "tile_building": 2,
+        "cost": 5,
+        "required_tech": "construction",
+        "population": 0,
+        "unique_per_city": true,
+        "adjacent_to": "farm",
+        "adjacent_population": 1
+      }
+    },
+    {
+      "type": "sawmill",
+      "building": {
+        "kind": "field",
+        "tile_building": 1,
+        "cost": 5,
+        "required_tech": "mathematics",
+        "population": 0,
+        "unique_per_city": true,
+        "adjacent_to": "lumberHut",
+        "adjacent_population": 1
+      }
+    },
+    {
+      "type": "forge",
+      "building": {
+        "kind": "field",
+        "tile_building": 5,
+        "cost": 5,
+        "required_tech": "smithery",
+        "population": 0,
+        "unique_per_city": true,
+        "adjacent_to": "mine",
+        "adjacent_population": 2
+      }
+    },
+    {
+      "type": "temple",
+      "building": {
+        "kind": "field",
+        "tile_building": 4,
+        "cost": 20,
+        "required_tech": "free_spirit",
+        "population": 1,
+        "is_temple": true
+      }
+    },
+    {
+      "type": "forestTemple",
+      "building": {
+        "kind": "forest",
+        "tile_building": 2,
+        "cost": 15,
+        "required_tech": "spiritualism",
+        "population": 1,
+        "is_temple": true
+      }
+    },
+    {
+      "type": "mountainTemple",
+      "building": {
+        "kind": "mountain",
+        "tile_building": 2,
+        "cost": 20,
+        "required_tech": "meditation",
+        "population": 1,
+        "is_temple": true
+      }
+    },
+    {
+      "type": "waterTemple",
+      "building": {
+        "kind": "water",
+        "tile_building": 2,
+        "cost": 20,
+        "required_tech": "aquatism",
+        "population": 1,
+        "is_temple": true
+      }
+    },
+    {
+      "type": "road",
+      "building": {
+        "kind": "field",
+        "tile_building": 0,
+        "cost": 3,
+        "required_tech": "roads",
+        "population": 0
+      }
+    }
+  ]
+}

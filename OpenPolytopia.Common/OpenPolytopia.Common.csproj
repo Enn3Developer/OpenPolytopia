@@ -20,6 +20,7 @@
     <EmbeddedResource Include="..\OpenPolytopia\resources\troops.json" LogicalName="OpenPolytopia.Common.resources.troops.json"/>
     <EmbeddedResource Include="..\OpenPolytopia\resources\tribes.json" LogicalName="OpenPolytopia.Common.resources.tribes.json"/>
     <EmbeddedResource Include="..\OpenPolytopia\resources\tech_tree.json" LogicalName="OpenPolytopia.Common.resources.tech_tree.json"/>
+    <EmbeddedResource Include="..\OpenPolytopia\resources\buildings.json" LogicalName="OpenPolytopia.Common.resources.buildings.json"/>
   </ItemGroup>
 
 </Project>

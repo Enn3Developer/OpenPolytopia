@@ -1,5 +1,6 @@
 namespace OpenPolytopia;
 
+using System.Linq;
 using Godot;
 using Common;
 using Shouldly;
@@ -57,5 +58,21 @@ public class TroopManagerTest {
     _troopManager.SpawnTroop(position, 1, 1, TroopType.Warrior);
     _troopManager.ModifyTroop(position, (ref TroopData troopData) => troopData.Player = 2);
     _troopManager[5].Player.ShouldBe(2u);
+  }
+
+  [Fact]
+  public void TestSetRaw() {
+    var raw = new TroopData { Player = 1, Type = TroopType.Rider, Hp = 5 }.Raw;
+    _troopManager.SetRaw(6, raw);
+    _troopManager[6].Type.ShouldBe(TroopType.Rider);
+    _troopManager[6].Hp.ShouldBe(5u);
+  }
+
+  [Fact]
+  public void TestTroops() {
+    _troopManager.SpawnTroop(new Vector2I(7, 0), 1, 1, TroopType.Warrior);
+    _troopManager.SpawnTroop(new Vector2I(8, 0), 2, 1, TroopType.Archer);
+    var indexes = _troopManager.Troops().Select(entry => entry.Index).ToArray();
+    indexes.ShouldBe([7u, 8u]);
   }
 }

@@ -58,6 +58,18 @@ public partial class TroopResource : Resource {
   [Export]
   public int[] Skills { get; set; } = [];
 
+  /// <summary>
+  /// Stars needed to train the troop; 0 means the troop can't be trained in a city
+  /// </summary>
+  [Export(PropertyHint.Range, "0,100,1,or_greater")]
+  public uint Cost { get; set; }
+
+  /// <summary>
+  /// Id of the tech that unlocks the troop; empty when no tech is needed
+  /// </summary>
+  [Export]
+  public string RequiredTech { get; set; } = "";
+
   public override void _ValidateProperty(Dictionary property) {
     if (property["name"].AsStringName() != PropertyName.Skills) {
       return;
@@ -84,7 +96,9 @@ public partial class TroopResource : Resource {
       Defense = troop.Defense,
       Movement = troop.Movement,
       Range = troop.Range,
-      Skills = [.. troop.Skills.Select(skill => (int)skill)]
+      Skills = [.. troop.Skills.Select(skill => (int)skill)],
+      Cost = troop.Cost,
+      RequiredTech = troop.RequiredTech ?? ""
     };
   }
 
@@ -105,7 +119,15 @@ public partial class TroopResource : Resource {
     return new TroopSerializedData {
       Type = Type,
       Troop = new Troop {
-        MaxHp = MaxHp, Attack = Attack, Defense = Defense, Movement = Movement, Range = Range, Skills = skills
+        MaxHp = MaxHp,
+        Attack = Attack,
+        Defense = Defense,
+        Movement = Movement,
+        Range = Range,
+        Skills = skills,
+        Cost = Cost,
+        // an empty string is what the inspector shows for "no tech", the json leaves the property out instead
+        RequiredTech = string.IsNullOrWhiteSpace(RequiredTech) ? null : RequiredTech
       }
     };
   }

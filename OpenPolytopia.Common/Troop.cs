@@ -163,6 +163,26 @@ public class TroopManager(uint size) {
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public void ModifyTroop(Vector2I position, ActionRef<TroopData> callback) =>
     callback(ref _grid[GridPositionToIndex(position)]);
+
+  /// <summary>
+  /// Overwrites the packed representation of the troop at an index, for loading a full state
+  /// </summary>
+  /// <param name="index">the index of the troop in the grid</param>
+  /// <param name="raw">the packed representation to write</param>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void SetRaw(uint index, uint raw) => _grid[index].Raw = raw;
+
+  /// <summary>
+  /// Yields every valid troop with its index in the grid
+  /// </summary>
+  /// <returns>the index and data of every troop for which <see cref="TroopData.IsValid"/> is true</returns>
+  public IEnumerable<(uint Index, TroopData Troop)> Troops() {
+    for (var index = 0u; index < _grid.Length; index++) {
+      if (_grid[index].IsValid()) {
+        yield return (index, _grid[index]);
+      }
+    }
+  }
 }
 
 public struct TroopData {
@@ -172,16 +192,16 @@ public struct TroopData {
   private const int CITY_POSITION = 21;
   private const int HP_POSITION = 13;
   private const int TYPE_POSITION = 5;
-  private const int PLAYER_POSITION = 4;
+  private const int PLAYER_POSITION = 0;
 
   private const int ONE_BIT = 1;
-  private const int FOUR_BITS = 15;
+  private const int FIVE_BITS = 31;
   private const int EIGHT_BITS = 255;
 
   /// <summary>
   /// Inner representation of the troop data.
   ///
-  /// Using 0 as the left-most bit and 63 as the right-most bit
+  /// Using 0 as the left-most bit and 31 as the right-most bit
   /// <list type="bullet">
   /// <item>0 -> is veteran</item>
   /// <item>1 -> has attacked</item>
@@ -189,9 +209,12 @@ public struct TroopData {
   /// <item>[3, 10] -> City of spawn</item>
   /// <item>[11, 18] -> current hp</item>
   /// <item>[19, 26] -> troop type</item>
-  /// <item>[27, 30] -> player</item>
+  /// <item>[27, 31] -> player</item>
   /// </list>
   /// </summary>
+  /// <remarks>
+  /// Player is 5 bits, not 4, because the lobby allows up to 16 players (ids 1-16)
+  /// </remarks>
   private uint _inner;
 
   /// <summary>
@@ -265,9 +288,19 @@ public struct TroopData {
   /// </summary>
   public uint Player {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    get => _inner.GetBits(FOUR_BITS, PLAYER_POSITION);
+    get => _inner.GetBits(FIVE_BITS, PLAYER_POSITION);
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    set => _inner.SetBits(value, FOUR_BITS, PLAYER_POSITION);
+    set => _inner.SetBits(value, FIVE_BITS, PLAYER_POSITION);
+  }
+
+  /// <summary>
+  /// The packed representation of this troop, for serialization
+  /// </summary>
+  public uint Raw {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    get => _inner;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    set => _inner = value;
   }
 
   /// <summary>
@@ -323,6 +356,16 @@ public class Troop {
   /// List of skills this troop has
   /// </summary>
   public required Skill[] Skills { get; init; }
+
+  /// <summary>
+  /// Stars needed to train the troop; 0 means the troop can't be trained in a city
+  /// </summary>
+  public uint Cost { get; init; }
+
+  /// <summary>
+  /// Id of the tech that unlocks the troop; null when no tech is needed
+  /// </summary>
+  public string? RequiredTech { get; init; }
 }
 
 /// <summary>
