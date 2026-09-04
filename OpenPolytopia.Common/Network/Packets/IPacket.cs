@@ -8,5 +8,7 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// where the content length covers the packet id and the payload.
 /// Every packet must be registered in <see cref="PacketRegistrar"/> with a unique id
 /// and must have a parameterless constructor
+/// A packet can declare itself <see langword="partial"/> and use <see cref="GeneratedPacketAttribute"/> to generate
+/// its <see cref="INetworkSerializable"/> implementation from members marked with <see cref="PacketFieldAttribute"/>.
 /// </remarks>
 public interface IPacket : INetworkSerializable;

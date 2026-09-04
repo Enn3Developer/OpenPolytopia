@@ -3,24 +3,19 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// <summary>
 /// Asks the server for the list of all the lobbies
 /// </summary>
-public class GetLobbiesPacket : IPacket {
-  public void Serialize(List<byte> bytes) { }
-
-  public void Deserialize(byte[] bytes, ref uint index) { }
-}
+[GeneratedPacket]
+public partial class GetLobbiesPacket : IPacket { }
 
 /// <summary>
 /// Server response to <see cref="GetLobbiesPacket"/>
 /// </summary>
-public class GetLobbiesResponsePacket : IPacket {
+[GeneratedPacket]
+public partial class GetLobbiesResponsePacket : IPacket {
   /// <summary>
   /// All the lobbies currently on the server
   /// </summary>
-  public List<LobbyData> Lobbies = [];
-
-  public void Serialize(List<byte> bytes) => Lobbies.Serialize(bytes);
-
-  public void Deserialize(byte[] bytes, ref uint index) => Lobbies.Deserialize(bytes, ref index);
+  [PacketField]
+  public List<LobbyData> Lobbies { get; set; } = [];
 }
 
 /// <summary>
@@ -231,15 +226,13 @@ public class SetReadyResponsePacket : IPacket {
 /// <summary>
 /// Broadcast by the server when a lobby gets created or modified
 /// </summary>
-public class LobbyUpdatedPacket : IPacket {
+[GeneratedPacket]
+public partial class LobbyUpdatedPacket : IPacket {
   /// <summary>
   /// The new state of the lobby
   /// </summary>
-  public LobbyData Lobby = new();
-
-  public void Serialize(List<byte> bytes) => Lobby.Serialize(bytes);
-
-  public void Deserialize(byte[] bytes, ref uint index) => Lobby.Deserialize(bytes, ref index);
+  [PacketField]
+  public LobbyData Lobby { get; set; } = new();
 }
 
 /// <summary>

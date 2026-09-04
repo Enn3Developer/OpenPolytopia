@@ -6,10 +6,5 @@ namespace OpenPolytopia.Common.Network.Packets;
 /// <remarks>
 /// The client echoes it back; a client that doesn't send anything for too long gets disconnected
 /// </remarks>
-public class KeepAlivePacket : IPacket {
-  public void Serialize(List<byte> bytes) {
-  }
-
-  public void Deserialize(byte[] bytes, ref uint index) {
-  }
-}
+[GeneratedPacket]
+public partial class KeepAlivePacket : IPacket { }

@@ -10,12 +10,68 @@ public static class BoolSerialization {
   public static void Serialize(this bool value, List<byte> bytes) => bytes.Add((byte)value.ToUInt());
 
   public static void Deserialize(this ref bool value, byte[] bytes, ref uint index) => value = bytes[index++] == 1;
+
+  public static bool Read(byte[] bytes, ref uint index) {
+    var value = false;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
 }
 
 public static class ByteSerialization {
   public static void Serialize(this byte value, List<byte> bytes) => bytes.Add(value);
 
   public static void Deserialize(this ref byte value, byte[] bytes, ref uint index) => value = bytes[index++];
+
+  public static byte Read(byte[] bytes, ref uint index) {
+    var value = (byte)0;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
+}
+
+public static class SByteSerialization {
+  public static void Serialize(this sbyte value, List<byte> bytes) => bytes.Add(unchecked((byte)value));
+
+  public static void Deserialize(this ref sbyte value, byte[] bytes, ref uint index) =>
+    value = unchecked((sbyte)bytes[index++]);
+
+  public static sbyte Read(byte[] bytes, ref uint index) {
+    var value = (sbyte)0;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
+}
+
+public static class ShortSerialization {
+  public static void Serialize(this short value, List<byte> bytes) => unchecked((ushort)value).Serialize(bytes);
+
+  public static void Deserialize(this ref short value, byte[] bytes, ref uint index) =>
+    value = unchecked((short)UShortSerialization.Read(bytes, ref index));
+
+  public static short Read(byte[] bytes, ref uint index) {
+    var value = (short)0;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
+}
+
+public static class UShortSerialization {
+  public static void Serialize(this ushort value, List<byte> bytes) {
+    bytes.Add((byte)(value >> 8));
+    bytes.Add((byte)value);
+  }
+
+  public static void Deserialize(this ref ushort value, byte[] bytes, ref uint index) {
+    value = (ushort)((bytes[index] << 8) | bytes[index + 1]);
+    index += 2;
+  }
+
+  public static ushort Read(byte[] bytes, ref uint index) {
+    var value = (ushort)0;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
 }
 
 public static class UIntSerialization {
@@ -64,6 +120,19 @@ public static class ULongSerialization {
 
   public static ulong Read(byte[] bytes, ref uint index) {
     var value = 0ul;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
+}
+
+public static class LongSerialization {
+  public static void Serialize(this long value, List<byte> bytes) => unchecked((ulong)value).Serialize(bytes);
+
+  public static void Deserialize(this ref long value, byte[] bytes, ref uint index) =>
+    value = unchecked((long)ULongSerialization.Read(bytes, ref index));
+
+  public static long Read(byte[] bytes, ref uint index) {
+    var value = 0L;
     value.Deserialize(bytes, ref index);
     return value;
   }
