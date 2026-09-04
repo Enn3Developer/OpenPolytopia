@@ -65,6 +65,31 @@ public static class PacketRegistrar {
       RegisterPacket<LobbyUpdatedPacket>(15);
       RegisterPacket<LobbyDeletedPacket>(16);
       RegisterPacket<GameStartedPacket>(17);
+      RegisterPacket<GetGameStatePacket>(18);
+      RegisterPacket<GameStatePacket>(19);
+      RegisterPacket<MoveTroopPacket>(20);
+      RegisterPacket<MoveTroopResponsePacket>(21);
+      RegisterPacket<TroopMovedPacket>(22);
+      RegisterPacket<AttackPacket>(23);
+      RegisterPacket<AttackResponsePacket>(24);
+      RegisterPacket<CombatPacket>(25);
+      RegisterPacket<TrainTroopPacket>(26);
+      RegisterPacket<TrainTroopResponsePacket>(27);
+      RegisterPacket<TroopTrainedPacket>(28);
+      RegisterPacket<ResearchTechPacket>(29);
+      RegisterPacket<ResearchTechResponsePacket>(30);
+      RegisterPacket<TechResearchedPacket>(31);
+      RegisterPacket<BuildPacket>(32);
+      RegisterPacket<BuildResponsePacket>(33);
+      RegisterPacket<BuildingBuiltPacket>(34);
+      RegisterPacket<CapturePacket>(35);
+      RegisterPacket<CaptureResponsePacket>(36);
+      RegisterPacket<CityCapturedPacket>(37);
+      RegisterPacket<EndTurnPacket>(38);
+      RegisterPacket<EndTurnResponsePacket>(39);
+      RegisterPacket<TurnStartedPacket>(40);
+      RegisterPacket<PlayerEliminatedPacket>(41);
+      RegisterPacket<GameOverPacket>(42);
     }
   }
 }

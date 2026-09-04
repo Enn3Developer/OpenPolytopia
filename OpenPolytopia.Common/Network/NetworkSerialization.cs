@@ -1,6 +1,7 @@
 namespace OpenPolytopia.Common.Network;
 
 using System.Text;
+using Godot;
 
 // Everything is written in network byte order (big-endian)
 // Every Deserialize should increment the index
@@ -68,6 +69,80 @@ public static class ULongSerialization {
   }
 }
 
+/// <summary>
+/// Serialization helpers for <see langword="int"/>, big-endian, two's complement
+/// </summary>
+public static class IntSerialization {
+  /// <summary>
+  /// Serializes an <see langword="int"/> as 4 big-endian bytes
+  /// </summary>
+  /// <param name="value">the value to serialize</param>
+  /// <param name="bytes">the buffer to append to</param>
+  public static void Serialize(this int value, List<byte> bytes) => ((uint)value).Serialize(bytes);
+
+  /// <summary>
+  /// Deserializes an <see langword="int"/> from 4 big-endian bytes
+  /// </summary>
+  /// <param name="value">the value to write the result into</param>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  public static void Deserialize(this ref int value, byte[] bytes, ref uint index) {
+    var raw = 0u;
+    raw.Deserialize(bytes, ref index);
+    value = (int)raw;
+  }
+
+  /// <summary>
+  /// Reads an <see langword="int"/> from the buffer
+  /// </summary>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  /// <returns>the deserialized value</returns>
+  public static int Read(byte[] bytes, ref uint index) {
+    var value = 0;
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
+}
+
+/// <summary>
+/// Serialization helpers for <see cref="Vector2I"/>, written as X then Y
+/// </summary>
+public static class Vector2ISerialization {
+  /// <summary>
+  /// Serializes a <see cref="Vector2I"/> as two big-endian ints, X then Y
+  /// </summary>
+  /// <param name="value">the value to serialize</param>
+  /// <param name="bytes">the buffer to append to</param>
+  public static void Serialize(this Vector2I value, List<byte> bytes) {
+    value.X.Serialize(bytes);
+    value.Y.Serialize(bytes);
+  }
+
+  /// <summary>
+  /// Deserializes a <see cref="Vector2I"/> from two big-endian ints, X then Y
+  /// </summary>
+  /// <param name="value">the value to write the result into</param>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  public static void Deserialize(this ref Vector2I value, byte[] bytes, ref uint index) {
+    value.X = IntSerialization.Read(bytes, ref index);
+    value.Y = IntSerialization.Read(bytes, ref index);
+  }
+
+  /// <summary>
+  /// Reads a <see cref="Vector2I"/> from the buffer
+  /// </summary>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  /// <returns>the deserialized value</returns>
+  public static Vector2I Read(byte[] bytes, ref uint index) {
+    var value = new Vector2I();
+    value.Deserialize(bytes, ref index);
+    return value;
+  }
+}
+
 public static class StringSerialization {
   public static void Serialize(this string value, List<byte> bytes) {
     var encoded = Encoding.UTF8.GetBytes(value);
@@ -102,4 +177,118 @@ public static class ListSerialization {
     }
   }
 
+}
+
+/// <summary>
+/// Serialization helpers for <see langword="uint"/>[], as a <see langword="uint"/> length prefix followed by
+/// the elements
+/// </summary>
+public static class UIntArraySerialization {
+  /// <summary>
+  /// Serializes a <see langword="uint"/> array
+  /// </summary>
+  /// <param name="values">the array to serialize</param>
+  /// <param name="bytes">the buffer to append to</param>
+  public static void Serialize(this uint[] values, List<byte> bytes) {
+    ((uint)values.Length).Serialize(bytes);
+    foreach (var value in values) {
+      value.Serialize(bytes);
+    }
+  }
+
+  /// <summary>
+  /// Reads a <see langword="uint"/> array from the buffer
+  /// </summary>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  /// <returns>a freshly allocated array with the deserialized values</returns>
+  public static uint[] Read(byte[] bytes, ref uint index) {
+    var length = UIntSerialization.Read(bytes, ref index);
+    // the length comes off the wire, so it must fit the buffer before anything gets allocated for it
+    if (length > (bytes.Length - index) / sizeof(uint)) {
+      throw new ArgumentOutOfRangeException(nameof(bytes), length, "the array length exceeds the remaining bytes");
+    }
+
+    var values = new uint[length];
+    for (var i = 0; i < length; i++) {
+      values[i] = UIntSerialization.Read(bytes, ref index);
+    }
+
+    return values;
+  }
+}
+
+/// <summary>
+/// Serialization helpers for <see langword="ulong"/>[], as a <see langword="uint"/> length prefix followed by
+/// the elements
+/// </summary>
+public static class ULongArraySerialization {
+  /// <summary>
+  /// Serializes a <see langword="ulong"/> array
+  /// </summary>
+  /// <param name="values">the array to serialize</param>
+  /// <param name="bytes">the buffer to append to</param>
+  public static void Serialize(this ulong[] values, List<byte> bytes) {
+    ((uint)values.Length).Serialize(bytes);
+    foreach (var value in values) {
+      value.Serialize(bytes);
+    }
+  }
+
+  /// <summary>
+  /// Reads a <see langword="ulong"/> array from the buffer
+  /// </summary>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  /// <returns>a freshly allocated array with the deserialized values</returns>
+  public static ulong[] Read(byte[] bytes, ref uint index) {
+    var length = UIntSerialization.Read(bytes, ref index);
+    // the length comes off the wire, so it must fit the buffer before anything gets allocated for it
+    if (length > (bytes.Length - index) / sizeof(ulong)) {
+      throw new ArgumentOutOfRangeException(nameof(bytes), length, "the array length exceeds the remaining bytes");
+    }
+
+    var values = new ulong[length];
+    for (var i = 0; i < length; i++) {
+      values[i] = ULongSerialization.Read(bytes, ref index);
+    }
+
+    return values;
+  }
+}
+
+/// <summary>
+/// Serialization helpers for <see cref="List{T}"/> of <see langword="string"/>, since <see langword="string"/>
+/// isn't <see cref="INetworkSerializable"/> and so can't use <see cref="ListSerialization"/>
+/// </summary>
+public static class StringListSerialization {
+  /// <summary>
+  /// Serializes a list of strings
+  /// </summary>
+  /// <param name="list">the list to serialize</param>
+  /// <param name="bytes">the buffer to append to</param>
+  public static void Serialize(this List<string> list, List<byte> bytes) {
+    ((uint)list.Count).Serialize(bytes);
+    foreach (var value in list) {
+      value.Serialize(bytes);
+    }
+  }
+
+  /// <summary>
+  /// Deserializes a list of strings, appending to any element already in the list
+  /// </summary>
+  /// <param name="list">the list to append the deserialized values into</param>
+  /// <param name="bytes">the buffer to read from</param>
+  /// <param name="index">the index to start reading from; advanced past the read bytes</param>
+  public static void Deserialize(this List<string> list, byte[] bytes, ref uint index) {
+    var length = UIntSerialization.Read(bytes, ref index);
+    // every string costs at least its own length prefix, so a count that can't fit the buffer is bogus
+    if (length > (bytes.Length - index) / sizeof(uint)) {
+      throw new ArgumentOutOfRangeException(nameof(bytes), length, "the list length exceeds the remaining bytes");
+    }
+
+    for (var i = 0; i < length; i++) {
+      list.Add(StringSerialization.Read(bytes, ref index));
+    }
+  }
 }
