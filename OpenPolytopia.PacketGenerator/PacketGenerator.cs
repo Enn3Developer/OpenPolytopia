@@ -107,10 +107,10 @@ public sealed class PacketGenerator : IIncrementalGenerator {
         }
 
         var type = GetMemberType(member);
-        var strategy = GetStrategy(type, serializableInterface);
+        var strategy = GetStrategy(type, serializableInterface, out var nullableConstructionRequired);
         if (strategy is null) {
           context.ReportDiagnostic(Diagnostic.Create(
-            Diagnostics.UnsupportedType,
+            nullableConstructionRequired ? Diagnostics.NullableConstructionRequired : Diagnostics.UnsupportedType,
             MemberLocation(member),
             member.Name,
             type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
@@ -152,6 +152,46 @@ public sealed class PacketGenerator : IIncrementalGenerator {
   };
 
   private static SerializationStrategy? GetStrategy(
+    ITypeSymbol type,
+    INamedTypeSymbol serializableInterface,
+    out bool nullableConstructionRequired) {
+    nullableConstructionRequired = false;
+    if (type is INamedTypeSymbol {
+          OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
+        } nullableValueType) {
+      var underlyingType = nullableValueType.TypeArguments[0];
+      var underlyingStrategy = GetNonNullableStrategy(underlyingType, serializableInterface);
+      if (underlyingStrategy is null) return null;
+      if (underlyingStrategy.RequiresConstruction && !HasUsableParameterlessConstructor(underlyingType)) {
+        nullableConstructionRequired = true;
+        return null;
+      }
+
+      return SerializationStrategy.Nullable(
+        underlyingStrategy,
+        underlyingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+        isValueType: true);
+    }
+
+    if (type.IsReferenceType && type.NullableAnnotation == NullableAnnotation.Annotated) {
+      var underlyingType = type.WithNullableAnnotation(NullableAnnotation.NotAnnotated);
+      var underlyingStrategy = GetNonNullableStrategy(underlyingType, serializableInterface);
+      if (underlyingStrategy is null) return null;
+      if (underlyingStrategy.RequiresConstruction && !HasUsableParameterlessConstructor(underlyingType)) {
+        nullableConstructionRequired = true;
+        return null;
+      }
+
+      return SerializationStrategy.Nullable(
+        underlyingStrategy,
+        underlyingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+        isValueType: false);
+    }
+
+    return GetNonNullableStrategy(type, serializableInterface);
+  }
+
+  private static SerializationStrategy? GetNonNullableStrategy(
     ITypeSymbol type,
     INamedTypeSymbol serializableInterface) {
     if (type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType } enumType) {
@@ -306,7 +346,8 @@ public sealed class PacketGenerator : IIncrementalGenerator {
     SyntaxFactory.MethodDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)), "Serialize")
       .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
       .AddParameterListParameters(Parameter("bytes", "global::System.Collections.Generic.List<byte>"))
-      .WithBody(SyntaxFactory.Block(members.Select(member => member.Strategy.Serialize(member.Name))));
+      .WithBody(SyntaxFactory.Block(members.SelectMany((member, index) =>
+        member.Strategy.Serialize(member.Name, index))));
 
   private static MethodDeclarationSyntax CreateDeserializeMethod(IEnumerable<StatementSyntax> statements) =>
     SyntaxFactory.MethodDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)), "Deserialize")
@@ -410,22 +451,53 @@ public sealed class PacketGenerator : IIncrementalGenerator {
     private StrategyKind Kind { get; }
     private string? SerializedType { get; }
     private string? DeclaredType { get; }
-    public bool IsSerializable => Kind == StrategyKind.Serializable;
+    private SerializationStrategy? UnderlyingStrategy { get; set; }
+    private string? UnderlyingType { get; set; }
+    private bool IsNullableValueType { get; set; }
+    public bool IsSerializable => Kind == StrategyKind.Serializable || UnderlyingStrategy?.IsSerializable == true;
+    public bool RequiresConstruction => Kind is StrategyKind.Mutate or StrategyKind.Serializable;
 
     public static SerializationStrategy Read(string helper) => new(helper, StrategyKind.Read);
     public static SerializationStrategy Mutate(string helper) => new(helper, StrategyKind.Mutate);
     public static SerializationStrategy Enum(string helper, string serializedType, string declaredType) =>
       new(helper, StrategyKind.Enum, serializedType, declaredType);
+    public static SerializationStrategy Nullable(
+      SerializationStrategy underlyingStrategy,
+      string underlyingType,
+      bool isValueType) => new(null, StrategyKind.Nullable) {
+      UnderlyingStrategy = underlyingStrategy,
+      UnderlyingType = underlyingType,
+      IsNullableValueType = isValueType,
+    };
 
-    public StatementSyntax Serialize(string member) {
+    public IEnumerable<StatementSyntax> Serialize(string member, int index) {
+      if (Kind == StrategyKind.Nullable) {
+        var temporary = $"__packetField{index}";
+        yield return Local(temporary, Member(member));
+        yield return SyntaxFactory.ExpressionStatement(Invoke(
+          BoolHelperMember("Serialize"),
+          SyntaxFactory.Argument(NotNull(SyntaxFactory.IdentifierName(temporary))),
+          SyntaxFactory.Argument(SyntaxFactory.IdentifierName("bytes"))));
+
+        var value = (ExpressionSyntax)SyntaxFactory.IdentifierName(temporary);
+        if (IsNullableValueType) value = Member(value, "Value");
+        yield return SyntaxFactory.IfStatement(
+          NotNull(SyntaxFactory.IdentifierName(temporary)),
+          SyntaxFactory.Block(UnderlyingStrategy!.SerializeValue(value)));
+        yield break;
+      }
+
+      yield return SerializeValue(Member(member));
+    }
+
+    private StatementSyntax SerializeValue(ExpressionSyntax value) {
       if (Kind == StrategyKind.Serializable) {
         return SyntaxFactory.ExpressionStatement(Invoke(
           SyntaxFactory.IdentifierName("__SerializePacketField"),
-          SyntaxFactory.Argument(Member(member)),
+          SyntaxFactory.Argument(value),
           SyntaxFactory.Argument(SyntaxFactory.IdentifierName("bytes"))));
       }
 
-      ExpressionSyntax value = Member(member);
       if (Kind == StrategyKind.Enum) {
         value = SyntaxFactory.CastExpression(SyntaxFactory.ParseTypeName(SerializedType!), value);
       }
@@ -437,6 +509,19 @@ public sealed class PacketGenerator : IIncrementalGenerator {
     }
 
     public IEnumerable<StatementSyntax> Deserialize(string member, int index) {
+      if (Kind == StrategyKind.Nullable) {
+        var whenPresent = UnderlyingStrategy!.DeserializeNullable(member, index, UnderlyingType!);
+        yield return SyntaxFactory.IfStatement(
+          Invoke(
+            BoolHelperMember("Read"),
+            SyntaxFactory.Argument(SyntaxFactory.IdentifierName("bytes")),
+            RefArgument("index")),
+          SyntaxFactory.Block(whenPresent),
+          SyntaxFactory.ElseClause(SyntaxFactory.Block(Assignment(member, SyntaxFactory.LiteralExpression(
+            SyntaxKind.NullLiteralExpression)))));
+        yield break;
+      }
+
       switch (Kind) {
         case StrategyKind.Read:
           yield return Assignment(member, Invoke(
@@ -475,17 +560,70 @@ public sealed class PacketGenerator : IIncrementalGenerator {
       }
     }
 
+    private IEnumerable<StatementSyntax> DeserializeNullable(string member, int index, string underlyingType) {
+      if (!RequiresConstruction) {
+        foreach (var statement in Deserialize(member, index)) yield return statement;
+        yield break;
+      }
+
+      var temporary = $"__packetField{index}";
+      yield return Local(
+        temporary,
+        SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName(underlyingType))
+          .WithArgumentList(SyntaxFactory.ArgumentList()));
+
+      if (Kind == StrategyKind.Mutate) {
+        yield return SyntaxFactory.ExpressionStatement(Invoke(
+          HelperMember("Deserialize"),
+          SyntaxFactory.Argument(SyntaxFactory.IdentifierName(temporary)),
+          SyntaxFactory.Argument(SyntaxFactory.IdentifierName("bytes")),
+          RefArgument("index")));
+      }
+      else {
+        yield return SyntaxFactory.ExpressionStatement(Invoke(
+          SyntaxFactory.IdentifierName("__DeserializePacketField"),
+          RefArgument(temporary),
+          SyntaxFactory.Argument(SyntaxFactory.IdentifierName("bytes")),
+          RefArgument("index")));
+      }
+
+      yield return Assignment(member, SyntaxFactory.IdentifierName(temporary));
+    }
+
     private MemberAccessExpressionSyntax HelperMember(string method) =>
       SyntaxFactory.MemberAccessExpression(
         SyntaxKind.SimpleMemberAccessExpression,
         SyntaxFactory.ParseName($"{SerializationNamespace}{Helper}"),
         SyntaxFactory.IdentifierName(method));
 
+    private static MemberAccessExpressionSyntax BoolHelperMember(string method) =>
+      SyntaxFactory.MemberAccessExpression(
+        SyntaxKind.SimpleMemberAccessExpression,
+        SyntaxFactory.ParseName($"{SerializationNamespace}BoolSerialization"),
+        SyntaxFactory.IdentifierName(method));
+
     private static MemberAccessExpressionSyntax Member(string member) =>
       SyntaxFactory.MemberAccessExpression(
         SyntaxKind.SimpleMemberAccessExpression,
         SyntaxFactory.ThisExpression(),
+      SyntaxFactory.IdentifierName(member));
+
+    private static MemberAccessExpressionSyntax Member(ExpressionSyntax instance, string member) =>
+      SyntaxFactory.MemberAccessExpression(
+        SyntaxKind.SimpleMemberAccessExpression,
+        instance,
         SyntaxFactory.IdentifierName(member));
+
+    private static LocalDeclarationStatementSyntax Local(string name, ExpressionSyntax value) =>
+      SyntaxFactory.LocalDeclarationStatement(
+        SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+          .AddVariables(SyntaxFactory.VariableDeclarator(name)
+            .WithInitializer(SyntaxFactory.EqualsValueClause(value))));
+
+    private static BinaryExpressionSyntax NotNull(ExpressionSyntax value) => SyntaxFactory.BinaryExpression(
+      SyntaxKind.NotEqualsExpression,
+      value,
+      SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
 
     private static ExpressionStatementSyntax Assignment(string member, ExpressionSyntax value) =>
       SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
@@ -498,6 +636,7 @@ public sealed class PacketGenerator : IIncrementalGenerator {
       Mutate,
       Serializable,
       Enum,
+      Nullable,
     }
   }
 }

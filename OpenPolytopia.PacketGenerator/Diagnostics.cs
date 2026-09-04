@@ -58,4 +58,13 @@ internal static class Diagnostics {
     "PacketGenerator",
     DiagnosticSeverity.Error,
     true);
+
+  public static readonly DiagnosticDescriptor NullableConstructionRequired = new(
+    "OPG008",
+    "Nullable packet field type must be constructible",
+    "Nullable packet member '{0}' has type '{1}', which cannot be constructed during deserialization; " +
+    "use a concrete INetworkSerializable type with a public parameterless constructor",
+    "PacketGenerator",
+    DiagnosticSeverity.Error,
+    true);
 }
