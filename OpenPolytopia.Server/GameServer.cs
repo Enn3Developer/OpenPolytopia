@@ -1,6 +1,8 @@
 namespace OpenPolytopia.Server;
 
+using System.Diagnostics.CodeAnalysis;
 using OpenPolytopia.Common;
+using OpenPolytopia.Common.Gameplay;
 using OpenPolytopia.Common.Network;
 using OpenPolytopia.Common.Network.Packets;
 
@@ -26,9 +28,13 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
   private readonly ServerConnection _server = new(port, bindAddress);
   private readonly LobbyManager _lobbyManager = new();
+  private readonly GameManager _gameManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
 
-  // guards _lobbyManager and _playerNames: packet handlers run on many client tasks
+  // loaded once: every game on this server shares the same static gameplay data
+  private readonly GameData _gameData = GameData.LoadEmbedded();
+
+  // guards _lobbyManager, _gameManager and _playerNames: packet handlers run on many client tasks
   private readonly SemaphoreSlim _stateLock = new(1, 1);
 
   private readonly PacketDispatcher<NetworkConnection> _dispatcher = new();
@@ -107,6 +113,22 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     _dispatcher.Register<LeaveLobbyPacket>(ManageLeaveLobbyAsync);
     // update the ready state of the sender in a lobby
     _dispatcher.Register<SetReadyPacket>(ManageSetReadyAsync);
+    // respond with the full state of a game
+    _dispatcher.Register<GetGameStatePacket>(ManageGetGameStateAsync);
+    // move a troop of the sender's game
+    _dispatcher.Register<MoveTroopPacket>(ManageMoveTroopAsync);
+    // attack with a troop of the sender's game
+    _dispatcher.Register<AttackPacket>(ManageAttackAsync);
+    // train a troop in one of the sender's cities
+    _dispatcher.Register<TrainTroopPacket>(ManageTrainTroopAsync);
+    // research a tech node for the sender
+    _dispatcher.Register<ResearchTechPacket>(ManageResearchTechAsync);
+    // build on, or harvest, a tile of the sender's game
+    _dispatcher.Register<BuildPacket>(ManageBuildAsync);
+    // capture the city on a tile of the sender's game
+    _dispatcher.Register<CapturePacket>(ManageCaptureAsync);
+    // end the sender's turn
+    _dispatcher.Register<EndTurnPacket>(ManageEndTurnAsync);
   }
 
   private void ManageHandshake(NetworkConnection connection, HandshakePacket packet) {
@@ -167,11 +189,13 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
       }
-      else if (!Enum.IsDefined((TribeType)packet.Tribe)) {
+      // only a registered tribe can be played: the game refuses to start with one it has no data for
+      else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
-      // one lobby per player and a global cap, or a client could flood the server
-      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id)) {
+      // a player can wait in one lobby or play one game, never both
+      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id) ||
+               _gameManager.FindByConnection(connection.Id) != null) {
         result = LobbyActionResult.AlreadyJoinedLobby;
       }
       else if (_lobbyManager.LobbiesCount >= MAX_LOBBIES) {
@@ -202,11 +226,13 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
         result = LobbyActionResult.NotRegistered;
       }
-      else if (!Enum.IsDefined((TribeType)packet.Tribe)) {
+      // only a registered tribe can be played: the game refuses to start with one it has no data for
+      else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
-      // one lobby per player, or a client could flood the server
-      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id)) {
+      // a player can wait in one lobby or play one game, never both
+      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id) ||
+               _gameManager.FindByConnection(connection.Id) != null) {
         result = LobbyActionResult.AlreadyJoinedLobby;
       }
       else {
@@ -280,10 +306,56 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       foreach (var id in deletedIds) {
         _server.Broadcast(new LobbyDeletedPacket { LobbyId = id });
       }
+
+      DisconnectFromGame(connection);
     }
     finally {
       _stateLock.Release();
     }
+  }
+
+  /// <summary>
+  /// Resigns a disconnected player from the game they were playing, if any
+  /// </summary>
+  /// <remarks>
+  /// The connection is forgotten first, so the packets that follow only reach the players still connected
+  /// </remarks>
+  /// <param name="connection">the connection that just disconnected</param>
+  private void DisconnectFromGame(NetworkConnection connection) {
+    var session = _gameManager.RemovePlayer(connection.Id, out var playerId);
+    if (session == null || playerId == 0 || session.Game.Over) {
+      return;
+    }
+
+    // resigning only passes the turn when it was the resigning player's turn; otherwise nothing changes for the others
+    var heldTheTurn = session.Game.CurrentPlayer == playerId;
+    var result = session.Game.Resign(playerId);
+    if (result.Result != GameActionResult.Ok) {
+      return;
+    }
+
+    _server.BroadcastTo(session.ConnectionIds,
+      new PlayerEliminatedPacket { GameId = session.Id, PlayerId = (uint)playerId, Update = session.TakeUpdate() });
+
+    if (result.GameOver) {
+      EndGame(session);
+    }
+    else if (heldTheTurn) {
+      _server.BroadcastTo(session.ConnectionIds, new TurnStartedPacket {
+        GameId = session.Id, Turn = result.Turn, PlayerId = (uint)result.NextPlayer, Update = session.TakeUpdate()
+      });
+    }
+  }
+
+  /// <summary>
+  /// Tells the players of a finished game who won and forgets the game
+  /// </summary>
+  /// <param name="session">the session whose game is over</param>
+  private void EndGame(GameSession session) {
+    _server.BroadcastTo(session.ConnectionIds, new GameOverPacket {
+      GameId = session.Id, Winner = (uint)session.Game.Winner, Players = session.TakeUpdate().Players
+    });
+    _gameManager.RemoveGame(session.Id);
   }
 
   private async Task StartLobbiesLoopAsync(CancellationToken ct) {
@@ -294,16 +366,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         await _stateLock.WaitAsync(ct);
         try {
           foreach (var lobby in _lobbyManager.TakeStartingLobbies()) {
-            // TODO: world generation
-            // TODO: initialize game data
-            // TODO: add players to the game
-
-            Console.WriteLine($"Starting game for lobby {lobby.Id} with {lobby.PlayersCount} players");
-
-            // notify the players that their game started and remove the lobby from the list
-            _server.BroadcastTo(lobby.Players.Select(player => player.PlayerId),
-              new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
-            _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
+            await StartLobbyAsync(lobby);
           }
         }
         finally {
@@ -313,6 +376,270 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     }
     catch (OperationCanceledException) {
       // server stopping
+    }
+  }
+
+  /// <summary>
+  /// Turns a lobby whose players are all ready into a running game
+  /// </summary>
+  /// <remarks>
+  /// The lobby is already gone from the manager by now, so a failure here still tells every client the lobby is
+  /// deleted instead of leaving them waiting on it, and never takes the start loop down with it
+  /// </remarks>
+  /// <param name="lobby">the lobby to start</param>
+  private async Task StartLobbyAsync(LobbyData lobby) {
+    var connectionIds = lobby.Players.Select(player => player.PlayerId).ToList();
+
+    try {
+      var session = await _gameManager.CreateGameAsync(lobby, _gameData);
+
+      Console.WriteLine($"Starting game for lobby {lobby.Id} with {lobby.PlayersCount} players");
+
+      // notify the players that their game started and send them its full state
+      _server.BroadcastTo(connectionIds, new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
+      _server.BroadcastTo(connectionIds, session.BuildState());
+    }
+    catch (Exception e) {
+      Console.Error.WriteLine($"Couldn't start the game for lobby {lobby.Id}: {e}");
+    }
+
+    _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
+  }
+
+  /// <summary>
+  /// Resolves the game session and player id a game packet applies to
+  /// </summary>
+  /// <remarks>
+  /// Factors the lookup every game packet handler needs before it can call into the engine: the session for
+  /// <see cref="OpenPolytopia.Common.Network.Packets.GetGameStatePacket.GameId"/>-like fields, and the id of the
+  /// player <paramref name="connection"/> maps to inside it
+  /// </remarks>
+  /// <param name="connection">the connection that sent the packet</param>
+  /// <param name="gameId">the id of the game the packet targets</param>
+  /// <param name="session">the resolved session; non-null when this returns true</param>
+  /// <param name="playerId">the id of the player <paramref name="connection"/> is in the game; 0 when this returns false</param>
+  /// <param name="result">
+  /// <see cref="GameActionResult.GameNotFound"/> or <see cref="GameActionResult.NotInGame"/> when this returns
+  /// false; meaningless otherwise
+  /// </param>
+  /// <returns>true if a session was found and the connection is a player in it</returns>
+  private bool TryResolveSession(NetworkConnection connection, ulong gameId,
+    [NotNullWhen(true)] out GameSession? session, out int playerId, out GameActionResult result) {
+    session = _gameManager[gameId];
+    if (session == null) {
+      playerId = 0;
+      result = GameActionResult.GameNotFound;
+      return false;
+    }
+
+    playerId = session.PlayerIdOf(connection.Id);
+    if (playerId == 0) {
+      result = GameActionResult.NotInGame;
+      return false;
+    }
+
+    result = GameActionResult.Ok;
+    return true;
+  }
+
+  private async Task ManageGetGameStateAsync(NetworkConnection connection, GetGameStatePacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      var response = TryResolveSession(connection, packet.GameId, out var session, out _, out var check)
+        ? session.BuildState()
+        : new GameStatePacket { Result = check, GameId = packet.GameId };
+
+      _server.SendTo(connection.Id, response);
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageMoveTroopAsync(NetworkConnection connection, MoveTroopPacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new MoveTroopResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.MoveTroop(playerId, packet.From, packet.To);
+      _server.SendTo(connection.Id, new MoveTroopResponsePacket { Result = result });
+
+      if (result != GameActionResult.Ok) {
+        return;
+      }
+
+      _server.BroadcastTo(session.ConnectionIds, new TroopMovedPacket {
+        GameId = packet.GameId, PlayerId = (uint)playerId, From = packet.From, To = packet.To,
+        Update = session.TakeUpdate()
+      });
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageAttackAsync(NetworkConnection connection, AttackPacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new AttackResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.Attack(playerId, packet.From, packet.Target);
+      _server.SendTo(connection.Id, new AttackResponsePacket { Result = result.Result });
+
+      if (result.Result != GameActionResult.Ok) {
+        return;
+      }
+
+      _server.BroadcastTo(session.ConnectionIds, new CombatPacket {
+        GameId = packet.GameId, PlayerId = (uint)playerId, From = packet.From, Target = packet.Target,
+        AttackerHp = result.AttackerHp, DefenderHp = result.DefenderHp, AttackerKilled = result.AttackerKilled,
+        DefenderKilled = result.DefenderKilled, AttackerPosition = result.AttackerPosition,
+        Update = session.TakeUpdate()
+      });
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageTrainTroopAsync(NetworkConnection connection, TrainTroopPacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new TrainTroopResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.TrainTroop(playerId, packet.City, (TroopType)packet.TroopType);
+      _server.SendTo(connection.Id, new TrainTroopResponsePacket { Result = result });
+
+      if (result != GameActionResult.Ok) {
+        return;
+      }
+
+      _server.BroadcastTo(session.ConnectionIds, new TroopTrainedPacket {
+        GameId = packet.GameId, PlayerId = (uint)playerId, Position = packet.City, TroopType = packet.TroopType,
+        Update = session.TakeUpdate()
+      });
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageResearchTechAsync(NetworkConnection connection, ResearchTechPacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new ResearchTechResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.ResearchTech(playerId, packet.TechId);
+      _server.SendTo(connection.Id, new ResearchTechResponsePacket { Result = result });
+
+      if (result != GameActionResult.Ok) {
+        return;
+      }
+
+      _server.BroadcastTo(session.ConnectionIds, new TechResearchedPacket {
+        GameId = packet.GameId, PlayerId = (uint)playerId, TechId = packet.TechId, Update = session.TakeUpdate()
+      });
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageBuildAsync(NetworkConnection connection, BuildPacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new BuildResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.Build(playerId, packet.Position, (BuildingType)packet.Building);
+      _server.SendTo(connection.Id, new BuildResponsePacket { Result = result.Result });
+
+      if (result.Result != GameActionResult.Ok) {
+        return;
+      }
+
+      _server.BroadcastTo(session.ConnectionIds, new BuildingBuiltPacket {
+        GameId = packet.GameId, PlayerId = (uint)playerId, Position = packet.Position, Building = packet.Building,
+        Update = session.TakeUpdate()
+      });
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageCaptureAsync(NetworkConnection connection, CapturePacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new CaptureResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.Capture(playerId, packet.Position);
+      _server.SendTo(connection.Id, new CaptureResponsePacket { Result = result.Result });
+
+      if (result.Result != GameActionResult.Ok) {
+        return;
+      }
+
+      _server.BroadcastTo(session.ConnectionIds, new CityCapturedPacket {
+        GameId = packet.GameId, PlayerId = (uint)playerId, Position = packet.Position,
+        PreviousOwner = (uint)result.PreviousOwner, EliminatedPlayer = (uint)result.EliminatedPlayer,
+        Update = session.TakeUpdate()
+      });
+
+      // a capture can only end the game by eliminating the previous owner
+      if (result.EliminatedPlayer != 0 && session.Game.Over) {
+        EndGame(session);
+      }
+    }
+    finally {
+      _stateLock.Release();
+    }
+  }
+
+  private async Task ManageEndTurnAsync(NetworkConnection connection, EndTurnPacket packet) {
+    await _stateLock.WaitAsync();
+    try {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+        _server.SendTo(connection.Id, new EndTurnResponsePacket { Result = check });
+        return;
+      }
+
+      var result = session.Game.EndTurn(playerId);
+      _server.SendTo(connection.Id, new EndTurnResponsePacket { Result = result.Result });
+
+      if (result.Result != GameActionResult.Ok) {
+        return;
+      }
+
+      if (result.GameOver) {
+        EndGame(session);
+      }
+      else {
+        _server.BroadcastTo(session.ConnectionIds, new TurnStartedPacket {
+          GameId = packet.GameId, Turn = result.Turn, PlayerId = (uint)result.NextPlayer,
+          Update = session.TakeUpdate()
+        });
+      }
+    }
+    finally {
+      _stateLock.Release();
     }
   }
 
