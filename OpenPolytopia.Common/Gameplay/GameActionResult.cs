@@ -111,28 +111,3 @@ public enum GameActionResult : byte {
   /// <summary>The tile isn't a valid capture target</summary>
   NotACaptureTarget = 33
 }
-
-/// <summary>
-/// Serialization helpers for <see cref="GameActionResult"/>
-/// </summary>
-/// <remarks>
-/// Follows the same single-byte pattern as <c>LobbyActionResultSerialization</c>
-/// (<see cref="Network.Packets.LobbyActionResult"/>)
-/// </remarks>
-public static class GameActionResultSerialization {
-  /// <summary>
-  /// Serializes a <see cref="GameActionResult"/> as a single byte
-  /// </summary>
-  /// <param name="value">the value to serialize</param>
-  /// <param name="bytes">the buffer to append to</param>
-  public static void Serialize(this GameActionResult value, List<byte> bytes) => bytes.Add((byte)value);
-
-  /// <summary>
-  /// Deserializes a <see cref="GameActionResult"/> from a single byte
-  /// </summary>
-  /// <param name="value">the value to write the result into</param>
-  /// <param name="bytes">the buffer to read from</param>
-  /// <param name="index">the index to start reading from; advanced past the read byte</param>
-  public static void Deserialize(this ref GameActionResult value, byte[] bytes, ref uint index) =>
-    value = (GameActionResult)bytes[index++];
-}
