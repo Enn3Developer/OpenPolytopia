@@ -261,6 +261,22 @@ public class PacketTest {
   }
 
   [Fact]
+  public void TestAdditionalIntegralSerializers() {
+    List<byte> bytes = [];
+    ((sbyte)-42).Serialize(bytes);
+    ((short)-12345).Serialize(bytes);
+    ((ushort)54321).Serialize(bytes);
+    (-1234567890123456789L).Serialize(bytes);
+
+    var index = 0u;
+    SByteSerialization.Read(bytes.ToArray(), ref index).ShouldBe((sbyte)-42);
+    ShortSerialization.Read(bytes.ToArray(), ref index).ShouldBe((short)-12345);
+    UShortSerialization.Read(bytes.ToArray(), ref index).ShouldBe((ushort)54321);
+    LongSerialization.Read(bytes.ToArray(), ref index).ShouldBe(-1234567890123456789L);
+    index.ShouldBe((uint)bytes.Count);
+  }
+
+  [Fact]
   public void TestVector2ISerializationNegative() {
     List<byte> bytes = [];
     new Vector2I(-3, -7).Serialize(bytes);
