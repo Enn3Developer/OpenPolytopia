@@ -15,13 +15,32 @@ public class PacketGeneratorTest {
       }
 
       public static class StringSerialization {
-        public static void Serialize(string value, List<byte> bytes) { }
-        public static string Read(byte[] bytes, ref uint index) => "";
+        public static void Serialize(string value, List<byte> bytes) {
+          var encoded = System.Text.Encoding.UTF8.GetBytes(value);
+          UIntSerialization.Serialize((uint)encoded.Length, bytes);
+          bytes.AddRange(encoded);
+        }
+        public static string Read(byte[] bytes, ref uint index) {
+          var length = UIntSerialization.Read(bytes, ref index);
+          var value = System.Text.Encoding.UTF8.GetString(bytes, (int)index, (int)length);
+          index += length;
+          return value;
+        }
       }
 
       public static class UIntSerialization {
-        public static void Serialize(uint value, List<byte> bytes) { }
-        public static uint Read(byte[] bytes, ref uint index) => 0;
+        public static void Serialize(uint value, List<byte> bytes) {
+          bytes.Add((byte)(value >> 24));
+          bytes.Add((byte)(value >> 16));
+          bytes.Add((byte)(value >> 8));
+          bytes.Add((byte)value);
+        }
+        public static uint Read(byte[] bytes, ref uint index) {
+          var value = ((uint)bytes[index] << 24) | ((uint)bytes[index + 1] << 16) |
+                      ((uint)bytes[index + 2] << 8) | bytes[index + 3];
+          index += 4;
+          return value;
+        }
       }
 
       public static class ByteSerialization {
@@ -58,6 +77,33 @@ public class PacketGeneratorTest {
         public static void Serialize(ulong value, List<byte> bytes) { }
         public static ulong Read(byte[] bytes, ref uint index) => 0;
       }
+
+      public static class BoolSerialization {
+        public static void Serialize(bool value, List<byte> bytes) => bytes.Add(value ? (byte)1 : (byte)0);
+        public static bool Read(byte[] bytes, ref uint index) => bytes[index++] == 1;
+      }
+
+      public static class UIntArraySerialization {
+        public static void Serialize(uint[] value, List<byte> bytes) { }
+        public static uint[] Read(byte[] bytes, ref uint index) => [];
+      }
+
+      public static class StringListSerialization {
+        public static void Serialize(List<string> value, List<byte> bytes) {
+          UIntSerialization.Serialize((uint)value.Count, bytes);
+          foreach (var item in value) StringSerialization.Serialize(item, bytes);
+        }
+        public static void Deserialize(List<string> value, byte[] bytes, ref uint index) {
+          var count = UIntSerialization.Read(bytes, ref index);
+          for (var i = 0; i < count; i++) value.Add(StringSerialization.Read(bytes, ref index));
+        }
+      }
+
+      public static class ListSerialization {
+        public static void Serialize<T>(List<T> value, List<byte> bytes) where T : INetworkSerializable { }
+        public static void Deserialize<T>(List<T> value, byte[] bytes, ref uint index)
+          where T : INetworkSerializable, new() { }
+      }
     }
 
     namespace OpenPolytopia.Common.Network.Packets {
@@ -78,6 +124,7 @@ public class PacketGeneratorTest {
       namespace Test {
         using OpenPolytopia.Common.Network;
         using OpenPolytopia.Common.Network.Packets;
+        using System.Linq;
 
         public sealed class Child : INetworkSerializable {
           public void Serialize(List<byte> bytes) { }
@@ -180,6 +227,152 @@ public class PacketGeneratorTest {
   }
 
   [Fact]
+  public void GeneratesNullableValueReferenceCollectionAndSerializableMembers() {
+    var source = Prelude + """
+
+      #nullable enable
+
+      namespace Test {
+        using OpenPolytopia.Common.Network;
+        using OpenPolytopia.Common.Network.Packets;
+
+        public enum Choice : byte { None, One }
+
+        public sealed class Child : INetworkSerializable {
+          public void Serialize(List<byte> bytes) { }
+          public void Deserialize(byte[] bytes, ref uint index) { }
+        }
+
+        public struct ChildValue : INetworkSerializable {
+          public void Serialize(List<byte> bytes) { }
+          public void Deserialize(byte[] bytes, ref uint index) { }
+        }
+
+        [GeneratedPacket]
+        public partial class NullablePacket : IPacket {
+          [PacketField] public string? Name;
+          [PacketField] public uint? Count { get; set; }
+          [PacketField] public Choice? Choice;
+          [PacketField] public uint[]? Values;
+          [PacketField] public List<string>? Tags;
+          [PacketField] public List<Child>? Children;
+          [PacketField] public Child? Child;
+          [PacketField] public ChildValue? Value;
+        }
+      }
+      """;
+
+    var result = Run(source);
+    var generated = Assert.Single(result.RunResult.Results).GeneratedSources.Single().SourceText.ToString();
+
+    Assert.Empty(result.RunResult.Results.Single().Diagnostics);
+    Assert.DoesNotContain(result.OutputCompilation.GetDiagnostics(), diagnostic =>
+      diagnostic.Severity == DiagnosticSeverity.Error);
+    Assert.Equal(8, CountOccurrences(generated, "BoolSerialization.Serialize"));
+    Assert.Equal(8, CountOccurrences(generated, "BoolSerialization.Read"));
+    Assert.Contains("UIntSerialization.Serialize(__packetField1.Value, bytes);", generated);
+    Assert.Contains("ByteSerialization.Serialize((byte)__packetField2.Value, bytes);", generated);
+    Assert.Contains("var __packetField4 = new global::System.Collections.Generic.List<string>();", generated);
+    Assert.Contains("var __packetField5 = new global::System.Collections.Generic.List<global::Test.Child>();", generated);
+    Assert.Contains("var __packetField6 = new global::Test.Child();", generated);
+    Assert.Contains("var __packetField7 = new global::Test.ChildValue();", generated);
+  }
+
+  [Fact]
+  public void RejectsNullableSerializableTypesThatCannotBeConstructed() {
+    var source = Prelude + """
+
+      #nullable enable
+
+      namespace Test {
+        using OpenPolytopia.Common.Network;
+        using OpenPolytopia.Common.Network.Packets;
+
+        public interface IChild : INetworkSerializable { }
+
+        [GeneratedPacket]
+        public partial class NullablePacket : IPacket {
+          [PacketField] public IChild? Child;
+        }
+      }
+      """;
+
+    var result = Run(source);
+    var diagnostic = Assert.Single(result.RunResult.Results.Single().Diagnostics);
+
+    Assert.Equal("OPG008", diagnostic.Id);
+  }
+
+  [Fact]
+  public void GeneratedNullableMembersRoundTripNullAndPresentValues() {
+    var source = Prelude + """
+
+      #nullable enable
+
+      namespace Test {
+        using OpenPolytopia.Common.Network;
+        using OpenPolytopia.Common.Network.Packets;
+        using System.Linq;
+
+        public sealed class Child : INetworkSerializable {
+          public uint Value;
+          public void Serialize(List<byte> bytes) => UIntSerialization.Serialize(Value, bytes);
+          public void Deserialize(byte[] bytes, ref uint index) => Value = UIntSerialization.Read(bytes, ref index);
+        }
+
+        [GeneratedPacket]
+        public partial class NullablePacket : IPacket {
+          [PacketField] public string? Name;
+          [PacketField] public uint? Count;
+          [PacketField] public List<string>? Tags;
+          [PacketField] public Child? Child;
+        }
+
+        public static class Harness {
+          public static bool Verify() {
+            var absentBytes = new List<byte>();
+            new NullablePacket().Serialize(absentBytes);
+            if (!absentBytes.SequenceEqual(new byte[] { 0, 0, 0, 0 })) return false;
+
+            uint absentIndex = 0;
+            var absent = new NullablePacket();
+            absent.Deserialize(absentBytes.ToArray(), ref absentIndex);
+            if (absentIndex != absentBytes.Count || absent.Name is not null || absent.Count is not null ||
+                absent.Tags is not null || absent.Child is not null) return false;
+
+            var expected = new NullablePacket {
+              Name = "hello",
+              Count = 42,
+              Tags = new List<string> { "one", "two" },
+              Child = new Child { Value = 7 },
+            };
+            var presentBytes = new List<byte>();
+            expected.Serialize(presentBytes);
+
+            uint presentIndex = 0;
+            var actual = new NullablePacket();
+            actual.Deserialize(presentBytes.ToArray(), ref presentIndex);
+            return presentIndex == presentBytes.Count && actual.Name == "hello" && actual.Count == 42 &&
+                   actual.Tags is not null && actual.Tags.SequenceEqual(new[] { "one", "two" }) &&
+                   actual.Child?.Value == 7;
+          }
+        }
+      }
+      """;
+
+    var result = Run(source);
+    Assert.DoesNotContain(result.OutputCompilation.GetDiagnostics(), diagnostic =>
+      diagnostic.Severity == DiagnosticSeverity.Error);
+
+    using var assemblyBytes = new MemoryStream();
+    var emitResult = result.OutputCompilation.Emit(assemblyBytes);
+    Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+    var assembly = System.Reflection.Assembly.Load(assemblyBytes.ToArray());
+    var verify = assembly.GetType("Test.Harness")!.GetMethod("Verify")!;
+    Assert.True((bool)verify.Invoke(null, null)!);
+  }
+
+  [Fact]
   public void ReportsInvalidPacketFieldsAndManualMethods() {
     var source = Prelude + """
 
@@ -250,6 +443,17 @@ public class PacketGeneratorTest {
     GeneratorDriver driver = CSharpGeneratorDriver.Create(new PacketGenerator());
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _);
     return new GeneratorResult(driver.GetRunResult(), outputCompilation);
+  }
+
+  private static int CountOccurrences(string source, string value) {
+    var count = 0;
+    var index = 0;
+    while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0) {
+      count++;
+      index += value.Length;
+    }
+
+    return count;
   }
 
   private sealed record GeneratorResult(GeneratorDriverRunResult RunResult, Compilation OutputCompilation);
