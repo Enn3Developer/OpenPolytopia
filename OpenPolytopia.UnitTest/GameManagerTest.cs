@@ -73,6 +73,21 @@ public class GameManagerTest {
   }
 
   [Fact]
+  public async Task TestCreateGameRejectsPlayerAlreadyInAnotherGame() {
+    var firstLobby = NewLobby();
+    var firstSession = await CreateGameAsync(firstLobby);
+    var secondLobby = NewLobby();
+    secondLobby.Id = 8;
+    secondLobby.Players[1].PlayerId = 102;
+
+    await Should.ThrowAsync<InvalidOperationException>(() => CreateGameAsync(secondLobby));
+
+    _gameManager[firstLobby.Id].ShouldBe(firstSession);
+    _gameManager[secondLobby.Id].ShouldBeNull();
+    _gameManager.FindByConnection(firstLobby.Players[0].PlayerId).ShouldBe(firstSession);
+  }
+
+  [Fact]
   public async Task TestRemovePlayerForgetsConnectionAndReturnsSession() {
     var lobby = NewLobby();
     var session = await CreateGameAsync(lobby);

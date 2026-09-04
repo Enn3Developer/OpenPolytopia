@@ -193,8 +193,9 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
-      // one lobby per player and a global cap, or a client could flood the server
-      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id)) {
+      // a player can wait in one lobby or play one game, never both
+      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id) ||
+               _gameManager.FindByConnection(connection.Id) != null) {
         result = LobbyActionResult.AlreadyJoinedLobby;
       }
       else if (_lobbyManager.LobbiesCount >= MAX_LOBBIES) {
@@ -229,8 +230,9 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
-      // one lobby per player, or a client could flood the server
-      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id)) {
+      // a player can wait in one lobby or play one game, never both
+      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id) ||
+               _gameManager.FindByConnection(connection.Id) != null) {
         result = LobbyActionResult.AlreadyJoinedLobby;
       }
       else {

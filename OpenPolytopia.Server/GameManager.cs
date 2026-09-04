@@ -48,6 +48,12 @@ public class GameManager {
       throw new ArgumentException($"a game needs 2 to 16 players, got {lobby.Players.Count}", nameof(lobby));
     }
 
+    foreach (var lobbyPlayer in lobby.Players) {
+      if (_connectionToGame.ContainsKey(lobbyPlayer.PlayerId)) {
+        throw new InvalidOperationException($"connection {lobbyPlayer.PlayerId} is already playing a game");
+      }
+    }
+
     var grid = new Grid(lobby.WorldSize);
     var cityManager = new CityManager(grid);
     var troopManager = new TroopManager(lobby.WorldSize);
@@ -91,7 +97,9 @@ public class GameManager {
     }
 
     foreach (var connectionId in session.ConnectionIds) {
-      _connectionToGame.Remove(connectionId);
+      if (_connectionToGame.TryGetValue(connectionId, out var gameId) && gameId == id) {
+        _connectionToGame.Remove(connectionId);
+      }
     }
   }
 
