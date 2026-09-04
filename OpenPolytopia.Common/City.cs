@@ -274,6 +274,9 @@ public struct CityData : ITileCustomData {
   /// <remarks>
   /// This only sets the necessary data, it doesn't do anything else so you have to manage if the player wants to build
   /// a wall, a forge, etc...
+  /// <br/>
+  /// Population above <see cref="MaxPopulation"/> carries over instead of being discarded, so a caller can loop this
+  /// while it returns true to apply every level a big enough population jump is worth
   /// </remarks>
   /// <returns>If the level up is valid or not</returns>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -282,8 +285,9 @@ public struct CityData : ITileCustomData {
       return false;
     }
 
+    // compute the overflow before Level++ changes what MaxPopulation returns
+    Population -= MaxPopulation;
     Level += 1;
-    Population = 0;
     return true;
   }
 
