@@ -90,6 +90,20 @@ public static class PacketRegistrar {
       RegisterPacket<TurnStartedPacket>(40);
       RegisterPacket<PlayerEliminatedPacket>(41);
       RegisterPacket<GameOverPacket>(42);
+      RegisterPacket<RegisterAccountPacket>(43);
+      RegisterPacket<LoginPacket>(44);
+      RegisterPacket<ResumeSessionPacket>(45);
+      RegisterPacket<LogoutPacket>(46);
+      RegisterPacket<AuthenticationPacket>(47);
+      RegisterPacket<GetMyGamesPacket>(48);
+      RegisterPacket<MyGamesPacket>(49);
+      RegisterPacket<JoinGamePacket>(50);
+      RegisterPacket<LeaveGamePacket>(51);
+      RegisterPacket<ResignGamePacket>(52);
+      RegisterPacket<MembershipResultPacket>(53);
+      RegisterPacket<GameClockPacket>(54);
+      RegisterPacket<ResolveOverdueTurnPacket>(55);
+
     }
   }
 }

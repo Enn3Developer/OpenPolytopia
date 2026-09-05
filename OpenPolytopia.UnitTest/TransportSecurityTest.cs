@@ -33,7 +33,7 @@ public class TransportSecurityTest {
     try {
       Environment.SetEnvironmentVariable(ServerTls.CERTIFICATE_PATH_ENV, null);
       Should.Throw<InvalidOperationException>(() => new GameServer(0, "0.0.0.0"));
-      using var local = new GameServer(0, "127.0.0.1");
+      using var local = new GameServer(0, "127.0.0.1", ":memory:");
     }
     finally { Environment.SetEnvironmentVariable(ServerTls.CERTIFICATE_PATH_ENV, previous); }
   }

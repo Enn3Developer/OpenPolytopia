@@ -12,7 +12,11 @@ using OpenPolytopia.Common.Gameplay;
 /// </remarks>
 public class GameManager {
   private readonly Dictionary<ulong, GameSession> _sessions = new();
-  private readonly Dictionary<uint, ulong> _connectionToGame = new();
+  /// <summary>All retained games, including completed games.</summary>
+  public IReadOnlyCollection<GameSession> Sessions => _sessions.Values;
+
+  internal void Clear() => _sessions.Clear();
+  internal void Restore(GameSession session) => _sessions.Add(session.Id, session);
 
   /// <summary>
   /// Returns a running game given its id
@@ -26,7 +30,16 @@ public class GameManager {
   /// <param name="connectionId">the connection id</param>
   /// <returns>the session; null if the connection isn't mapped to any game</returns>
   public GameSession? FindByConnection(uint connectionId) =>
-    _connectionToGame.TryGetValue(connectionId, out var gameId) ? this[gameId] : null;
+    _sessions.Values.FirstOrDefault(session => session.PlayerIdOf(connectionId) != 0);
+
+  /// <summary>Lists every game belonging to a persistent account.</summary>
+  public IEnumerable<GameSession> FindByAccount(uint accountId) =>
+    _sessions.Values.Where(session => session.PlayerIdOfAccount(accountId) != 0);
+
+  /// <summary>Detaches a transport from every game without resigning.</summary>
+  public void Disconnect(uint connectionId) {
+    foreach (var session in _sessions.Values) session.RemoveConnection(connectionId);
+  }
 
   /// <summary>
   /// Creates and starts a new game from a lobby that just finished waiting for players
@@ -40,7 +53,8 @@ public class GameManager {
   /// <param name="seed">the optional world generation seed, mainly for deterministic tests</param>
   /// <returns>the newly created, started and registered session</returns>
   /// <exception cref="ArgumentException">if the lobby doesn't have 2 to 16 players</exception>
-  public async Task<GameSession> CreateGameAsync(LobbyData lobby, GameData data, int? seed = null) {
+  public async Task<GameSession> CreateGameAsync(LobbyData lobby, GameData data, int? seed = null,
+    IReadOnlyDictionary<uint, uint>? onlineConnections = null) {
     ArgumentNullException.ThrowIfNull(lobby);
     ArgumentNullException.ThrowIfNull(data);
 
@@ -48,10 +62,8 @@ public class GameManager {
       throw new ArgumentException($"a game needs 2 to 16 players, got {lobby.Players.Count}", nameof(lobby));
     }
 
-    foreach (var lobbyPlayer in lobby.Players) {
-      if (_connectionToGame.ContainsKey(lobbyPlayer.PlayerId)) {
-        throw new InvalidOperationException($"connection {lobbyPlayer.PlayerId} is already playing a game");
-      }
+    if (_sessions.ContainsKey(lobby.Id) || lobby.Players.Select(p => p.PlayerId).Distinct().Count() != lobby.Players.Count) {
+      throw new InvalidOperationException("duplicate game or participant");
     }
 
     var grid = new Grid(lobby.WorldSize);
@@ -77,11 +89,13 @@ public class GameManager {
     game.Start();
 
     var session = new GameSession(lobby.Id, game, connections, names);
-    _sessions[lobby.Id] = session;
-    foreach (var connectionId in connections.Values) {
-      _connectionToGame[connectionId] = lobby.Id;
+    if (onlineConnections != null) {
+      foreach (var connectionId in session.ConnectionIds.ToArray()) session.RemoveConnection(connectionId);
+      foreach (var accountId in connections.Values) {
+        if (onlineConnections.TryGetValue(accountId, out var connectionId)) session.Join(accountId, connectionId);
+      }
     }
-
+    _sessions[lobby.Id] = session;
     Console.WriteLine($"Created game {lobby.Id} with {players.Length} players on a {lobby.WorldSize}x{lobby.WorldSize} world");
 
     return session;
@@ -91,35 +105,12 @@ public class GameManager {
   /// Removes a game and forgets the connections of every one of its players
   /// </summary>
   /// <param name="id">the id of the game to remove</param>
-  public void RemoveGame(ulong id) {
-    if (!_sessions.Remove(id, out var session)) {
-      return;
-    }
+  public void RemoveGame(ulong id) => _sessions.Remove(id);
 
-    foreach (var connectionId in session.ConnectionIds) {
-      if (_connectionToGame.TryGetValue(connectionId, out var gameId) && gameId == id) {
-        _connectionToGame.Remove(connectionId);
-      }
-    }
-  }
-
-  /// <summary>
-  /// Forgets the connection of a player, so it stops resolving to the game it was playing
-  /// </summary>
-  /// <remarks>
-  /// The game itself is left untouched: the other players may still be playing it, and the caller decides whether
-  /// the player behind the connection resigns
-  /// </remarks>
-  /// <param name="connectionId">the connection that went away</param>
-  /// <param name="playerId">the id of the player behind the connection; 0 if it wasn't in any game</param>
-  /// <returns>the session the connection was playing; null if it wasn't mapped to any game</returns>
+  /// <summary>Detaches a connection from the first matching session.</summary>
   public GameSession? RemovePlayer(uint connectionId, out int playerId) {
-    playerId = 0;
-    if (!_connectionToGame.Remove(connectionId, out var gameId) || this[gameId] is not { } session) {
-      return null;
-    }
-
-    playerId = session.RemoveConnection(connectionId);
+    var session = FindByConnection(connectionId);
+    playerId = session?.RemoveConnection(connectionId) ?? 0;
     return session;
   }
 }

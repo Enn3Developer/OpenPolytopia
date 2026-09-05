@@ -2,6 +2,7 @@ namespace OpenPolytopia;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,26 @@ public partial class NetworkNode : Node {
   /// </remarks>
   public static NetworkNode? Instance { get; private set; }
 
+  /// <summary>
+  /// Minimum length of an account username
+  /// </summary>
+  public const int MIN_USERNAME_LENGTH = 3;
+
+  /// <summary>
+  /// Maximum length of an account username
+  /// </summary>
+  public const int MAX_USERNAME_LENGTH = 32;
+
+  /// <summary>
+  /// Minimum length of an account password
+  /// </summary>
+  public const int MIN_PASSWORD_LENGTH = 12;
+
+  /// <summary>
+  /// Maximum length of an account password
+  /// </summary>
+  public const int MAX_PASSWORD_LENGTH = 128;
+
   private static readonly TimeSpan RECONNECT_DELAY = TimeSpan.FromSeconds(3);
 
   private const string HOST_ENV = "OPENPOLYTOPIA_SERVER_HOST";
@@ -39,16 +60,35 @@ public partial class NetworkNode : Node {
   private const string HOST_ARG = "--server-host";
   private const string PORT_ARG = "--server-port";
 
+  // the session tokens are credentials, they never leave the user data directory
+  private const string SESSION_FILE = "user://sessions.cfg";
+  private const string TOKEN_KEY = "token";
+
   // shared between all the instances so the connection survives scene changes
   private static ClientConnection? _connection;
   private static bool _handshakeDone;
-  private static uint _playerId;
+  private static uint _connectionId;
   private static readonly List<LobbyData> _lobbies = [];
-  private static readonly Queue<IPacket> _pendingPackets = new();
+  private static readonly List<ulong> _myGames = [];
   private static int _disconnectedFlag;
   private static DateTime _reconnectAt = DateTime.MaxValue;
   private static string? _requestedName;
-  private static string? _acceptedName;
+
+  // account state; it survives a reconnection so the session can be resumed automatically
+  private static bool _authenticated;
+  private static bool _loggingOut;
+  private static bool _authInFlight;
+  private static ulong _resumeAt = ulong.MaxValue;
+  private static bool _retryable;
+
+  /// <summary>Whether the last authentication response was a temporary refusal.</summary>
+  public bool AuthenticationRetryable => _retryable;
+  private static uint _accountId;
+  private static string _accountName = "";
+  private static string? _sessionToken;
+  private static string _serverKey = "";
+  private static IPacket? _pendingAuth;
+  private static bool _resuming;
 
   private readonly PacketDispatcher<NetworkNode> _dispatcher = new();
 
@@ -80,12 +120,25 @@ public partial class NetworkNode : Node {
   public bool AutoConnect { get; set; } = true;
 
   /// <summary>
-  /// Id assigned to this client by the server
+  /// Id of this transport, assigned by the server during the handshake
   /// </summary>
   /// <remarks>
-  /// Valid after <see cref="OnConnected"/> gets fired
+  /// It changes on every reconnection; use <see cref="PlayerId"/> to identify the player
   /// </remarks>
-  public uint PlayerId => _playerId;
+  public uint ConnectionId => _connectionId;
+
+  /// <summary>
+  /// Persistent id of the account this client is logged in as
+  /// </summary>
+  /// <remarks>
+  /// Valid after <see cref="OnAuthenticated"/> gets fired with true; it's the id lobbies and games use
+  /// </remarks>
+  public uint PlayerId => _accountId;
+
+  /// <summary>
+  /// Display name of the account this client is logged in as
+  /// </summary>
+  public string AccountName => _accountName;
 
   /// <summary>
   /// true after a successful handshake with the server
@@ -93,14 +146,32 @@ public partial class NetworkNode : Node {
   public bool Connected => _handshakeDone;
 
   /// <summary>
+  /// true while the client is logged in on the server
+  /// </summary>
+  /// <remarks>
+  /// Every request other than the account ones is dropped until this is true
+  /// </remarks>
+  public bool Authenticated => _authenticated;
+
+  /// <summary>
   /// Lobbies data; it updates when the server broadcasts lobby changes
   /// </summary>
   public IReadOnlyList<LobbyData> Lobbies => _lobbies;
 
   /// <summary>
+  /// Ids of the games this account takes part in; refreshed by <see cref="RefreshMyGames"/>
+  /// </summary>
+  public IReadOnlyList<ulong> MyGames => _myGames;
+
+  /// <summary>
   /// Fired once after every change to <see cref="Lobbies"/>
   /// </summary>
   public event Action? OnLobbiesChanged;
+
+  /// <summary>
+  /// Fired once after every change to <see cref="MyGames"/>
+  /// </summary>
+  public event Action? OnMyGamesChanged;
 
   /// <summary>
   /// Fired after a successful handshake
@@ -116,6 +187,41 @@ public partial class NetworkNode : Node {
   /// Fired after the server responds to <see cref="SetName"/>
   /// </summary>
   public event Action<bool>? OnNameSet;
+
+  /// <summary>
+  /// Fired after every authentication attempt, including the automatic ones after a reconnection
+  /// </summary>
+  /// <remarks>
+  /// The argument is whether the client is logged in now; a false after a <see cref="Logout"/> is expected
+  /// </remarks>
+  public event Action<bool>? OnAuthenticated;
+
+  /// <summary>
+  /// Fired after the server responds to <see cref="OpenGame"/> or <see cref="RequestGameState"/>
+  /// </summary>
+  public event Action<GameStatePacket>? OnGameState;
+
+  /// <summary>
+  /// Fired after the server responds to <see cref="CloseGame"/> or <see cref="ResignGame"/>
+  /// </summary>
+  public event Action<MembershipResultPacket>? OnMembershipResult;
+
+  /// <summary>
+  /// Fired when the server sends the turn deadline of a game this client opened
+  /// </summary>
+  /// <remarks>
+  /// The deadline is only meaningful against the server clock the packet carries: subtract the two to get
+  /// how long is left, the clock of this machine could be off by anything
+  /// </remarks>
+  public event Action<GameClockPacket>? OnGameClock;
+
+  /// <summary>
+  /// Fired with the game id when the server broadcasts a change to a game this client opened
+  /// </summary>
+  /// <remarks>
+  /// The client doesn't track the game state, ask for it again with <see cref="RequestGameState"/> if needed
+  /// </remarks>
+  public event Action<ulong>? OnGameChanged;
 
   /// <summary>
   /// Fired after the server responds to <see cref="CreateLobby"/>
@@ -162,7 +268,23 @@ public partial class NetworkNode : Node {
     _dispatcher.Register<LobbyUpdatedPacket>((_, packet) => ManageLobbyUpdated(packet));
     _dispatcher.Register<LobbyDeletedPacket>((_, packet) => ManageLobbyDeleted(packet));
     // hand the game data over to the scenes
-    _dispatcher.Register<GameStartedPacket>((_, packet) => OnGameStarted?.Invoke(packet));
+    _dispatcher.Register<GameStartedPacket>((_, packet) => ManageGameStarted(packet));
+    // account handling
+    _dispatcher.Register<AuthenticationPacket>((_, packet) => ManageAuthentication(packet));
+    _dispatcher.Register<MyGamesPacket>((_, packet) => ManageMyGames(packet));
+    _dispatcher.Register<GameStatePacket>((_, packet) => OnGameState?.Invoke(packet));
+    _dispatcher.Register<MembershipResultPacket>((_, packet) => ManageMembershipResult(packet));
+    _dispatcher.Register<GameClockPacket>((_, packet) => OnGameClock?.Invoke(packet));
+    // the gameplay broadcasts of every opened game; the client only reports that something changed
+    _dispatcher.Register<TroopMovedPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<CombatPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<TroopTrainedPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<TechResearchedPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<BuildingBuiltPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<CityCapturedPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<TurnStartedPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<PlayerEliminatedPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
+    _dispatcher.Register<GameOverPacket>((_, packet) => OnGameChanged?.Invoke(packet.GameId));
   }
 
   /// <summary>
@@ -202,11 +324,17 @@ public partial class NetworkNode : Node {
       return;
     }
 
+    if (_handshakeDone && !_authenticated && !_authInFlight && _sessionToken != null && Time.GetTicksMsec() >= _resumeAt) {
+      _resumeAt = ulong.MaxValue;
+      _resuming = true;
+      _authInFlight = true;
+      Send(new ResumeSessionPacket { Token = _sessionToken });
+    }
     var connection = _connection;
     if (connection == null) {
       // surface a connection attempt that failed before being established
       if (Interlocked.Exchange(ref _disconnectedFlag, 0) == 1) {
-        _pendingPackets.Clear();
+        ResetSessionState();
         OnDisconnected?.Invoke();
       }
 
@@ -229,16 +357,15 @@ public partial class NetworkNode : Node {
 
     // manage a disconnection signalled by the background read task
     if (Interlocked.Exchange(ref _disconnectedFlag, 0) == 1) {
-      _handshakeDone = false;
       connection.Dispose();
       _connection = null;
-      _lobbies.Clear();
-      _pendingPackets.Clear();
+      ResetSessionState();
 
       // wait before the first retry, the server could still be going down
       _reconnectAt = DateTime.UtcNow + RECONNECT_DELAY;
 
       OnLobbiesChanged?.Invoke();
+      OnMyGamesChanged?.Invoke();
       OnDisconnected?.Invoke();
     }
   }
@@ -259,6 +386,14 @@ public partial class NetworkNode : Node {
     _reconnectAt = DateTime.UtcNow + RECONNECT_DELAY;
 
     var (host, port) = ResolveServerAddress();
+
+    // the saved session belongs to a single server, load the one of the server being connected to
+    var serverKey = $"{host}:{port}";
+    if (serverKey != _serverKey) {
+      _serverKey = serverKey;
+      _sessionToken = LoadSession(serverKey);
+    }
+
     _ = ConnectToServerAsync(host, port);
   }
 
@@ -269,19 +404,80 @@ public partial class NetworkNode : Node {
     _reconnectAt = DateTime.MaxValue;
     _connection?.Dispose();
     _connection = null;
-    _handshakeDone = false;
-    _lobbies.Clear();
-    _pendingPackets.Clear();
+    ResetSessionState();
     OnLobbiesChanged?.Invoke();
+    OnMyGamesChanged?.Invoke();
 
     // consume the disconnection signalled by disposing the connection
     Interlocked.Exchange(ref _disconnectedFlag, 0);
   }
 
   /// <summary>
-  /// Registers the player on the server or renames him
+  /// Checks a username against the rules the server enforces
+  /// </summary>
+  /// <param name="username">the username to check</param>
+  public static bool IsValidUsername(string username) =>
+    username.Length is >= MIN_USERNAME_LENGTH and <= MAX_USERNAME_LENGTH &&
+    username.All(character => character is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_');
+
+  /// <summary>
+  /// Checks a password against the rules the server enforces
+  /// </summary>
+  /// <param name="password">the password to check</param>
+  public static bool IsValidPassword(string password) =>
+    password.Length is >= MIN_PASSWORD_LENGTH and <= MAX_PASSWORD_LENGTH;
+
+  /// <summary>
+  /// Creates a new account and logs into it
+  /// </summary>
+  /// <param name="username">the username of the new account</param>
+  /// <param name="password">the password of the new account; it never gets saved on disk</param>
+  public void Register(string username, string password) {
+    if (_authInFlight) return;
+    _authInFlight = true;
+    _resumeAt = ulong.MaxValue;
+    _resuming = false;
+    Send(new RegisterAccountPacket { Username = username, Password = password });
+  }
+
+  /// <summary>
+  /// Logs into an existing account
+  /// </summary>
+  /// <param name="username">the username of the account</param>
+  /// <param name="password">the password of the account; it never gets saved on disk</param>
+  public void Login(string username, string password) {
+    if (_authInFlight) return;
+    _authInFlight = true;
+    _resumeAt = ulong.MaxValue;
+    _resuming = false;
+    Send(new LoginPacket { Username = username, Password = password });
+  }
+
+  /// <summary>
+  /// Logs out of the current account and forgets its saved session
+  /// </summary>
+  public void Logout() {
+    Send(new LogoutPacket());
+
+    // drop the token right away, the player asked not to be logged in again automatically
+    ClearSession();
+    _loggingOut = true;
+    _authenticated = false;
+    _accountId = 0;
+    _accountName = "";
+    _lobbies.Clear();
+    _myGames.Clear();
+    _authInFlight = false;
+    _resumeAt = ulong.MaxValue;
+  }
+
+  /// <summary>
+  /// Renames the player on the server
   /// </summary>
   /// <param name="name">the new player's name</param>
+  /// <remarks>
+  /// This only changes the display name, accounts are created with <see cref="Register"/>
+  /// </remarks>
   public void SetName(string name) {
     _requestedName = name;
     Send(new SetNamePacket { Name = name });
@@ -293,12 +489,45 @@ public partial class NetworkNode : Node {
   public void RefreshLobbies() => Send(new GetLobbiesPacket());
 
   /// <summary>
+  /// Queries the server for the games this account takes part in
+  /// </summary>
+  public void RefreshMyGames() => Send(new GetMyGamesPacket());
+
+  /// <summary>
+  /// Opens one of the account's games and subscribes to its updates
+  /// </summary>
+  /// <param name="gameId">the id of the game to open</param>
+  public void OpenGame(ulong gameId) => Send(new JoinGamePacket { GameId = gameId });
+
+  /// <summary>
+  /// Closes an opened game without resigning from it
+  /// </summary>
+  /// <param name="gameId">the id of the game to close</param>
+  public void CloseGame(ulong gameId) => Send(new LeaveGamePacket { GameId = gameId });
+
+  /// <summary>
+  /// Resigns from a game
+  /// </summary>
+  /// <remarks>
+  /// This eliminates the player from the game and cannot be undone
+  /// </remarks>
+  /// <param name="gameId">the id of the game to resign from</param>
+  public void ResignGame(ulong gameId) => Send(new ResignGamePacket { GameId = gameId });
+
+  /// <summary>
+  /// Asks the server for the full state of a game
+  /// </summary>
+  /// <param name="gameId">the id of the game</param>
+  public void RequestGameState(ulong gameId) => Send(new GetGameStatePacket { GameId = gameId });
+
+  /// <summary>
   /// Creates a new lobby; this player automatically joins it
   /// </summary>
   /// <param name="maxPlayers">max players that can join the lobby</param>
   /// <param name="tribe">the tribe chosen by this player</param>
-  public void CreateLobby(uint maxPlayers, uint tribe) =>
-    Send(new CreateLobbyPacket { MaxPlayers = maxPlayers, Tribe = tribe });
+  /// <param name="timerMode">turn timer of the game, 0 for live and 1 for daily</param>
+  public void CreateLobby(uint maxPlayers, uint tribe, uint timerMode) =>
+    Send(new CreateLobbyPacket { MaxPlayers = maxPlayers, WorldSize = 14, Tribe = tribe, TimerMode = timerMode });
 
   /// <summary>
   /// Joins an existing lobby
@@ -382,19 +611,32 @@ public partial class NetworkNode : Node {
     }
   }
 
+  /// <summary>
+  /// Whether a packet is one of the few the server accepts before the client is logged in
+  /// </summary>
+  private static bool IsAccountPacket(IPacket packet) =>
+    packet is RegisterAccountPacket or LoginPacket or ResumeSessionPacket or LogoutPacket;
+
   private static void Send(IPacket packet) {
     var connection = _connection;
 
     // without a connection there is no telling when the packet could go out, drop it
     if (connection == null) {
+      if (IsAccountPacket(packet)) _authInFlight = false;
       return;
     }
 
-    // queue the packet while the handshake is in flight, connecting takes a moment;
-    // the queue gets flushed after the handshake and dropped on a failed connection
-    if (!_handshakeDone) {
-      _pendingPackets.Enqueue(packet);
-      return;
+    // the server kicks whoever talks before logging in, and replaying requests made against a session
+    // that is gone would act on a state the player never saw: everything but the login waits for a scene to ask again
+    if (!_handshakeDone || !_authenticated) {
+      // connecting takes a moment, hold the login the player just asked for until the handshake is done
+      if (!_handshakeDone && packet is RegisterAccountPacket or LoginPacket) {
+        _pendingAuth = packet;
+      }
+
+      if (!_handshakeDone || !IsAccountPacket(packet)) {
+        return;
+      }
     }
 
     _ = SendAsync(connection, packet);
@@ -426,31 +668,87 @@ public partial class NetworkNode : Node {
       return;
     }
 
-    _playerId = packet.PlayerId;
+    _connectionId = packet.PlayerId;
     _handshakeDone = true;
     OnConnected?.Invoke();
 
-    // register again after a reconnection, the server forgot this player
-    if (_acceptedName != null) {
-      Send(new SetNamePacket { Name = _acceptedName });
-    }
-
-    // send the packets queued while connecting; stop if a handler disconnected
-    while (_handshakeDone && _pendingPackets.TryDequeue(out var pending)) {
+    // a login the player asked for while connecting wins over the automatic resume
+    if (_pendingAuth != null) {
+      var pending = _pendingAuth;
+      _pendingAuth = null;
       Send(pending);
+      return;
     }
 
-    // get the initial lobby list
-    RefreshLobbies();
+    // log in again after a reconnection, the server forgot this transport
+    if (_sessionToken != null) {
+      _resuming = true;
+      Send(new ResumeSessionPacket { Token = _sessionToken });
+    }
   }
 
   private void ManageSetNameResponse(SetNameResponsePacket packet) {
     if (packet.Ok) {
-      // remember the name to register again after a reconnection
-      _acceptedName = _requestedName;
+      _accountName = _requestedName ?? _accountName;
     }
 
     OnNameSet?.Invoke(packet.Ok);
+  }
+
+  private void ManageAuthentication(AuthenticationPacket packet) {
+    _authInFlight = false;
+    _retryable = packet.Retryable;
+    if (_loggingOut && !packet.Ok) { _loggingOut = false; return; }
+    var resuming = _resuming;
+    _resuming = false;
+
+    if (!packet.Ok) {
+      // the server refused a token it handed out before: it expired or got revoked, ask the player to log in again
+      if (resuming && !packet.Retryable) ClearSession();
+      if (resuming && packet.Retryable) _resumeAt = Time.GetTicksMsec() + 3000;
+
+      _authenticated = false;
+      _accountId = 0;
+      _accountName = "";
+      _lobbies.Clear();
+      _myGames.Clear();
+
+      OnLobbiesChanged?.Invoke();
+      OnMyGamesChanged?.Invoke();
+      OnAuthenticated?.Invoke(false);
+      return;
+    }
+
+    _authenticated = true;
+    _accountId = packet.PlayerId;
+    _accountName = packet.Name;
+    SaveSession(packet.Token);
+
+    OnAuthenticated?.Invoke(true);
+
+    // get the initial lobby and game lists, the scenes are allowed to talk to the server now
+    RefreshLobbies();
+    RefreshMyGames();
+  }
+
+  private void ManageMyGames(MyGamesPacket packet) {
+    _myGames.Clear();
+    _myGames.AddRange(packet.GameIds);
+    OnMyGamesChanged?.Invoke();
+  }
+
+  private void ManageMembershipResult(MembershipResultPacket packet) {
+    OnMembershipResult?.Invoke(packet);
+
+    // resigning removes the player from the game, the list of his games changed
+    RefreshMyGames();
+  }
+
+  private void ManageGameStarted(GameStartedPacket packet) {
+    OnGameStarted?.Invoke(packet);
+
+    // the lobby became a game this account takes part in
+    RefreshMyGames();
   }
 
   private void ManageGetLobbiesResponse(GetLobbiesResponsePacket packet) {
@@ -475,6 +773,96 @@ public partial class NetworkNode : Node {
   private void ManageLobbyDeleted(LobbyDeletedPacket packet) {
     if (_lobbies.RemoveAll(lobby => lobby.Id == packet.LobbyId) > 0) {
       OnLobbiesChanged?.Invoke();
+    }
+  }
+
+  /// <summary>
+  /// Forgets everything tied to a connection, keeping the session token to resume with
+  /// </summary>
+  private static void ResetSessionState() {
+    _authInFlight = false;
+    _loggingOut = false;
+    _resumeAt = ulong.MaxValue;
+    _handshakeDone = false;
+    _authenticated = false;
+    _resuming = false;
+    _pendingAuth = null;
+    _lobbies.Clear();
+    _myGames.Clear();
+  }
+
+  /// <summary>
+  /// Returns the session token saved for a server, or null when there is none
+  /// </summary>
+  /// <param name="serverKey">the <c>host:port</c> of the server</param>
+  private static string? LoadSession(string serverKey) {
+    var config = new ConfigFile();
+    if (config.Load(SESSION_FILE) != Error.Ok) {
+      return null;
+    }
+
+    var token = config.GetValue(serverKey, TOKEN_KEY, "").AsString();
+    return string.IsNullOrEmpty(token) ? null : token;
+  }
+
+  /// <summary>
+  /// Saves the session token of the server this client is connected to
+  /// </summary>
+  /// <param name="token">the opaque token the server handed out</param>
+  private static void SaveSession(string token) {
+    _sessionToken = token;
+
+    var config = new ConfigFile();
+
+    // load first, the file holds the tokens of the other servers too
+    config.Load(SESSION_FILE);
+    config.SetValue(_serverKey, TOKEN_KEY, token);
+
+    var error = config.Save(SESSION_FILE);
+    if (error != Error.Ok) {
+      GD.PushError($"Cannot save the session token: {error}");
+      return;
+    }
+
+    RestrictSessionFilePermissions();
+  }
+
+  /// <summary>
+  /// Forgets the session token of the server this client is connected to
+  /// </summary>
+  private static void ClearSession() {
+    _sessionToken = null;
+
+    var config = new ConfigFile();
+    if (config.Load(SESSION_FILE) != Error.Ok || !config.HasSection(_serverKey)) {
+      return;
+    }
+
+    config.EraseSection(_serverKey);
+
+    var error = config.Save(SESSION_FILE);
+    if (error != Error.Ok) {
+      GD.PushError($"Cannot clear the session token: {error}");
+    }
+  }
+
+  /// <summary>
+  /// Keeps the session file readable by this user only
+  /// </summary>
+  /// <remarks>
+  /// A session token is as good as a password, and the user data directory is world readable on most systems;
+  /// Windows has no equivalent of the unix file mode, there the file keeps the permissions it inherits
+  /// </remarks>
+  private static void RestrictSessionFilePermissions() {
+    if (OperatingSystem.IsWindows()) {
+      return;
+    }
+
+    try {
+      File.SetUnixFileMode(ProjectSettings.GlobalizePath(SESSION_FILE), UnixFileMode.UserRead | UnixFileMode.UserWrite);
+    }
+    catch (Exception e) {
+      GD.PushWarning($"Cannot restrict the permissions of the session file: {e.Message}");
     }
   }
 }
