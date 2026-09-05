@@ -30,6 +30,7 @@ public class ClientConnection(string address, int port, bool? useTls = null) : I
   private readonly TcpClient _client = new();
   private readonly CancellationTokenSource _cts = new();
   private NetworkConnection? _connection;
+  private int _disposed;
 
   /// <summary>
   /// true when the connection to the server is wrapped in TLS
@@ -157,6 +158,7 @@ public class ClientConnection(string address, int port, bool? useTls = null) : I
   }
 
   public void Dispose() {
+    if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
     Disconnect();
     _cts.Dispose();
     _connection?.Dispose();
