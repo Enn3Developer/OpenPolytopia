@@ -18,6 +18,7 @@ using Shouldly;
 /// <summary>
 /// Covers the transport of the connection: plaintext on loopback, TLS everywhere else
 /// </summary>
+[Collection(nameof(TransportSecurityTest))]
 public class TransportSecurityTest {
   private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(10);
 
@@ -268,3 +269,6 @@ public class TransportSecurityTest {
     public void Dispose() => Listener.Dispose();
   }
 }
+
+[CollectionDefinition(nameof(TransportSecurityTest), DisableParallelization = true)]
+public class TransportEnvironmentCollection { }
