@@ -20,6 +20,13 @@ using Shouldly;
 /// </summary>
 [Collection(nameof(TransportSecurityTest))]
 public class TransportSecurityTest {
+  [Fact]
+  public void TestRepeatedClientDisposalIsSafe() {
+    using var client = new ClientConnection("localhost", 1);
+    client.Dispose();
+    client.Dispose();
+  }
+
   private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(10);
 
   private const string CERTIFICATE_PASSWORD = "test-password";
