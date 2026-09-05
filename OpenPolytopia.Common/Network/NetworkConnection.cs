@@ -19,6 +19,10 @@ using Packets;
 /// </param>
 public class NetworkConnection(uint id, TcpClient client, Stream? stream = null) : IDisposable {
   private readonly Stream _stream = stream ?? client.GetStream();
+  /// <summary>Peer address used for connection-independent authentication throttling.</summary>
+  public string RemoteAddress { get; } =
+    (client.Client.RemoteEndPoint as System.Net.IPEndPoint)?.Address.ToString() ?? "unknown";
+
   private readonly SemaphoreSlim _writeLock = new(1, 1);
   private int _closed;
 

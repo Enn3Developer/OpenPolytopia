@@ -28,8 +28,8 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private readonly System.Security.Cryptography.X509Certificates.X509Certificate2? _certificate = ServerTls.LoadAndValidate(bindAddress);
   private ServerConnection _server = null!;
-  private readonly LobbyManager _lobbyManager = new();
-  private readonly GameManager _gameManager = new();
+  private LobbyManager _lobbyManager = new();
+  private GameManager _gameManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
 
   // loaded once: every game on this server shares the same static gameplay data
@@ -41,6 +41,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
   private readonly PacketDispatcher<NetworkConnection> _dispatcher = new();
 
   private readonly CancellationTokenSource _cts = new();
+  private int _activeRequests;
 
   /// <summary>
   /// Runs the server until <see cref="Stop"/> gets called
@@ -61,6 +62,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
     finally {
       _cts.Cancel();
       await lobbyLoop;
+      while (Volatile.Read(ref _activeRequests) != 0) await Task.Delay(10);
       await _stateLock.WaitAsync();
       _stateLock.Release();
     }
@@ -75,14 +77,28 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
   }
 
   private async Task ManagePacketAsync(NetworkConnection connection, IPacket packet) {
+    if (_cts.IsCancellationRequested) return;
+    Interlocked.Increment(ref _activeRequests);
     try {
-      await WithStateAsync(() => DispatchPacketAsync(connection, packet));
+      if (_server.IsHandshakeDone(connection.Id) &&
+          packet is RegisterAccountPacket or LoginPacket or ResumeSessionPacket) {
+        var authenticated = await CheckCredentialsAsync(connection, packet);
+        await WithStateAsync(() => {
+          Authenticate(connection, () => authenticated.Result, authenticated.Retryable);
+          return Task.CompletedTask;
+        }, false);
+        return;
+      }
+      var mutates = packet is not HandshakePacket and not GetLobbiesPacket and not GetMyGamesPacket and
+        not GetGameStatePacket and not JoinGamePacket and not LeaveGamePacket and not LogoutPacket;
+      await WithStateAsync(() => DispatchPacketAsync(connection, packet), mutates);
     }
     catch (Exception e) {
       // log the error without taking the server down
       Console.Error.WriteLine($"Error while managing {packet.GetType().Name} from client {connection.Id}: {e}");
       connection.Close();
     }
+    finally { Interlocked.Decrement(ref _activeRequests); }
   }
 
   private async Task DispatchPacketAsync(NetworkConnection connection, IPacket packet) {
@@ -281,7 +297,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
     _sessionTokens.Remove(connection.Id);
     _gameManager.Disconnect(connection.Id);
     return Task.CompletedTask;
-  });
+  }, false);
 
   /// <summary>
   /// Tells the players of a finished game who won and forgets the game
@@ -302,7 +318,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
         try {
           await WithStateAsync(async () => {
             foreach (var lobby in _lobbyManager.TakeStartingLobbies()) await StartLobbyAsync(lobby);
-          });
+          }, false);
         }
         catch (Exception e) when (e is not OperationCanceledException) {
           Console.Error.WriteLine($"Lobby update failed; state restored: {e}");

@@ -7,15 +7,52 @@ using OpenPolytopia.Common.Network.Packets;
 public partial class GameServer {
   private readonly Dictionary<uint, uint> _authenticated = new();
   private readonly Dictionary<uint, string> _sessionTokens = new();
-  private readonly Queue<DateTimeOffset> _loginAttempts = new();
+  private readonly Dictionary<string, Queue<DateTimeOffset>> _loginAttempts = new();
+  private readonly object _loginLock = new();
+  private readonly SemaphoreSlim _passwordWorkers = new(2, 2);
+
+  private async Task<(AuthResult? Result, bool Retryable)> CheckCredentialsAsync(NetworkConnection connection, IPacket packet) {
+    await _stateLock.WaitAsync(_cts.Token);
+    try {
+      if (_authenticated.TryGetValue(connection.Id, out var id)) return (new AuthResult(new Account {
+        Id = id, Username = "", DisplayName = _playerNames[connection.Id]
+      }, _sessionTokens[connection.Id]), false);
+    }
+    finally { _stateLock.Release(); }
+    var now = DateTimeOffset.UtcNow;
+    lock (_loginLock) {
+      foreach (var key in _loginAttempts.Keys.ToArray()) {
+        var queue = _loginAttempts[key];
+        while (queue.TryPeek(out var time) && now - time >= TimeSpan.FromMinutes(1)) queue.Dequeue();
+        if (queue.Count == 0) _loginAttempts.Remove(key);
+      }
+      var keyForPeer = connection.RemoteAddress;
+      if (!_loginAttempts.TryGetValue(keyForPeer, out var attempts)) {
+        if (_loginAttempts.Count >= 4096) return (null, true);
+        _loginAttempts[keyForPeer] = attempts = new();
+      }
+      if (attempts.Count >= 60) return (null, true);
+      attempts.Enqueue(now);
+    }
+    // Token resume is cheap and does not compete for password workers.
+    if (packet is ResumeSessionPacket resume) return (_store.Resume(resume.Token) is { } account
+      ? new AuthResult(account, resume.Token) : null, false);
+    if (!await _passwordWorkers.WaitAsync(0)) return (null, true);
+    try {
+      var result = await Task.Run(() => packet switch {
+        RegisterAccountPacket register => _store.Register(register.Username, register.Password),
+        LoginPacket login => _store.Login(login.Username, login.Password),
+        _ => null
+      });
+      return (result, false);
+    }
+    catch (ArgumentException) { return (null, false); }
+    finally { _passwordWorkers.Release(); }
+  }
 
   private uint AccountId(NetworkConnection connection) => _authenticated.GetValueOrDefault(connection.Id);
 
   private void RegisterAccountHandlers() {
-    _dispatcher.Register<RegisterAccountPacket>((c, p) => Authenticate(c, () => _store.Register(p.Username, p.Password)));
-    _dispatcher.Register<LoginPacket>((c, p) => Authenticate(c, () => _store.Login(p.Username, p.Password)));
-    _dispatcher.Register<ResumeSessionPacket>((c, p) => Authenticate(c, () =>
-      _store.Resume(p.Token) is { } account ? new AuthResult(account, p.Token) : null));
     _dispatcher.Register<LogoutPacket>((c, _) => {
       if (_sessionTokens.Remove(c.Id, out var token)) _store.Logout(token);
       _authenticated.Remove(c.Id);
@@ -27,8 +64,11 @@ public partial class GameServer {
       new MyGamesPacket { GameIds = [.. _gameManager.FindByAccount(AccountId(c)).Select(s => s.Id)] }));
     _dispatcher.Register<JoinGamePacket>((c, p) => {
       var session = _gameManager[p.GameId];
-      SendTo(c.Id, session != null && session.Join(AccountId(c), c.Id) ? session.BuildState() :
-        new GameStatePacket { GameId = p.GameId, Result = session == null ? GameActionResult.GameNotFound : GameActionResult.NotInGame });
+      if (session != null && session.Join(AccountId(c), c.Id)) {
+        SendTo(c.Id, session.BuildState());
+      }
+      else SendTo(c.Id, new GameStatePacket { GameId = p.GameId,
+        Result = session == null ? GameActionResult.GameNotFound : GameActionResult.NotInGame });
     });
     _dispatcher.Register<LeaveGamePacket>((c, p) => {
       var session = _gameManager[p.GameId];
@@ -52,20 +92,17 @@ public partial class GameServer {
     });
   }
 
-  private void Authenticate(NetworkConnection connection, Func<AuthResult?> authenticate) {
-    // Bound expensive password work globally, including across reconnects.
-    var now = DateTimeOffset.UtcNow;
-    while (_loginAttempts.TryPeek(out var time) && now - time >= TimeSpan.FromMinutes(1)) _loginAttempts.Dequeue();
-    if (_authenticated.ContainsKey(connection.Id) || _loginAttempts.Count >= 120) {
-      SendTo(connection.Id, new AuthenticationPacket());
+  private void Authenticate(NetworkConnection connection, Func<AuthResult?> authenticate, bool retryable = false) {
+    if (_authenticated.TryGetValue(connection.Id, out var existing)) {
+      SendTo(connection.Id, new AuthenticationPacket { Ok = true, PlayerId = existing,
+        Name = _playerNames[connection.Id], Token = _sessionTokens[connection.Id] });
       return;
     }
-    _loginAttempts.Enqueue(now);
     AuthResult? result;
     try { result = authenticate(); }
     catch (ArgumentException) { result = null; }
     if (result == null) {
-      SendTo(connection.Id, new AuthenticationPacket());
+      SendTo(connection.Id, new AuthenticationPacket { Retryable = retryable });
       return;
     }
 

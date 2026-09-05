@@ -11,6 +11,7 @@ public partial class GameServer {
     Environment.GetEnvironmentVariable("OPENPOLYTOPIA_DATABASE") ?? "openpolytopia.db");
   private static readonly JsonSerializerOptions _json = new() { IncludeFields = true };
   private readonly List<Action> _outbox = [];
+  private string? _savedState;
   private readonly Dictionary<uint, string> _pendingRenames = new();
 
   private sealed record SavedSession(ulong Id, GameSnapshot Game, Dictionary<int, uint> Accounts,
@@ -26,36 +27,51 @@ public partial class GameServer {
     if (json == null) return;
     var state = JsonSerializer.Deserialize<SavedServer>(json, _json) ?? throw new InvalidDataException("Empty server state");
     if (state.Version != 1) throw new InvalidDataException("Unsupported server state version");
-    _lobbyManager.Restore(state.NextLobbyId, state.Lobbies);
-    _gameManager.Clear();
+    var nextLobbies = new LobbyManager();
+    nextLobbies.Restore(state.NextLobbyId, state.Lobbies);
+    var nextGames = new GameManager();
     foreach (var saved in state.Games) {
       var troops = new TroopManager(saved.Game.GridSize);
       troops.RegisterTroops(_gameData.TroopsSerializedData);
       var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
       var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names);
       foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
-      _gameManager.Restore(session);
+      nextGames.Restore(session);
     }
+    _lobbyManager = nextLobbies;
+    _gameManager = nextGames;
+    _savedState = json;
   }
 
   // A successful reply must never describe state which has not reached SQLite.
-  private async Task WithStateAsync(Func<Task> action) {
+  private async Task WithStateAsync(Func<Task> action, bool stateMayChange = true) {
+    if (_cts.IsCancellationRequested) return;
     await _stateLock.WaitAsync();
+    if (_cts.IsCancellationRequested) { _stateLock.Release(); return; }
     string? before = null;
     var committed = false;
     var names = new Dictionary<uint, string>(_playerNames);
-    var attachments = _gameManager.Sessions.ToDictionary(s => s.Id, s => s.Connections.ToArray());
+    var accounts = new Dictionary<uint, uint>(_authenticated);
+    var tokens = new Dictionary<uint, string>(_sessionTokens);
+    var attachments = _gameManager.Sessions.Where(s => s.Connections.Count != 0).ToDictionary(s => s.Id, s => s.Connections.ToArray());
     try {
-      before = CaptureState();
+      before = _savedState ??= CaptureState();
+      var changes = stateMayChange || _lobbyManager.Lobbies.Any(l => l.Starting);
       await action();
-      var after = CaptureState();
+      var after = changes ? CaptureState() : before;
       if (after != before || _pendingRenames.Count != 0) _store.SaveState(after, _pendingRenames);
+      _savedState = after;
       committed = true;
       foreach (var send in _outbox) send();
     }
     catch {
       if (committed) throw;
-      RestoreState(before);
+      try { RestoreState(before); }
+      catch { Stop(); throw; }
+      _authenticated.Clear();
+      foreach (var (id, account) in accounts) _authenticated[id] = account;
+      _sessionTokens.Clear();
+      foreach (var (id, token) in tokens) _sessionTokens[id] = token;
       _playerNames.Clear();
       foreach (var (id, name) in names) _playerNames[id] = name;
       foreach (var (id, connections) in attachments) {

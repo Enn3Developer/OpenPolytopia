@@ -76,6 +76,13 @@ public partial class NetworkNode : Node {
 
   // account state; it survives a reconnection so the session can be resumed automatically
   private static bool _authenticated;
+  private static bool _loggingOut;
+  private static bool _authInFlight;
+  private static ulong _resumeAt = ulong.MaxValue;
+  private static bool _retryable;
+
+  /// <summary>Whether the last authentication response was a temporary refusal.</summary>
+  public bool AuthenticationRetryable => _retryable;
   private static uint _accountId;
   private static string _accountName = "";
   private static string? _sessionToken;
@@ -317,6 +324,12 @@ public partial class NetworkNode : Node {
       return;
     }
 
+    if (_handshakeDone && !_authenticated && !_authInFlight && _sessionToken != null && Time.GetTicksMsec() >= _resumeAt) {
+      _resumeAt = ulong.MaxValue;
+      _resuming = true;
+      _authInFlight = true;
+      Send(new ResumeSessionPacket { Token = _sessionToken });
+    }
     var connection = _connection;
     if (connection == null) {
       // surface a connection attempt that failed before being established
@@ -420,6 +433,9 @@ public partial class NetworkNode : Node {
   /// <param name="username">the username of the new account</param>
   /// <param name="password">the password of the new account; it never gets saved on disk</param>
   public void Register(string username, string password) {
+    if (_authInFlight) return;
+    _authInFlight = true;
+    _resumeAt = ulong.MaxValue;
     _resuming = false;
     Send(new RegisterAccountPacket { Username = username, Password = password });
   }
@@ -430,6 +446,9 @@ public partial class NetworkNode : Node {
   /// <param name="username">the username of the account</param>
   /// <param name="password">the password of the account; it never gets saved on disk</param>
   public void Login(string username, string password) {
+    if (_authInFlight) return;
+    _authInFlight = true;
+    _resumeAt = ulong.MaxValue;
     _resuming = false;
     Send(new LoginPacket { Username = username, Password = password });
   }
@@ -442,6 +461,14 @@ public partial class NetworkNode : Node {
 
     // drop the token right away, the player asked not to be logged in again automatically
     ClearSession();
+    _loggingOut = true;
+    _authenticated = false;
+    _accountId = 0;
+    _accountName = "";
+    _lobbies.Clear();
+    _myGames.Clear();
+    _authInFlight = false;
+    _resumeAt = ulong.MaxValue;
   }
 
   /// <summary>
@@ -668,14 +695,16 @@ public partial class NetworkNode : Node {
   }
 
   private void ManageAuthentication(AuthenticationPacket packet) {
+    _authInFlight = false;
+    _retryable = packet.Retryable;
+    if (_loggingOut && !packet.Ok) { _loggingOut = false; return; }
     var resuming = _resuming;
     _resuming = false;
 
     if (!packet.Ok) {
       // the server refused a token it handed out before: it expired or got revoked, ask the player to log in again
-      if (resuming) {
-        ClearSession();
-      }
+      if (resuming && !packet.Retryable) ClearSession();
+      if (resuming && packet.Retryable) _resumeAt = Time.GetTicksMsec() + 3000;
 
       _authenticated = false;
       _accountId = 0;
@@ -750,6 +779,9 @@ public partial class NetworkNode : Node {
   /// Forgets everything tied to a connection, keeping the session token to resume with
   /// </summary>
   private static void ResetSessionState() {
+    _authInFlight = false;
+    _loggingOut = false;
+    _resumeAt = ulong.MaxValue;
     _handshakeDone = false;
     _authenticated = false;
     _resuming = false;

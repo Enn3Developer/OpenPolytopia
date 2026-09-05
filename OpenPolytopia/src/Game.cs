@@ -114,7 +114,7 @@ public partial class Game : Control {
   private void OnAuthenticated(bool ok) {
     if (!ok) {
       // a refused resume lands here too: the player logs in again by hand
-      _statusLabel.Text = "The server refused these credentials";
+      _statusLabel.Text = _network.AuthenticationRetryable ? "Server busy. Please try again shortly." : "The server refused these credentials";
       return;
     }
 

@@ -27,6 +27,8 @@ public partial class LogoutPacket : IPacket { }
 /// <summary>Authentication result; PlayerId is the persistent account id.</summary>
 [GeneratedPacket]
 public partial class AuthenticationPacket : IPacket {
+  /// <summary>Temporary admission failure; keep any saved session token and retry.</summary>
+  [PacketField] public bool Retryable;
   [PacketField] public bool Ok;
   [PacketField] public uint PlayerId;
   [PacketField] public string Name = "";

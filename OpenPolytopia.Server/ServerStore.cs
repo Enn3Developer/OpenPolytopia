@@ -208,23 +208,25 @@ public sealed class ServerStore : IDisposable {
     }
 
     var normalized = username.ToLowerInvariant();
-
+    AccountRecord? record;
+    lock (_lock) {
+      ThrowIfDisposed();
+      using var read = _connection.BeginTransaction();
+      record = FindAccountByUsername(read, normalized);
+      read.Commit();
+    }
+    // Password work must not hold the database lock while gameplay commits are waiting.
+    var hash = Rfc2898DeriveBytes.Pbkdf2(password, record?.Salt ?? _dummySalt,
+      record?.Iterations ?? PBKDF2_ITERATIONS, HashAlgorithmName.SHA256, HASH_SIZE);
+    if (record is null || !CryptographicOperations.FixedTimeEquals(hash, record.Hash)) return null;
     lock (_lock) {
       ThrowIfDisposed();
       using var transaction = _connection.BeginTransaction();
-
-      var record = FindAccountByUsername(transaction, normalized);
-      var salt = record?.Salt ?? _dummySalt;
-      var iterations = record?.Iterations ?? PBKDF2_ITERATIONS;
-      var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, HASH_SIZE);
-
-      if (record is null || !CryptographicOperations.FixedTimeEquals(hash, record.Hash)) {
-        return null;
-      }
-
-      var token = CreateSession(transaction, record.Account.Id);
+      var current = FindAccountByUsername(transaction, normalized);
+      if (current == null || !CryptographicOperations.FixedTimeEquals(current.Hash, record.Hash)) return null;
+      var token = CreateSession(transaction, current.Account.Id);
       transaction.Commit();
-      return new AuthResult(record.Account, token);
+      return new AuthResult(current.Account, token);
     }
   }
 

@@ -39,6 +39,7 @@ public partial class Lobby : Control {
 
   private NetworkNode _network = null!;
   private ulong _openGameId;
+  private ulong _requestedGameId;
   private ulong _resignGameId;
 
   // the countdown of the open game, measured against the local monotonic clock so a wrong system time can't skew it
@@ -206,6 +207,7 @@ public partial class Lobby : Control {
 
   private void OnAuthenticated(bool ok) {
     if (!ok) {
+      if (!_network.AuthenticationRetryable) GetTree().ChangeSceneToFile("res://src/Game.tscn");
       return;
     }
 
@@ -367,6 +369,7 @@ public partial class Lobby : Control {
       return;
     }
 
+    _requestedGameId = gameId;
     _gameStatusLabel.Text = $"Opening game {gameId}...";
     _network.OpenGame(gameId);
   }
@@ -449,6 +452,8 @@ public partial class Lobby : Control {
   }
 
   private void OnGameState(GameStatePacket packet) {
+    if (packet.GameId != _openGameId && packet.GameId != _requestedGameId) return;
+    if (packet.GameId == _requestedGameId) _requestedGameId = 0;
     if (packet.Result != GameActionResult.Ok) {
       _gameStatusLabel.Text = $"Game {packet.GameId}: {packet.Result}";
       return;
