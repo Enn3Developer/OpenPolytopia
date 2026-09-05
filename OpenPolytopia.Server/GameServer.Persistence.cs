@@ -15,18 +15,18 @@ public partial class GameServer {
   private readonly Dictionary<uint, string> _pendingRenames = new();
 
   private sealed record SavedSession(ulong Id, GameSnapshot Game, Dictionary<int, uint> Accounts,
-    Dictionary<int, string> Names);
+    Dictionary<int, string> Names, TurnClockState? Clock);
   private sealed record SavedServer(int Version, ulong NextLobbyId, List<LobbyData> Lobbies,
     List<SavedSession> Games);
 
-  private string CaptureState() => JsonSerializer.Serialize(new SavedServer(1, _lobbyManager.LastId,
+  private string CaptureState() => JsonSerializer.Serialize(new SavedServer(2, _lobbyManager.LastId,
     [.. _lobbyManager.Lobbies], [.. _gameManager.Sessions.Select(session => new SavedSession(session.Id,
-      session.Game.ToSnapshot(), new(session.Accounts), new(session.Names)))]), _json);
+      session.Game.ToSnapshot(), new(session.Accounts), new(session.Names), session.Clock?.ToSnapshot()))]), _json);
 
   private void RestoreState(string? json) {
     if (json == null) return;
     var state = JsonSerializer.Deserialize<SavedServer>(json, _json) ?? throw new InvalidDataException("Empty server state");
-    if (state.Version != 1) throw new InvalidDataException("Unsupported server state version");
+    if (state.Version != 2) throw new InvalidDataException("Unsupported server state version");
     var nextLobbies = new LobbyManager();
     nextLobbies.Restore(state.NextLobbyId, state.Lobbies);
     var nextGames = new GameManager();
@@ -34,7 +34,9 @@ public partial class GameServer {
       var troops = new TroopManager(saved.Game.GridSize);
       troops.RegisterTroops(_gameData.TroopsSerializedData);
       var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
-      var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names);
+      var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names) {
+        Clock = TurnClock.FromSnapshot(saved.Clock ?? throw new InvalidDataException("Missing saved turn clock"))
+      };
       foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
       nextGames.Restore(session);
     }
@@ -56,8 +58,12 @@ public partial class GameServer {
     var attachments = _gameManager.Sessions.Where(s => s.Connections.Count != 0).ToDictionary(s => s.Id, s => s.Connections.ToArray());
     try {
       before = _savedState ??= CaptureState();
-      var changes = stateMayChange || _lobbyManager.Lobbies.Any(l => l.Starting);
+      var now = _timeProvider.GetUtcNow();
+      var changes = stateMayChange || _lobbyManager.Lobbies.Any(l => l.Starting) ||
+        _gameManager.Sessions.Any(s => !s.Game.Over && s.Clock?.Mode == TurnTimerMode.Live && s.Clock.IsExpired(now));
+      ProcessTimers(now);
       await action();
+      SynchronizeClocks(_timeProvider.GetUtcNow());
       var after = changes ? CaptureState() : before;
       if (after != before || _pendingRenames.Count != 0) _store.SaveState(after, _pendingRenames);
       _savedState = after;

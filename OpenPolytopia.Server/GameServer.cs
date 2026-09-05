@@ -15,11 +15,12 @@ using OpenPolytopia.Common.Network.Packets;
 /// </remarks>
 /// <param name="port">the port to listen on</param>
 /// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
-public partial class GameServer(int port, string? bindAddress = null, string? databasePath = null) : IDisposable {
+public partial class GameServer(int port, string? bindAddress = null, string? databasePath = null,
+  TimeProvider? timeProvider = null) : IDisposable {
   /// <summary>
   /// How often the server checks for lobbies to start
   /// </summary>
-  private static readonly TimeSpan START_LOBBY_INTERVAL = TimeSpan.FromSeconds(5);
+  private static readonly TimeSpan START_LOBBY_INTERVAL = TimeSpan.FromSeconds(1);
 
   /// <summary>
   /// Max lobbies the server accepts before refusing new ones
@@ -50,6 +51,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
     _server = new ServerConnection(port, bindAddress, _certificate);
     RestoreState(_store.LoadState());
     RegisterHandlers();
+    RegisterTimerHandlers();
 
     _server.OnPacketReceived += ManagePacketAsync;
     _server.OnClientDisconnected += connection => _ = ClientDisconnectedAsync(connection);
@@ -344,13 +346,14 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
       .Select(player => online[player.PlayerId]).ToList();
 
     try {
-      var session = await _gameManager.CreateGameAsync(lobby, _gameData, onlineConnections: online);
+      var session = await _gameManager.CreateGameAsync(lobby, _gameData, onlineConnections: online, startedAt: _timeProvider.GetUtcNow());
 
       Console.WriteLine($"Starting game for lobby {lobby.Id} with {lobby.PlayersCount} players");
 
       // notify the players that their game started and send them its full state
       BroadcastTo(connectionIds, new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
       BroadcastTo(connectionIds, session.BuildState());
+      SendClock(session, connectionIds);
     }
     catch (Exception e) {
       Console.Error.WriteLine($"Couldn't start the game for lobby {lobby.Id}: {e}");
@@ -378,7 +381,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
   /// </param>
   /// <returns>true if a session was found and the connection is a player in it</returns>
   private bool TryResolveSession(NetworkConnection connection, ulong gameId,
-    [NotNullWhen(true)] out GameSession? session, out int playerId, out GameActionResult result) {
+    [NotNullWhen(true)] out GameSession? session, out int playerId, out GameActionResult result, uint? expectedTurn = null) {
     session = _gameManager[gameId];
     if (session == null) {
       playerId = 0;
@@ -389,6 +392,12 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
     playerId = session.PlayerIdOf(connection.Id);
     if (playerId == 0) {
       result = GameActionResult.NotInGame;
+      return false;
+    }
+
+    if (expectedTurn.HasValue && expectedTurn.Value != session.Game.Turn &&
+        (session.Clock?.Mode == TurnTimerMode.Live || expectedTurn.Value != 0)) {
+      result = GameActionResult.InvalidParameters;
       return false;
     }
 
@@ -408,7 +417,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageMoveTroopAsync(NetworkConnection connection, MoveTroopPacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new MoveTroopResponsePacket { Result = check });
         return;
       }
@@ -429,7 +438,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageAttackAsync(NetworkConnection connection, AttackPacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new AttackResponsePacket { Result = check });
         return;
       }
@@ -452,7 +461,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageTrainTroopAsync(NetworkConnection connection, TrainTroopPacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new TrainTroopResponsePacket { Result = check });
         return;
       }
@@ -473,7 +482,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageResearchTechAsync(NetworkConnection connection, ResearchTechPacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new ResearchTechResponsePacket { Result = check });
         return;
       }
@@ -493,7 +502,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageBuildAsync(NetworkConnection connection, BuildPacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new BuildResponsePacket { Result = check });
         return;
       }
@@ -514,7 +523,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageCaptureAsync(NetworkConnection connection, CapturePacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new CaptureResponsePacket { Result = check });
         return;
       }
@@ -541,7 +550,7 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
 
   private async Task ManageEndTurnAsync(NetworkConnection connection, EndTurnPacket packet) {
     {
-      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
+      if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check, packet.ExpectedTurn)) {
         SendTo(connection.Id, new EndTurnResponsePacket { Result = check });
         return;
       }

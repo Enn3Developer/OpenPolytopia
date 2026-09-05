@@ -520,6 +520,10 @@ public partial class NetworkNode : Node {
   /// <param name="gameId">the id of the game</param>
   public void RequestGameState(ulong gameId) => Send(new GetGameStatePacket { GameId = gameId });
 
+  /// <summary>Resolves an overdue daily turn, guarded against a changed turn.</summary>
+  public void ResolveOverdueTurn(ulong gameId, uint turn, uint playerId, bool kick) =>
+    Send(new ResolveOverdueTurnPacket { GameId = gameId, ExpectedTurn = turn, ExpectedPlayer = playerId, Kick = kick });
+
   /// <summary>
   /// Creates a new lobby; this player automatically joins it
   /// </summary>

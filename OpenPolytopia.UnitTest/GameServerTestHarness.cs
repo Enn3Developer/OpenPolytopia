@@ -31,10 +31,10 @@ internal sealed class TestServer : IAsyncDisposable {
   /// <summary>Path of the SQLite database backing this server</summary>
   public string DatabasePath { get; }
 
-  private TestServer(string databasePath, int port) {
+  private TestServer(string databasePath, int port, TimeProvider? timeProvider = null) {
     DatabasePath = databasePath;
     Port = port;
-    _server = new GameServer(port, "127.0.0.1", databasePath);
+    _server = new GameServer(port, "127.0.0.1", databasePath, timeProvider);
     _run = _server.RunAsync();
   }
 
@@ -42,9 +42,9 @@ internal sealed class TestServer : IAsyncDisposable {
   /// Starts a server and waits until its listener actually accepts connections
   /// </summary>
   /// <param name="databasePath">the SQLite file to use; an existing one gets restored</param>
-  public static async Task<TestServer> StartAsync(string databasePath) {
+  public static async Task<TestServer> StartAsync(string databasePath, TimeProvider? timeProvider = null) {
     PacketRegistrar.RegisterAllPackets();
-    var server = new TestServer(databasePath, FreePort());
+    var server = new TestServer(databasePath, FreePort(), timeProvider);
     await server.WaitUntilListeningAsync();
     return server;
   }
@@ -319,8 +319,8 @@ internal static class TestGames {
   /// the map generation
   /// </remarks>
   /// <returns>the id of the started game, i.e. the id of the lobby</returns>
-  public static async Task<ulong> StartGameAsync(TestClient host, TestClient guest) {
-    await host.SendAsync(new CreateLobbyPacket { MaxPlayers = 2, WorldSize = WORLD_SIZE, Tribe = 0 });
+  public static async Task<ulong> StartGameAsync(TestClient host, TestClient guest, uint timerMode = 1) {
+    await host.SendAsync(new CreateLobbyPacket { MaxPlayers = 2, WorldSize = WORLD_SIZE, Tribe = 0, TimerMode = timerMode });
     var created = await host.ExpectAsync<CreateLobbyResponsePacket>();
     created.Result.ShouldBe(LobbyActionResult.Ok);
 

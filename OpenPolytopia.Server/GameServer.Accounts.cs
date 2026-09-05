@@ -66,6 +66,7 @@ public partial class GameServer {
       var session = _gameManager[p.GameId];
       if (session != null && session.Join(AccountId(c), c.Id)) {
         SendTo(c.Id, session.BuildState());
+        SendClock(session, [c.Id]);
       }
       else SendTo(c.Id, new GameStatePacket { GameId = p.GameId,
         Result = session == null ? GameActionResult.GameNotFound : GameActionResult.NotInGame });
