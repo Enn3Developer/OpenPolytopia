@@ -27,6 +27,17 @@ public class TransportSecurityTest {
     client.Dispose();
   }
 
+  [Fact]
+  public void TestGameServerRejectsPublicBindWithoutCertificate() {
+    var previous = Environment.GetEnvironmentVariable(ServerTls.CERTIFICATE_PATH_ENV);
+    try {
+      Environment.SetEnvironmentVariable(ServerTls.CERTIFICATE_PATH_ENV, null);
+      Should.Throw<InvalidOperationException>(() => new GameServer(0, "0.0.0.0"));
+      using var local = new GameServer(0, "127.0.0.1");
+    }
+    finally { Environment.SetEnvironmentVariable(ServerTls.CERTIFICATE_PATH_ENV, previous); }
+  }
+
   private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(10);
 
   private const string CERTIFICATE_PASSWORD = "test-password";

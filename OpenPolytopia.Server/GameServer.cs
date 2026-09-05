@@ -26,7 +26,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </summary>
   private const int MAX_LOBBIES = 100;
 
-  private readonly ServerConnection _server = new(port, bindAddress);
+  private readonly System.Security.Cryptography.X509Certificates.X509Certificate2? _certificate = ServerTls.LoadAndValidate(bindAddress);
+  private ServerConnection _server = null!;
   private readonly LobbyManager _lobbyManager = new();
   private readonly GameManager _gameManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
@@ -45,6 +46,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// Runs the server until <see cref="Stop"/> gets called
   /// </summary>
   public async Task RunAsync() {
+    _server = new ServerConnection(port, bindAddress, _certificate);
     RegisterHandlers();
 
     _server.OnPacketReceived += ManagePacketAsync;
@@ -62,7 +64,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </summary>
   public void Stop() {
     _cts.Cancel();
-    _server.Stop();
+    _server?.Stop();
   }
 
   private async Task ManagePacketAsync(NetworkConnection connection, IPacket packet) {
@@ -646,7 +648,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   public void Dispose() {
     Stop();
     _cts.Dispose();
-    _server.Dispose();
+    _server?.Dispose();
+    _certificate?.Dispose();
     _stateLock.Dispose();
     GC.SuppressFinalize(this);
   }
