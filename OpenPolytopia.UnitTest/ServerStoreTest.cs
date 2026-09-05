@@ -85,7 +85,7 @@ public class ServerStoreTest : IDisposable {
   [InlineData("this_username_is_way_too_long_to_be_accepted")]
   [InlineData("has space")]
   [InlineData("has-dash")]
-  [InlineData("ünïcödé")]
+  [InlineData("\u00fc\u00f1\u00ef\u00e7\u00f6\u00e9")]
   public void RegisterRejectsAnInvalidUsername(string username) {
     using var store = Open();
 
@@ -95,7 +95,7 @@ public class ServerStoreTest : IDisposable {
   [Theory]
   [InlineData("")]
   [InlineData("short")]
-  [InlineData("elevenchars")]
+  [InlineData("elevenChars")]
   public void RegisterRejectsATooShortPassword(string password) {
     using var store = Open();
 

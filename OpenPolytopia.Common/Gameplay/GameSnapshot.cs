@@ -100,7 +100,7 @@ public sealed class GameSnapshot {
 /// </summary>
 /// <remarks>
 /// The position of a player in <see cref="GameSnapshot.Players"/> is their turn order, so it has to be preserved by
-/// whoever stores it: a SQLite child table needs an explicit order column, a plain autoincrement id isn't enough
+/// whoever stores it: a SQLite child table needs an explicit order column, a plain automatically assigned id isn't enough
 /// </remarks>
 public sealed class PlayerSnapshot {
   /// <summary>

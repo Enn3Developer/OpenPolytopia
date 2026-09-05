@@ -1,3 +1,4 @@
+// cspell:words AUTOINCREMENT
 namespace OpenPolytopia.Server;
 
 using System.Security.Cryptography;
