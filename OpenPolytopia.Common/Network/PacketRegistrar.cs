@@ -45,8 +45,6 @@ public static class PacketRegistrar {
         return;
       }
 
-      _registered = true;
-
       RegisterPacket<KeepAlivePacket>(0);
       RegisterPacket<HandshakePacket>(1);
       RegisterPacket<HandshakeResponsePacket>(2);
@@ -103,6 +101,7 @@ public static class PacketRegistrar {
       RegisterPacket<MembershipResultPacket>(53);
       RegisterPacket<GameClockPacket>(54);
       RegisterPacket<ResolveOverdueTurnPacket>(55);
+      _registered = true;
 
     }
   }

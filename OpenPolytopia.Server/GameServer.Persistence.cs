@@ -15,37 +15,44 @@ public partial class GameServer {
   private readonly Dictionary<uint, string> _pendingRenames = new();
 
   private sealed record SavedSession(ulong Id, GameSnapshot Game, Dictionary<int, uint> Accounts,
-    Dictionary<int, string> Names);
+    Dictionary<int, string> Names, TurnClockState? Clock);
   private sealed record SavedServer(int Version, ulong NextLobbyId, List<LobbyData> Lobbies,
     List<SavedSession> Games);
 
   private static SavedSession SaveSession(GameSession session) => new(session.Id,
-    session.Game.ToSnapshot(), new(session.Accounts), new(session.Names));
+    session.Game.ToSnapshot(), new(session.Accounts), new(session.Names), session.Clock?.ToSnapshot());
 
-  private string CaptureState(bool includeCompleted = true) => JsonSerializer.Serialize(new SavedServer(1, _lobbyManager.LastId,
+  private string CaptureState(bool includeCompleted = true) => JsonSerializer.Serialize(new SavedServer(2, _lobbyManager.LastId,
     [.. _lobbyManager.Lobbies], [.. _gameManager.Sessions.Where(session => includeCompleted || !session.Game.Over).Select(SaveSession)]), _json);
 
   private void RestoreState(string? json) {
     if (json == null) return;
     var state = JsonSerializer.Deserialize<SavedServer>(json, _json) ?? throw new InvalidDataException("Empty server state");
-    if (state.Version != 1) throw new InvalidDataException("Unsupported server state version");
+    if (state.Version is not (1 or 2)) throw new InvalidDataException("Unsupported server state version");
     var nextLobbies = new LobbyManager();
     nextLobbies.Restore(state.NextLobbyId, state.Lobbies);
     var nextGames = new GameManager();
     foreach (var saved in state.Games) {
-      var session = RestoreSession(saved);
+      var session = RestoreSession(saved, state.Version == 1);
       nextGames.Restore(session);
     }
     _lobbyManager = nextLobbies;
     _gameManager = nextGames;
-    _savedState = json;
+    _savedState = state.Version == 1 ? CaptureState() : json;
   }
 
-  private GameSession RestoreSession(SavedSession saved) {
+  private GameSession RestoreSession(SavedSession saved, bool legacy = false) {
     var troops = new TroopManager(saved.Game.GridSize);
     troops.RegisterTroops(_gameData.TroopsSerializedData);
     var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
     var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names);
+    if (saved.Clock != null) session.Clock = TurnClock.FromSnapshot(saved.Clock);
+    else if (!game.Over) {
+      if (!legacy) throw new InvalidDataException("Missing saved turn clock");
+      // Pre-timer saves did not retain the chosen mode. Allow a full day after migration.
+      session.Clock = new TurnClock(TurnTimerMode.Daily, game.Players.Select(player => player.Id));
+      session.Clock.Begin(game.CurrentPlayer, _timeProvider.GetUtcNow());
+    }
     foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
     return session;
   }
@@ -73,8 +80,12 @@ public partial class GameServer {
     var attachments = _gameManager.Sessions.Where(s => s.Connections.Count != 0).ToDictionary(s => s.Id, s => s.Connections.ToArray());
     try {
       before = _savedState ??= CaptureState();
-      var changes = stateMayChange || _lobbyManager.Lobbies.Any(l => l.Starting);
+      var now = _timeProvider.GetUtcNow();
+      var changes = stateMayChange || _lobbyManager.Lobbies.Any(l => l.Starting) ||
+        _gameManager.Sessions.Any(s => !s.Game.Over && s.Clock?.Mode == TurnTimerMode.Live && s.Clock.IsExpired(now));
+      ProcessTimers(now);
       await action();
+      SynchronizeClocks(_timeProvider.GetUtcNow());
       var completed = _gameManager.Sessions.Where(session => session.Game.Over).Select(session =>
         new ArchivedGame(session.Id, JsonSerializer.Serialize(SaveSession(session), _json), session.Accounts.Values.ToArray())).ToArray();
       var after = changes || completed.Length != 0 ? CaptureState(false) : before;
