@@ -1,7 +1,10 @@
 namespace OpenPolytopia.Common.Network;
 
 using System.Collections.Concurrent;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Channels;
 using Packets;
 
@@ -14,16 +17,28 @@ using Packets;
 /// nor grow the memory of the server by never draining his queue.
 /// Every <see cref="KEEP_ALIVE_INTERVAL"/> it sends a <see cref="KeepAlivePacket"/> to every client
 /// and disconnects the ones that didn't send anything back for longer than <see cref="TIMEOUT"/>;
-/// clients that don't complete a handshake within <see cref="HANDSHAKE_TIMEOUT"/> get disconnected too
+/// clients that don't complete a handshake within <see cref="HANDSHAKE_TIMEOUT"/> get disconnected too.
+/// When a certificate is given every connection is wrapped in TLS before any packet is read;
+/// the TLS handshake runs in background so a slow or hostile client can't stall the accept loop
 /// </remarks>
 /// <param name="port">the port to listen on</param>
 /// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
-public class ServerConnection(int port, string? bindAddress = null) : IDisposable {
+/// <param name="certificate">
+/// the certificate to serve TLS with; null to accept plaintext connections, which is only
+/// acceptable on loopback
+/// </param>
+public class ServerConnection(int port, string? bindAddress = null, X509Certificate2? certificate = null)
+  : IDisposable {
   private static readonly TimeSpan KEEP_ALIVE_INTERVAL = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
   private static readonly TimeSpan HANDSHAKE_TIMEOUT = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan SEND_TIMEOUT = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan ACCEPT_RETRY_DELAY = TimeSpan.FromSeconds(1);
+
+  /// <summary>
+  /// How long a client has to complete the TLS handshake before its socket gets dropped
+  /// </summary>
+  private static readonly TimeSpan TLS_HANDSHAKE_TIMEOUT = TimeSpan.FromSeconds(10);
 
   /// <summary>
   /// Max frames queued for a single client; way more than lobby traffic ever needs
@@ -36,6 +51,11 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   private readonly ConcurrentDictionary<uint, Client> _clients = new();
   private readonly CancellationTokenSource _cts = new();
   private uint _nextId;
+
+  /// <summary>
+  /// true when connections get wrapped in TLS
+  /// </summary>
+  public bool TlsEnabled => certificate != null;
 
   /// <summary>
   /// Fired when a new client connects
@@ -83,20 +103,9 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
           continue;
         }
 
-        var id = Interlocked.Increment(ref _nextId);
-
-        var connection = new NetworkConnection(id, tcpClient);
-        connection.OnPacketReceived += ClientPacketReceivedAsync;
-        connection.OnDisconnected += ClientDisconnected;
-
-        var client = new Client(connection);
-        _clients[id] = client;
-
-        OnClientConnected?.Invoke(connection);
-
-        // manage the client in background
-        _ = connection.RunAsync(_cts.Token);
-        _ = SenderLoopAsync(client, _cts.Token);
+        // the TLS handshake needs a round trip with the client, so it can't run here
+        // or one slow client would keep everybody else from connecting
+        _ = SetupClientAsync(tcpClient);
       }
     }
     catch (OperationCanceledException) {
@@ -115,6 +124,84 @@ public class ServerConnection(int port, string? bindAddress = null) : IDisposabl
   /// Stops the server and disconnects every client
   /// </summary>
   public void Stop() => _cts.Cancel();
+
+  /// <summary>
+  /// Completes the TLS handshake, if enabled, and registers the client
+  /// </summary>
+  /// <remarks>
+  /// Runs in background, one task per accepted socket; a socket that fails or takes longer than
+  /// <see cref="TLS_HANDSHAKE_TIMEOUT"/> to negotiate TLS gets dropped without ever becoming a client
+  /// </remarks>
+  /// <param name="tcpClient">the freshly accepted socket</param>
+  private async Task SetupClientAsync(TcpClient tcpClient) {
+    var stream = await AuthenticateAsync(tcpClient);
+
+    // the handshake failed, the socket is already gone
+    if (certificate != null && stream == null) {
+      return;
+    }
+
+    if (_cts.IsCancellationRequested) {
+      stream?.Dispose();
+      tcpClient.Dispose();
+      return;
+    }
+
+    var id = Interlocked.Increment(ref _nextId);
+
+    var connection = new NetworkConnection(id, tcpClient, stream);
+    connection.OnPacketReceived += ClientPacketReceivedAsync;
+    connection.OnDisconnected += ClientDisconnected;
+
+    var client = new Client(connection);
+    _clients[id] = client;
+
+    OnClientConnected?.Invoke(connection);
+
+    // manage the client in background
+    _ = connection.RunAsync(_cts.Token);
+    _ = SenderLoopAsync(client, _cts.Token);
+  }
+
+  /// <summary>
+  /// Wraps a socket in TLS
+  /// </summary>
+  /// <param name="tcpClient">the socket to wrap</param>
+  /// <returns>
+  /// the authenticated stream, null when TLS is disabled (plaintext) or when the handshake failed;
+  /// on failure the socket gets disposed
+  /// </returns>
+  private async Task<Stream?> AuthenticateAsync(TcpClient tcpClient) {
+    if (certificate == null) {
+      return null;
+    }
+
+    SslStream? ssl = null;
+    try {
+      ssl = new SslStream(tcpClient.GetStream(), false);
+
+      using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+      cts.CancelAfter(TLS_HANDSHAKE_TIMEOUT);
+
+      await ssl.AuthenticateAsServerAsync(
+        new SslServerAuthenticationOptions {
+          ServerCertificate = certificate,
+          ClientCertificateRequired = false,
+          EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+        }, cts.Token);
+
+      return ssl;
+    }
+    catch (Exception e) when (e is AuthenticationException or IOException or OperationCanceledException
+                                or ObjectDisposedException or SocketException) {
+      Console.Error.WriteLine($"TLS handshake failed: {e.Message}");
+
+      // nothing was ever handed out for this socket, drop it here
+      ssl?.Dispose();
+      tcpClient.Dispose();
+      return null;
+    }
+  }
 
   /// <summary>
   /// Marks a client as having completed the handshake
