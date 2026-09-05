@@ -334,7 +334,7 @@ public partial class NetworkNode : Node {
     if (connection == null) {
       // surface a connection attempt that failed before being established
       if (Interlocked.Exchange(ref _disconnectedFlag, 0) == 1) {
-        _pendingAuth = null;
+        ResetSessionState();
         OnDisconnected?.Invoke();
       }
 
@@ -622,6 +622,7 @@ public partial class NetworkNode : Node {
 
     // without a connection there is no telling when the packet could go out, drop it
     if (connection == null) {
+      if (IsAccountPacket(packet)) _authInFlight = false;
       return;
     }
 
