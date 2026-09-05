@@ -49,14 +49,14 @@ public sealed record AuthResult(Account Account, string Token);
 /// SHA-256 hashes of 256 bits of cryptographically random data; neither can be recovered from the database
 /// </para>
 /// </remarks>
-public sealed class ServerStore : IDisposable {
+public sealed partial class ServerStore : IDisposable {
   /// <summary>
   /// Schema version this class knows how to read and write
   /// </summary>
   /// <remarks>
   /// A database with a higher version was written by a newer server and is rejected on open
   /// </remarks>
-  public const int SCHEMA_VERSION = 1;
+  public const int SCHEMA_VERSION = 2;
 
   /// <summary>
   /// Minimum length of a username
@@ -323,8 +323,11 @@ public sealed class ServerStore : IDisposable {
   /// The store treats the snapshot as an opaque blob: what goes in it, and its format, are up to the caller
   /// </remarks>
   /// <param name="state">the JSON snapshot of the server state</param>
+  /// <param name="renamedAccounts">Display names committed with the snapshot.</param>
+  /// <param name="completedGames">Completed matches archived in the same transaction.</param>
   /// <exception cref="ArgumentNullException">if <paramref name="state"/> is <see langword="null"/></exception>
-  public void SaveState(string state, IReadOnlyDictionary<uint, string>? renamedAccounts = null) {
+  public void SaveState(string state, IReadOnlyDictionary<uint, string>? renamedAccounts = null,
+    IReadOnlyList<ArchivedGame>? completedGames = null) {
     ArgumentNullException.ThrowIfNull(state);
 
     lock (_lock) {
@@ -349,6 +352,7 @@ public sealed class ServerStore : IDisposable {
           if (rename.ExecuteNonQuery() != 1) throw new ArgumentException("Unknown account");
         }
       }
+      SaveCompletedGames(transaction, completedGames);
       transaction.Commit();
     }
   }
@@ -388,31 +392,40 @@ public sealed class ServerStore : IDisposable {
 
     using var schema = _connection.CreateCommand();
     schema.Transaction = transaction;
-    schema.CommandText = $"""
-      CREATE TABLE accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        display_name TEXT NOT NULL,
-        salt BLOB NOT NULL,
-        hash BLOB NOT NULL,
-        iterations INTEGER NOT NULL
-      ) STRICT;
-
-      CREATE TABLE sessions (
-        token_hash BLOB PRIMARY KEY,
-        account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL
-      ) STRICT;
-
-      CREATE INDEX sessions_account_id ON sessions(account_id);
-
-      CREATE TABLE server_state (
-        id INTEGER PRIMARY KEY CHECK (id = 0),
-        state TEXT NOT NULL
-      ) STRICT;
-
-      PRAGMA user_version = {SCHEMA_VERSION};
+    if (current == 0) {
+      schema.CommandText = """
+        CREATE TABLE accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL UNIQUE,
+          display_name TEXT NOT NULL,
+          salt BLOB NOT NULL,
+          hash BLOB NOT NULL,
+          iterations INTEGER NOT NULL
+        ) STRICT;
+  
+        CREATE TABLE sessions (
+          token_hash BLOB PRIMARY KEY,
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          created_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL
+        ) STRICT;
+  
+        CREATE INDEX sessions_account_id ON sessions(account_id);
+  
+        CREATE TABLE server_state (
+          id INTEGER PRIMARY KEY CHECK (id = 0),
+          state TEXT NOT NULL
+        ) STRICT;
+  
+        PRAGMA user_version = 1;
+        """;
+      schema.ExecuteNonQuery();
+    }
+    schema.CommandText = """
+      CREATE TABLE completed_games (id TEXT PRIMARY KEY, state TEXT NOT NULL) STRICT;
+      CREATE TABLE completed_game_members (game_id TEXT NOT NULL REFERENCES completed_games(id),
+        account_id INTEGER NOT NULL, PRIMARY KEY(account_id, game_id)) STRICT;
+      PRAGMA user_version = 2;
       """;
     schema.ExecuteNonQuery();
     transaction.Commit();

@@ -19,30 +19,52 @@ public partial class GameServer {
   private sealed record SavedServer(int Version, ulong NextLobbyId, List<LobbyData> Lobbies,
     List<SavedSession> Games);
 
-  private string CaptureState() => JsonSerializer.Serialize(new SavedServer(2, _lobbyManager.LastId,
-    [.. _lobbyManager.Lobbies], [.. _gameManager.Sessions.Select(session => new SavedSession(session.Id,
-      session.Game.ToSnapshot(), new(session.Accounts), new(session.Names), session.Clock?.ToSnapshot()))]), _json);
+  private static SavedSession SaveSession(GameSession session) => new(session.Id,
+    session.Game.ToSnapshot(), new(session.Accounts), new(session.Names), session.Clock?.ToSnapshot());
+
+  private string CaptureState(bool includeCompleted = true) => JsonSerializer.Serialize(new SavedServer(2, _lobbyManager.LastId,
+    [.. _lobbyManager.Lobbies], [.. _gameManager.Sessions.Where(session => includeCompleted || !session.Game.Over).Select(SaveSession)]), _json);
 
   private void RestoreState(string? json) {
     if (json == null) return;
     var state = JsonSerializer.Deserialize<SavedServer>(json, _json) ?? throw new InvalidDataException("Empty server state");
-    if (state.Version != 2) throw new InvalidDataException("Unsupported server state version");
+    if (state.Version is not (1 or 2)) throw new InvalidDataException("Unsupported server state version");
     var nextLobbies = new LobbyManager();
     nextLobbies.Restore(state.NextLobbyId, state.Lobbies);
     var nextGames = new GameManager();
     foreach (var saved in state.Games) {
-      var troops = new TroopManager(saved.Game.GridSize);
-      troops.RegisterTroops(_gameData.TroopsSerializedData);
-      var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
-      var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names) {
-        Clock = TurnClock.FromSnapshot(saved.Clock ?? throw new InvalidDataException("Missing saved turn clock"))
-      };
-      foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
+      var session = RestoreSession(saved, state.Version == 1);
       nextGames.Restore(session);
     }
     _lobbyManager = nextLobbies;
     _gameManager = nextGames;
-    _savedState = json;
+    _savedState = state.Version == 1 ? CaptureState() : json;
+  }
+
+  private GameSession RestoreSession(SavedSession saved, bool legacy = false) {
+    var troops = new TroopManager(saved.Game.GridSize);
+    troops.RegisterTroops(_gameData.TroopsSerializedData);
+    var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
+    var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names);
+    if (saved.Clock != null) session.Clock = TurnClock.FromSnapshot(saved.Clock);
+    else if (!game.Over) {
+      if (!legacy) throw new InvalidDataException("Missing saved turn clock");
+      // Pre-timer saves did not retain the chosen mode. Allow a full day after migration.
+      session.Clock = new TurnClock(TurnTimerMode.Daily, game.Players.Select(player => player.Id));
+      session.Clock.Begin(game.CurrentPlayer, _timeProvider.GetUtcNow());
+    }
+    foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
+    return session;
+  }
+
+  private GameSession? FindSession(ulong id, uint accountId) {
+    if (_gameManager[id] is { } active) return active;
+    var json = _store.LoadCompletedGame(id, accountId);
+    if (json == null) return null;
+    var saved = JsonSerializer.Deserialize<SavedSession>(json, _json) ?? throw new InvalidDataException("Empty completed game");
+    var session = RestoreSession(saved);
+    if (!session.Game.Over) throw new InvalidDataException("Archived game is still active");
+    return session;
   }
 
   // A successful reply must never describe state which has not reached SQLite.
@@ -64,10 +86,14 @@ public partial class GameServer {
       ProcessTimers(now);
       await action();
       SynchronizeClocks(_timeProvider.GetUtcNow());
-      var after = changes ? CaptureState() : before;
-      if (after != before || _pendingRenames.Count != 0) _store.SaveState(after, _pendingRenames);
+      var completed = _gameManager.Sessions.Where(session => session.Game.Over).Select(session =>
+        new ArchivedGame(session.Id, JsonSerializer.Serialize(SaveSession(session), _json), session.Accounts.Values.ToArray())).ToArray();
+      var after = changes || completed.Length != 0 ? CaptureState(false) : before;
+      if (after != before || _pendingRenames.Count != 0 || completed.Length != 0)
+        _store.SaveState(after, _pendingRenames, completed);
       _savedState = after;
       committed = true;
+      foreach (var game in completed) _gameManager.RemoveGame(game.Id);
       foreach (var send in _outbox) send();
     }
     catch {

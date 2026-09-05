@@ -8,7 +8,7 @@ public partial class GameServer {
 
   private void RegisterTimerHandlers() {
     _dispatcher.Register<ResolveOverdueTurnPacket>((connection, packet) => {
-      var session = _gameManager[packet.GameId];
+      var session = FindSession(packet.GameId, AccountId(connection));
       var playerId = session?.PlayerIdOfAccount(AccountId(connection)) ?? 0;
       var now = _timeProvider.GetUtcNow();
       var result = session == null ? GameActionResult.GameNotFound :

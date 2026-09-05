@@ -49,7 +49,9 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
   /// </summary>
   public async Task RunAsync() {
     _server = new ServerConnection(port, bindAddress, _certificate);
-    RestoreState(_store.LoadState());
+    var storedState = _store.LoadState();
+    RestoreState(storedState);
+    if (_savedState != storedState) _store.SaveState(_savedState!);
     RegisterHandlers();
     RegisterTimerHandlers();
 
@@ -382,7 +384,8 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
   /// <returns>true if a session was found and the connection is a player in it</returns>
   private bool TryResolveSession(NetworkConnection connection, ulong gameId,
     [NotNullWhen(true)] out GameSession? session, out int playerId, out GameActionResult result, uint? expectedTurn = null) {
-    session = _gameManager[gameId];
+    session = FindSession(gameId, AccountId(connection));
+    if (session?.Game.Over == true) session.Join(AccountId(connection), connection.Id);
     if (session == null) {
       playerId = 0;
       result = GameActionResult.GameNotFound;
