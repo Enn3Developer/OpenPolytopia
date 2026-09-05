@@ -402,21 +402,21 @@ public sealed partial class ServerStore : IDisposable {
           hash BLOB NOT NULL,
           iterations INTEGER NOT NULL
         ) STRICT;
-  
+
         CREATE TABLE sessions (
           token_hash BLOB PRIMARY KEY,
           account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
           created_at INTEGER NOT NULL,
           expires_at INTEGER NOT NULL
         ) STRICT;
-  
+
         CREATE INDEX sessions_account_id ON sessions(account_id);
-  
+
         CREATE TABLE server_state (
           id INTEGER PRIMARY KEY CHECK (id = 0),
           state TEXT NOT NULL
         ) STRICT;
-  
+
         PRAGMA user_version = 1;
         """;
       schema.ExecuteNonQuery();
