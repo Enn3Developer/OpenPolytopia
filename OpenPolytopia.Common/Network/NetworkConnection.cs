@@ -11,8 +11,14 @@ using Packets;
 /// Used by the client for its connection to the server
 /// and by the server for every connected client
 /// </remarks>
-public class NetworkConnection(uint id, TcpClient client) : IDisposable {
-  private readonly NetworkStream _stream = client.GetStream();
+/// <param name="id">the id of this connection</param>
+/// <param name="client">the connected socket</param>
+/// <param name="stream">
+/// the stream to read and write packets on; null to use the plaintext stream of <paramref name="client"/>.
+/// Pass an already authenticated <see cref="System.Net.Security.SslStream"/> here to talk over TLS
+/// </param>
+public class NetworkConnection(uint id, TcpClient client, Stream? stream = null) : IDisposable {
+  private readonly Stream _stream = stream ?? client.GetStream();
   private readonly SemaphoreSlim _writeLock = new(1, 1);
   private int _closed;
 
@@ -114,6 +120,15 @@ public class NetworkConnection(uint id, TcpClient client) : IDisposable {
     // atomic exchange so two threads closing at once fire OnDisconnected only once
     if (Interlocked.Exchange(ref _closed, 1) == 1) {
       return;
+    }
+
+    // disposing the stream unblocks a pending read and, on TLS, sends the close notify;
+    // it can fail if the remote endpoint is already gone, which is not a problem here
+    try {
+      _stream.Dispose();
+    }
+    catch (Exception e) when (e is IOException or ObjectDisposedException or SocketException) {
+      // remote endpoint already gone
     }
 
     client.Close();
