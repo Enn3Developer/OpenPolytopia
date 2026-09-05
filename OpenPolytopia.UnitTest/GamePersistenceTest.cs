@@ -100,7 +100,7 @@ public class GamePersistenceTest {
   }
 
   [Fact]
-  public void TestRoundtripOfAGameThatHasntStarted() {
+  public void TestRoundtripOfAGameThatHasNotStarted() {
     var game = GameTestFixture.NewGame();
     var snapshot = game.ToSnapshot();
 
@@ -368,7 +368,7 @@ public class GamePersistenceTest {
   }
 
   [Fact]
-  public void TestRestoreRejectsArraysThatDontMatchTheGrid() {
+  public void TestRestoreRejectsArraysThatDoNotMatchTheGrid() {
     var snapshot = GameTestFixture.NewStartedGame().ToSnapshot();
 
     Should.Throw<ArgumentException>(() => Restore(Clone(snapshot, tiles: [.. snapshot.Tiles.Skip(1)])));
@@ -393,7 +393,7 @@ public class GamePersistenceTest {
   }
 
   [Fact]
-  public void TestRestoreRejectsATechThatIsntInTheTree() {
+  public void TestRestoreRejectsATechThatIsNotInTheTree() {
     var snapshot = GameTestFixture.NewStartedGame().ToSnapshot();
     var players = snapshot.Players.Select(player => Clone(player, researched: ["not_a_tech"])).ToList();
 
@@ -401,7 +401,7 @@ public class GamePersistenceTest {
   }
 
   [Fact]
-  public void TestRestoreRejectsAPlayerListThatIsntAGame() {
+  public void TestRestoreRejectsAPlayerListThatIsNotAGame() {
     var snapshot = GameTestFixture.NewStartedGame().ToSnapshot();
 
     Should.Throw<ArgumentException>(() => Restore(Clone(snapshot, players: [snapshot.Players[0]])));
