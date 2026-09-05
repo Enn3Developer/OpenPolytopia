@@ -379,7 +379,8 @@ public partial class GameServer(int port, string? bindAddress = null, string? da
   /// <returns>true if a session was found and the connection is a player in it</returns>
   private bool TryResolveSession(NetworkConnection connection, ulong gameId,
     [NotNullWhen(true)] out GameSession? session, out int playerId, out GameActionResult result) {
-    session = _gameManager[gameId];
+    session = FindSession(gameId, AccountId(connection));
+    if (session?.Game.Over == true) session.Join(AccountId(connection), connection.Id);
     if (session == null) {
       playerId = 0;
       result = GameActionResult.GameNotFound;

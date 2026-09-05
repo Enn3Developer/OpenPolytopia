@@ -19,9 +19,11 @@ public partial class GameServer {
   private sealed record SavedServer(int Version, ulong NextLobbyId, List<LobbyData> Lobbies,
     List<SavedSession> Games);
 
-  private string CaptureState() => JsonSerializer.Serialize(new SavedServer(1, _lobbyManager.LastId,
-    [.. _lobbyManager.Lobbies], [.. _gameManager.Sessions.Select(session => new SavedSession(session.Id,
-      session.Game.ToSnapshot(), new(session.Accounts), new(session.Names)))]), _json);
+  private static SavedSession SaveSession(GameSession session) => new(session.Id,
+    session.Game.ToSnapshot(), new(session.Accounts), new(session.Names));
+
+  private string CaptureState(bool includeCompleted = true) => JsonSerializer.Serialize(new SavedServer(1, _lobbyManager.LastId,
+    [.. _lobbyManager.Lobbies], [.. _gameManager.Sessions.Where(session => includeCompleted || !session.Game.Over).Select(SaveSession)]), _json);
 
   private void RestoreState(string? json) {
     if (json == null) return;
@@ -31,16 +33,31 @@ public partial class GameServer {
     nextLobbies.Restore(state.NextLobbyId, state.Lobbies);
     var nextGames = new GameManager();
     foreach (var saved in state.Games) {
-      var troops = new TroopManager(saved.Game.GridSize);
-      troops.RegisterTroops(_gameData.TroopsSerializedData);
-      var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
-      var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names);
-      foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
+      var session = RestoreSession(saved);
       nextGames.Restore(session);
     }
     _lobbyManager = nextLobbies;
     _gameManager = nextGames;
     _savedState = json;
+  }
+
+  private GameSession RestoreSession(SavedSession saved) {
+    var troops = new TroopManager(saved.Game.GridSize);
+    troops.RegisterTroops(_gameData.TroopsSerializedData);
+    var game = Game.Restore(saved.Game, troops, _gameData.Tribes, _gameData.Buildings, _gameData.TechTreeDefinition);
+    var session = new GameSession(saved.Id, game, saved.Accounts, saved.Names);
+    foreach (var connection in session.ConnectionIds.ToArray()) session.RemoveConnection(connection);
+    return session;
+  }
+
+  private GameSession? FindSession(ulong id, uint accountId) {
+    if (_gameManager[id] is { } active) return active;
+    var json = _store.LoadCompletedGame(id, accountId);
+    if (json == null) return null;
+    var saved = JsonSerializer.Deserialize<SavedSession>(json, _json) ?? throw new InvalidDataException("Empty completed game");
+    var session = RestoreSession(saved);
+    if (!session.Game.Over) throw new InvalidDataException("Archived game is still active");
+    return session;
   }
 
   // A successful reply must never describe state which has not reached SQLite.
@@ -58,10 +75,14 @@ public partial class GameServer {
       before = _savedState ??= CaptureState();
       var changes = stateMayChange || _lobbyManager.Lobbies.Any(l => l.Starting);
       await action();
-      var after = changes ? CaptureState() : before;
-      if (after != before || _pendingRenames.Count != 0) _store.SaveState(after, _pendingRenames);
+      var completed = _gameManager.Sessions.Where(session => session.Game.Over).Select(session =>
+        new ArchivedGame(session.Id, JsonSerializer.Serialize(SaveSession(session), _json), session.Accounts.Values.ToArray())).ToArray();
+      var after = changes || completed.Length != 0 ? CaptureState(false) : before;
+      if (after != before || _pendingRenames.Count != 0 || completed.Length != 0)
+        _store.SaveState(after, _pendingRenames, completed);
       _savedState = after;
       committed = true;
+      foreach (var game in completed) _gameManager.RemoveGame(game.Id);
       foreach (var send in _outbox) send();
     }
     catch {

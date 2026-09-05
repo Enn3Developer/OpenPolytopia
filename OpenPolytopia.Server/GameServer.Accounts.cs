@@ -61,9 +61,9 @@ public partial class GameServer {
       SendTo(c.Id, new AuthenticationPacket());
     });
     _dispatcher.Register<GetMyGamesPacket>((c, _) => SendTo(c.Id,
-      new MyGamesPacket { GameIds = [.. _gameManager.FindByAccount(AccountId(c)).Select(s => s.Id)] }));
+      new MyGamesPacket { GameIds = [.. _gameManager.FindByAccount(AccountId(c)).Select(s => s.Id).Concat(_store.CompletedGameIds(AccountId(c))).Distinct()] }));
     _dispatcher.Register<JoinGamePacket>((c, p) => {
-      var session = _gameManager[p.GameId];
+      var session = FindSession(p.GameId, AccountId(c));
       if (session != null && session.Join(AccountId(c), c.Id)) {
         SendTo(c.Id, session.BuildState());
       }
@@ -71,14 +71,14 @@ public partial class GameServer {
         Result = session == null ? GameActionResult.GameNotFound : GameActionResult.NotInGame });
     });
     _dispatcher.Register<LeaveGamePacket>((c, p) => {
-      var session = _gameManager[p.GameId];
+      var session = FindSession(p.GameId, AccountId(c));
       var result = session == null ? GameActionResult.GameNotFound :
         session.PlayerIdOfAccount(AccountId(c)) == 0 ? GameActionResult.NotInGame : GameActionResult.Ok;
       if (result == GameActionResult.Ok) session!.RemoveConnection(c.Id);
       SendTo(c.Id, new MembershipResultPacket { GameId = p.GameId, Result = result });
     });
     _dispatcher.Register<ResignGamePacket>((c, p) => {
-      var session = _gameManager[p.GameId];
+      var session = FindSession(p.GameId, AccountId(c));
       var playerId = session?.PlayerIdOfAccount(AccountId(c)) ?? 0;
       var result = session == null ? GameActionResult.GameNotFound : playerId == 0 ? GameActionResult.NotInGame :
         session.Game.Resign(playerId).Result;
