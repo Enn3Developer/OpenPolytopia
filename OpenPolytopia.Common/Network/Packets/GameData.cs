@@ -10,6 +10,9 @@ public class GamePlayerData : INetworkSerializable {
   /// </summary>
   public uint PlayerId;
 
+  /// <summary>The persistent account controlling this seat.</summary>
+  public uint AccountId;
+
   /// <summary>
   /// Name of the player
   /// </summary>
@@ -42,6 +45,7 @@ public class GamePlayerData : INetworkSerializable {
 
   public void Serialize(List<byte> bytes) {
     PlayerId.Serialize(bytes);
+    AccountId.Serialize(bytes);
     Name.Serialize(bytes);
     Tribe.Serialize(bytes);
     Stars.Serialize(bytes);
@@ -52,6 +56,7 @@ public class GamePlayerData : INetworkSerializable {
 
   public void Deserialize(byte[] bytes, ref uint index) {
     PlayerId.Deserialize(bytes, ref index);
+    AccountId.Deserialize(bytes, ref index);
     Name = StringSerialization.Read(bytes, ref index);
     Tribe.Deserialize(bytes, ref index);
     Stars.Deserialize(bytes, ref index);

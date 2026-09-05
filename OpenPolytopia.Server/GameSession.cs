@@ -183,6 +183,7 @@ public class GameSession {
   /// <returns>the player's public state, ready to send over the network</returns>
   private GamePlayerData BuildPlayerData(PlayerState player) => new() {
     PlayerId = (uint)player.Id,
+    AccountId = _accounts.GetValueOrDefault(player.Id),
     Name = _names.GetValueOrDefault(player.Id, ""),
     Tribe = (uint)player.Tribe,
     Stars = player.Stars,

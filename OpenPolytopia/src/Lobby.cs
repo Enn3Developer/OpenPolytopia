@@ -44,6 +44,7 @@ public partial class Lobby : Control {
   // the countdown of the open game, measured against the local monotonic clock so a wrong system time can't skew it
   private bool _hasClock;
   private uint _clockPlayerId;
+  private uint _myGamePlayerId;
   private long _clockRemainingMs;
   private ulong _clockReceivedAt;
 
@@ -461,7 +462,8 @@ public partial class Lobby : Control {
     _openGameId = packet.GameId;
 
     // TODO: replace this with the game scene once the gameplay is implemented
-    var me = packet.Players.FirstOrDefault(player => player.PlayerId == _network.PlayerId);
+    var me = packet.Players.FirstOrDefault(player => player.AccountId == _network.PlayerId);
+    _myGamePlayerId = me?.PlayerId ?? 0;
     _gameStatusLabel.Text = packet.Over
       ? $"Game {packet.GameId}: over, player {packet.Winner} won"
       : $"Game {packet.GameId}: turn {packet.Turn}, player {packet.CurrentPlayer} plays" +
@@ -481,7 +483,7 @@ public partial class Lobby : Control {
     }
 
     var left = _clockRemainingMs - (long)(Time.GetTicksMsec() - _clockReceivedAt);
-    var who = _clockPlayerId == _network.PlayerId ? "You have" : $"Player {_clockPlayerId} has";
+    var who = _clockPlayerId == _myGamePlayerId ? "You have" : $"Player {_clockPlayerId} has";
     _clockLabel.Text = left <= 0 ? "Turn overdue" : $"{who} {TimeSpan.FromMilliseconds(left):hh\\:mm\\:ss} left";
   }
 
