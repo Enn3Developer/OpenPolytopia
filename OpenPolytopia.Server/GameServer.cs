@@ -15,7 +15,7 @@ using OpenPolytopia.Common.Network.Packets;
 /// </remarks>
 /// <param name="port">the port to listen on</param>
 /// <param name="bindAddress">the ip address to bind to; null to listen on every interface</param>
-public class GameServer(int port, string? bindAddress = null) : IDisposable {
+public partial class GameServer(int port, string? bindAddress = null, string? databasePath = null) : IDisposable {
   /// <summary>
   /// How often the server checks for lobbies to start
   /// </summary>
@@ -26,7 +26,8 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </summary>
   private const int MAX_LOBBIES = 100;
 
-  private readonly ServerConnection _server = new(port, bindAddress);
+  private readonly System.Security.Cryptography.X509Certificates.X509Certificate2? _certificate = ServerTls.LoadAndValidate(bindAddress);
+  private ServerConnection _server = null!;
   private readonly LobbyManager _lobbyManager = new();
   private readonly GameManager _gameManager = new();
   private readonly Dictionary<uint, string> _playerNames = new();
@@ -45,16 +46,24 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// Runs the server until <see cref="Stop"/> gets called
   /// </summary>
   public async Task RunAsync() {
+    _server = new ServerConnection(port, bindAddress, _certificate);
+    RestoreState(_store.LoadState());
     RegisterHandlers();
 
     _server.OnPacketReceived += ManagePacketAsync;
     _server.OnClientDisconnected += connection => _ = ClientDisconnectedAsync(connection);
 
     // check for lobbies to start in background
-    _ = StartLobbiesLoopAsync(_cts.Token);
+    var lobbyLoop = StartLobbiesLoopAsync(_cts.Token);
 
     Console.WriteLine($"Server listening on {bindAddress ?? "*"}:{port}");
-    await _server.RunAsync();
+    try { await _server.RunAsync(); }
+    finally {
+      _cts.Cancel();
+      await lobbyLoop;
+      await _stateLock.WaitAsync();
+      _stateLock.Release();
+    }
   }
 
   /// <summary>
@@ -62,16 +71,17 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </summary>
   public void Stop() {
     _cts.Cancel();
-    _server.Stop();
+    _server?.Stop();
   }
 
   private async Task ManagePacketAsync(NetworkConnection connection, IPacket packet) {
     try {
-      await DispatchPacketAsync(connection, packet);
+      await WithStateAsync(() => DispatchPacketAsync(connection, packet));
     }
     catch (Exception e) {
       // log the error without taking the server down
       Console.Error.WriteLine($"Error while managing {packet.GetType().Name} from client {connection.Id}: {e}");
+      connection.Close();
     }
   }
 
@@ -84,6 +94,12 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
     // kick clients that send anything else before a successful handshake
     if (!_server.IsHandshakeDone(connection.Id)) {
       connection.Close();
+      return;
+    }
+
+    if (packet is not RegisterAccountPacket and not LoginPacket and not ResumeSessionPacket &&
+        !_authenticated.ContainsKey(connection.Id)) {
+      Kick(connection.Id);
       return;
     }
 
@@ -102,6 +118,7 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </remarks>
   private void RegisterHandlers() {
     // register the player or rename him
+    RegisterAccountHandlers();
     _dispatcher.Register<SetNamePacket>(ManageSetNameAsync);
     // respond with all the lobbies currently on the server
     _dispatcher.Register<GetLobbiesPacket>((connection, _) => ManageGetLobbiesAsync(connection));
@@ -138,51 +155,44 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       _server.CompleteHandshake(connection.Id);
     }
 
-    _server.SendTo(connection.Id, new HandshakeResponsePacket { Ok = ok, PlayerId = connection.Id });
+    SendTo(connection.Id, new HandshakeResponsePacket { Ok = ok, PlayerId = 0 });
 
     // kick clients with an incompatible version, after the response gets delivered
     if (!ok) {
-      _server.Kick(connection.Id);
+      Kick(connection.Id);
     }
   }
 
   private async Task ManageSetNameAsync(NetworkConnection connection, SetNamePacket packet) {
     var name = packet.Name.Trim();
-    var ok = name.Length is > 0 and <= 32;
+    var ok = name.Length is > 0 and <= 32 && !name.Any(char.IsControl);
 
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (ok) {
+        _pendingRenames[AccountId(connection)] = name;
         _playerNames[connection.Id] = name;
+        foreach (var session in _gameManager.FindByAccount(AccountId(connection))) session.Rename(AccountId(connection), name);
 
         // propagate the rename into the lobbies the player joined
         List<LobbyData> updated = [];
-        _lobbyManager.RenamePlayerInLobbies(connection.Id, name, updated);
+        _lobbyManager.RenamePlayerInLobbies(AccountId(connection), name, updated);
         foreach (var lobby in updated) {
-          _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
+          Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
         }
       }
 
-      _server.SendTo(connection.Id, new SetNameResponsePacket { Ok = ok });
-    }
-    finally {
-      _stateLock.Release();
+      SendTo(connection.Id, new SetNameResponsePacket { Ok = ok });
     }
   }
 
   private async Task ManageGetLobbiesAsync(NetworkConnection connection) {
-    await _stateLock.WaitAsync();
-    try {
-      _server.SendTo(connection.Id, new GetLobbiesResponsePacket { Lobbies = [.. _lobbyManager.Lobbies] });
-    }
-    finally {
-      _stateLock.Release();
+    {
+      SendTo(connection.Id, new GetLobbiesResponsePacket { Lobbies = [.. _lobbyManager.Lobbies] });
     }
   }
 
   private async Task ManageCreateLobbyAsync(NetworkConnection connection, CreateLobbyPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       LobbyData? lobby = null;
       LobbyActionResult result;
 
@@ -193,34 +203,25 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
-      // a player can wait in one lobby or play one game, never both
-      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id) ||
-               _gameManager.FindByConnection(connection.Id) != null) {
-        result = LobbyActionResult.AlreadyJoinedLobby;
-      }
       else if (_lobbyManager.LobbiesCount >= MAX_LOBBIES) {
         result = LobbyActionResult.TooManyLobbies;
       }
       else {
         // the lobby rules themselves are checked by the manager, so a lobby is never half-valid
         result = _lobbyManager.CreateLobby(packet.MaxPlayers, packet.WorldSize,
-          new LobbyPlayerData { PlayerId = connection.Id, Name = name, Tribe = packet.Tribe }, out lobby);
+          new LobbyPlayerData { PlayerId = AccountId(connection), Name = name, Tribe = packet.Tribe }, out lobby, packet.TimerMode);
       }
 
-      _server.SendTo(connection.Id, new CreateLobbyResponsePacket { Result = result, LobbyId = lobby?.Id ?? 0 });
+      SendTo(connection.Id, new CreateLobbyResponsePacket { Result = result, LobbyId = lobby?.Id ?? 0 });
 
       if (lobby != null) {
-        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
+        Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
-    }
-    finally {
-      _stateLock.Release();
     }
   }
 
   private async Task ManageJoinLobbyAsync(NetworkConnection connection, JoinLobbyPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       LobbyActionResult result;
 
       if (!_playerNames.TryGetValue(connection.Id, out var name)) {
@@ -230,132 +231,67 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
       else if (_gameData.Tribes[(TribeType)packet.Tribe] == null) {
         result = LobbyActionResult.InvalidParameters;
       }
-      // a player can wait in one lobby or play one game, never both
-      else if (_lobbyManager.IsPlayerInAnyLobby(connection.Id) ||
-               _gameManager.FindByConnection(connection.Id) != null) {
-        result = LobbyActionResult.AlreadyJoinedLobby;
-      }
       else {
         result = _lobbyManager.JoinLobby(packet.LobbyId,
-          new LobbyPlayerData { PlayerId = connection.Id, Name = name, Tribe = packet.Tribe });
+          new LobbyPlayerData { PlayerId = AccountId(connection), Name = name, Tribe = packet.Tribe });
       }
 
-      _server.SendTo(connection.Id, new JoinLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
+      SendTo(connection.Id, new JoinLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
       if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
-        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
+        Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
-    }
-    finally {
-      _stateLock.Release();
     }
   }
 
   private async Task ManageLeaveLobbyAsync(NetworkConnection connection, LeaveLobbyPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
-      var result = _lobbyManager.LeaveLobby(packet.LobbyId, connection.Id);
+    {
+      var result = _lobbyManager.LeaveLobby(packet.LobbyId, AccountId(connection));
 
-      _server.SendTo(connection.Id, new LeaveLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
+      SendTo(connection.Id, new LeaveLobbyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
       if (result == LobbyActionResult.Ok) {
         // the manager drops a lobby as soon as its last player leaves, so a missing
         // lobby here means it became empty
         if (_lobbyManager[packet.LobbyId] is { } lobby) {
-          _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
+          Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
         }
         else {
-          _server.Broadcast(new LobbyDeletedPacket { LobbyId = packet.LobbyId });
+          Broadcast(new LobbyDeletedPacket { LobbyId = packet.LobbyId });
         }
       }
-    }
-    finally {
-      _stateLock.Release();
     }
   }
 
   private async Task ManageSetReadyAsync(NetworkConnection connection, SetReadyPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
-      var result = _lobbyManager.SetReady(packet.LobbyId, connection.Id, packet.Ready);
+    {
+      var result = _lobbyManager.SetReady(packet.LobbyId, AccountId(connection), packet.Ready);
 
-      _server.SendTo(connection.Id, new SetReadyResponsePacket { Result = result, LobbyId = packet.LobbyId });
+      SendTo(connection.Id, new SetReadyResponsePacket { Result = result, LobbyId = packet.LobbyId });
 
       if (result == LobbyActionResult.Ok && _lobbyManager[packet.LobbyId] is { } lobby) {
-        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
+        Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
       }
-    }
-    finally {
-      _stateLock.Release();
     }
   }
 
-  private async Task ClientDisconnectedAsync(NetworkConnection connection) {
-    await _stateLock.WaitAsync();
-    try {
-      _playerNames.Remove(connection.Id);
-
-      List<LobbyData> updated = [];
-      List<ulong> deletedIds = [];
-      _lobbyManager.RemovePlayerFromAllLobbies(connection.Id, updated, deletedIds);
-
-      foreach (var lobby in updated) {
-        _server.Broadcast(new LobbyUpdatedPacket { Lobby = lobby });
-      }
-
-      foreach (var id in deletedIds) {
-        _server.Broadcast(new LobbyDeletedPacket { LobbyId = id });
-      }
-
-      DisconnectFromGame(connection);
-    }
-    finally {
-      _stateLock.Release();
-    }
-  }
-
-  /// <summary>
-  /// Resigns a disconnected player from the game they were playing, if any
-  /// </summary>
-  /// <remarks>
-  /// The connection is forgotten first, so the packets that follow only reach the players still connected
-  /// </remarks>
-  /// <param name="connection">the connection that just disconnected</param>
-  private void DisconnectFromGame(NetworkConnection connection) {
-    var session = _gameManager.RemovePlayer(connection.Id, out var playerId);
-    if (session == null || playerId == 0 || session.Game.Over) {
-      return;
-    }
-
-    // resigning only passes the turn when it was the resigning player's turn; otherwise nothing changes for the others
-    var heldTheTurn = session.Game.CurrentPlayer == playerId;
-    var result = session.Game.Resign(playerId);
-    if (result.Result != GameActionResult.Ok) {
-      return;
-    }
-
-    _server.BroadcastTo(session.ConnectionIds,
-      new PlayerEliminatedPacket { GameId = session.Id, PlayerId = (uint)playerId, Update = session.TakeUpdate() });
-
-    if (result.GameOver) {
-      EndGame(session);
-    }
-    else if (heldTheTurn) {
-      _server.BroadcastTo(session.ConnectionIds, new TurnStartedPacket {
-        GameId = session.Id, Turn = result.Turn, PlayerId = (uint)result.NextPlayer, Update = session.TakeUpdate()
-      });
-    }
-  }
+  private Task ClientDisconnectedAsync(NetworkConnection connection) => _cts.IsCancellationRequested ? Task.CompletedTask : WithStateAsync(() => {
+    _playerNames.Remove(connection.Id);
+    _authenticated.Remove(connection.Id);
+    _sessionTokens.Remove(connection.Id);
+    _gameManager.Disconnect(connection.Id);
+    return Task.CompletedTask;
+  });
 
   /// <summary>
   /// Tells the players of a finished game who won and forgets the game
   /// </summary>
   /// <param name="session">the session whose game is over</param>
   private void EndGame(GameSession session) {
-    _server.BroadcastTo(session.ConnectionIds, new GameOverPacket {
+    BroadcastTo(session.ConnectionIds, new GameOverPacket {
       GameId = session.Id, Winner = (uint)session.Game.Winner, Players = session.TakeUpdate().Players
     });
-    _gameManager.RemoveGame(session.Id);
+    // Retain completed games so their members can reconnect and inspect the result.
   }
 
   private async Task StartLobbiesLoopAsync(CancellationToken ct) {
@@ -363,14 +299,13 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
 
     try {
       while (await timer.WaitForNextTickAsync(ct)) {
-        await _stateLock.WaitAsync(ct);
         try {
-          foreach (var lobby in _lobbyManager.TakeStartingLobbies()) {
-            await StartLobbyAsync(lobby);
-          }
+          await WithStateAsync(async () => {
+            foreach (var lobby in _lobbyManager.TakeStartingLobbies()) await StartLobbyAsync(lobby);
+          });
         }
-        finally {
-          _stateLock.Release();
+        catch (Exception e) when (e is not OperationCanceledException) {
+          Console.Error.WriteLine($"Lobby update failed; state restored: {e}");
         }
       }
     }
@@ -388,22 +323,25 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   /// </remarks>
   /// <param name="lobby">the lobby to start</param>
   private async Task StartLobbyAsync(LobbyData lobby) {
-    var connectionIds = lobby.Players.Select(player => player.PlayerId).ToList();
+    var online = _authenticated.ToDictionary(pair => pair.Value, pair => pair.Key);
+    var connectionIds = lobby.Players.Where(player => online.ContainsKey(player.PlayerId))
+      .Select(player => online[player.PlayerId]).ToList();
 
     try {
-      var session = await _gameManager.CreateGameAsync(lobby, _gameData);
+      var session = await _gameManager.CreateGameAsync(lobby, _gameData, onlineConnections: online);
 
       Console.WriteLine($"Starting game for lobby {lobby.Id} with {lobby.PlayersCount} players");
 
       // notify the players that their game started and send them its full state
-      _server.BroadcastTo(connectionIds, new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
-      _server.BroadcastTo(connectionIds, session.BuildState());
+      BroadcastTo(connectionIds, new GameStartedPacket { LobbyId = lobby.Id, Players = lobby.Players });
+      BroadcastTo(connectionIds, session.BuildState());
     }
     catch (Exception e) {
       Console.Error.WriteLine($"Couldn't start the game for lobby {lobby.Id}: {e}");
+      throw;
     }
 
-    _server.Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
+    Broadcast(new LobbyDeletedPacket { LobbyId = lobby.Id });
   }
 
   /// <summary>
@@ -443,161 +381,136 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
   }
 
   private async Task ManageGetGameStateAsync(NetworkConnection connection, GetGameStatePacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       var response = TryResolveSession(connection, packet.GameId, out var session, out _, out var check)
         ? session.BuildState()
         : new GameStatePacket { Result = check, GameId = packet.GameId };
 
-      _server.SendTo(connection.Id, response);
-    }
-    finally {
-      _stateLock.Release();
+      SendTo(connection.Id, response);
     }
   }
 
   private async Task ManageMoveTroopAsync(NetworkConnection connection, MoveTroopPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new MoveTroopResponsePacket { Result = check });
+        SendTo(connection.Id, new MoveTroopResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.MoveTroop(playerId, packet.From, packet.To);
-      _server.SendTo(connection.Id, new MoveTroopResponsePacket { Result = result });
+      SendTo(connection.Id, new MoveTroopResponsePacket { Result = result });
 
       if (result != GameActionResult.Ok) {
         return;
       }
 
-      _server.BroadcastTo(session.ConnectionIds, new TroopMovedPacket {
+      BroadcastTo(session.ConnectionIds, new TroopMovedPacket {
         GameId = packet.GameId, PlayerId = (uint)playerId, From = packet.From, To = packet.To,
         Update = session.TakeUpdate()
       });
     }
-    finally {
-      _stateLock.Release();
-    }
   }
 
   private async Task ManageAttackAsync(NetworkConnection connection, AttackPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new AttackResponsePacket { Result = check });
+        SendTo(connection.Id, new AttackResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.Attack(playerId, packet.From, packet.Target);
-      _server.SendTo(connection.Id, new AttackResponsePacket { Result = result.Result });
+      SendTo(connection.Id, new AttackResponsePacket { Result = result.Result });
 
       if (result.Result != GameActionResult.Ok) {
         return;
       }
 
-      _server.BroadcastTo(session.ConnectionIds, new CombatPacket {
+      BroadcastTo(session.ConnectionIds, new CombatPacket {
         GameId = packet.GameId, PlayerId = (uint)playerId, From = packet.From, Target = packet.Target,
         AttackerHp = result.AttackerHp, DefenderHp = result.DefenderHp, AttackerKilled = result.AttackerKilled,
         DefenderKilled = result.DefenderKilled, AttackerPosition = result.AttackerPosition,
         Update = session.TakeUpdate()
       });
     }
-    finally {
-      _stateLock.Release();
-    }
   }
 
   private async Task ManageTrainTroopAsync(NetworkConnection connection, TrainTroopPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new TrainTroopResponsePacket { Result = check });
+        SendTo(connection.Id, new TrainTroopResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.TrainTroop(playerId, packet.City, (TroopType)packet.TroopType);
-      _server.SendTo(connection.Id, new TrainTroopResponsePacket { Result = result });
+      SendTo(connection.Id, new TrainTroopResponsePacket { Result = result });
 
       if (result != GameActionResult.Ok) {
         return;
       }
 
-      _server.BroadcastTo(session.ConnectionIds, new TroopTrainedPacket {
+      BroadcastTo(session.ConnectionIds, new TroopTrainedPacket {
         GameId = packet.GameId, PlayerId = (uint)playerId, Position = packet.City, TroopType = packet.TroopType,
         Update = session.TakeUpdate()
       });
     }
-    finally {
-      _stateLock.Release();
-    }
   }
 
   private async Task ManageResearchTechAsync(NetworkConnection connection, ResearchTechPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new ResearchTechResponsePacket { Result = check });
+        SendTo(connection.Id, new ResearchTechResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.ResearchTech(playerId, packet.TechId);
-      _server.SendTo(connection.Id, new ResearchTechResponsePacket { Result = result });
+      SendTo(connection.Id, new ResearchTechResponsePacket { Result = result });
 
       if (result != GameActionResult.Ok) {
         return;
       }
 
-      _server.BroadcastTo(session.ConnectionIds, new TechResearchedPacket {
+      BroadcastTo(session.ConnectionIds, new TechResearchedPacket {
         GameId = packet.GameId, PlayerId = (uint)playerId, TechId = packet.TechId, Update = session.TakeUpdate()
       });
-    }
-    finally {
-      _stateLock.Release();
     }
   }
 
   private async Task ManageBuildAsync(NetworkConnection connection, BuildPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new BuildResponsePacket { Result = check });
+        SendTo(connection.Id, new BuildResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.Build(playerId, packet.Position, (BuildingType)packet.Building);
-      _server.SendTo(connection.Id, new BuildResponsePacket { Result = result.Result });
+      SendTo(connection.Id, new BuildResponsePacket { Result = result.Result });
 
       if (result.Result != GameActionResult.Ok) {
         return;
       }
 
-      _server.BroadcastTo(session.ConnectionIds, new BuildingBuiltPacket {
+      BroadcastTo(session.ConnectionIds, new BuildingBuiltPacket {
         GameId = packet.GameId, PlayerId = (uint)playerId, Position = packet.Position, Building = packet.Building,
         Update = session.TakeUpdate()
       });
     }
-    finally {
-      _stateLock.Release();
-    }
   }
 
   private async Task ManageCaptureAsync(NetworkConnection connection, CapturePacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new CaptureResponsePacket { Result = check });
+        SendTo(connection.Id, new CaptureResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.Capture(playerId, packet.Position);
-      _server.SendTo(connection.Id, new CaptureResponsePacket { Result = result.Result });
+      SendTo(connection.Id, new CaptureResponsePacket { Result = result.Result });
 
       if (result.Result != GameActionResult.Ok) {
         return;
       }
 
-      _server.BroadcastTo(session.ConnectionIds, new CityCapturedPacket {
+      BroadcastTo(session.ConnectionIds, new CityCapturedPacket {
         GameId = packet.GameId, PlayerId = (uint)playerId, Position = packet.Position,
         PreviousOwner = (uint)result.PreviousOwner, EliminatedPlayer = (uint)result.EliminatedPlayer,
         Update = session.TakeUpdate()
@@ -608,21 +521,17 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         EndGame(session);
       }
     }
-    finally {
-      _stateLock.Release();
-    }
   }
 
   private async Task ManageEndTurnAsync(NetworkConnection connection, EndTurnPacket packet) {
-    await _stateLock.WaitAsync();
-    try {
+    {
       if (!TryResolveSession(connection, packet.GameId, out var session, out var playerId, out var check)) {
-        _server.SendTo(connection.Id, new EndTurnResponsePacket { Result = check });
+        SendTo(connection.Id, new EndTurnResponsePacket { Result = check });
         return;
       }
 
       var result = session.Game.EndTurn(playerId);
-      _server.SendTo(connection.Id, new EndTurnResponsePacket { Result = result.Result });
+      SendTo(connection.Id, new EndTurnResponsePacket { Result = result.Result });
 
       if (result.Result != GameActionResult.Ok) {
         return;
@@ -632,21 +541,20 @@ public class GameServer(int port, string? bindAddress = null) : IDisposable {
         EndGame(session);
       }
       else {
-        _server.BroadcastTo(session.ConnectionIds, new TurnStartedPacket {
+        BroadcastTo(session.ConnectionIds, new TurnStartedPacket {
           GameId = packet.GameId, Turn = result.Turn, PlayerId = (uint)result.NextPlayer,
           Update = session.TakeUpdate()
         });
       }
-    }
-    finally {
-      _stateLock.Release();
     }
   }
 
   public void Dispose() {
     Stop();
     _cts.Dispose();
-    _server.Dispose();
+    _server?.Dispose();
+    _certificate?.Dispose();
+    _store.Dispose();
     _stateLock.Dispose();
     GC.SuppressFinalize(this);
   }

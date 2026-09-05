@@ -322,7 +322,7 @@ public sealed class ServerStore : IDisposable {
   /// </remarks>
   /// <param name="state">the JSON snapshot of the server state</param>
   /// <exception cref="ArgumentNullException">if <paramref name="state"/> is <see langword="null"/></exception>
-  public void SaveState(string state) {
+  public void SaveState(string state, IReadOnlyDictionary<uint, string>? renamedAccounts = null) {
     ArgumentNullException.ThrowIfNull(state);
 
     lock (_lock) {
@@ -336,6 +336,17 @@ public sealed class ServerStore : IDisposable {
         """;
       command.Parameters.AddWithValue("$state", state);
       command.ExecuteNonQuery();
+      if (renamedAccounts != null) {
+        foreach (var (accountId, name) in renamedAccounts) {
+          if (name.Length is < 1 or > 32 || name.Any(char.IsControl)) throw new ArgumentException("Invalid display name");
+          using var rename = _connection.CreateCommand();
+          rename.Transaction = transaction;
+          rename.CommandText = "UPDATE accounts SET display_name = $name WHERE id = $id";
+          rename.Parameters.AddWithValue("$name", name);
+          rename.Parameters.AddWithValue("$id", accountId);
+          if (rename.ExecuteNonQuery() != 1) throw new ArgumentException("Unknown account");
+        }
+      }
       transaction.Commit();
     }
   }
