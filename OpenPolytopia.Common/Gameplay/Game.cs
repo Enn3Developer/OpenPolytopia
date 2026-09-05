@@ -102,7 +102,7 @@ public partial class Game {
   /// than once, or a player's tribe isn't registered in <paramref name="tribeManager"/>
   /// </exception>
   public Game(Grid grid, CityManager cityManager, TroopManager troopManager, TribeManager tribeManager,
-    BuildingManager buildingManager, TechTreeDefinition techTreeDefinition, IReadOnlyList<Player> players,
+    BuildingManager buildingManager, TechTreeDefinition techTreeDefinition, IReadOnlyList<IPlayer> players,
     GameSettings? settings = null) {
     ArgumentNullException.ThrowIfNull(grid);
     ArgumentNullException.ThrowIfNull(cityManager);
