@@ -28,7 +28,7 @@ public class TerrainGeneration(
   Grid grid,
   CityManager cityManager,
   TribeManager tribeManager,
-  Player[] players,
+  IPlayer[] players,
   int? seed = null) {
   // base terrain rates, multiplied by every tribe's TerrainRate
   private const float BASE_FOREST_RATE = 0.38f;
