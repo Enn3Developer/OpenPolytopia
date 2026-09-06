@@ -26,6 +26,7 @@ using Packets;
 public class ClientConnection(string address, int port, bool? useTls = null) : IDisposable {
   private static readonly TimeSpan TIMEOUT = TimeSpan.FromSeconds(30);
   private static readonly TimeSpan TIMEOUT_CHECK_INTERVAL = TimeSpan.FromSeconds(5);
+  private static readonly TimeSpan TLS_HANDSHAKE_TIMEOUT = TimeSpan.FromSeconds(10);
 
   private readonly TcpClient _client = new();
   private readonly CancellationTokenSource _cts = new();
@@ -117,10 +118,12 @@ public class ClientConnection(string address, int port, bool? useTls = null) : I
     var ssl = new SslStream(_client.GetStream(), false);
 
     try {
+      using var handshake = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+      handshake.CancelAfter(TLS_HANDSHAKE_TIMEOUT);
       await ssl.AuthenticateAsClientAsync(
         new SslClientAuthenticationOptions {
           TargetHost = address, EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
-        }, _cts.Token);
+        }, handshake.Token);
     }
     catch {
       await ssl.DisposeAsync();
