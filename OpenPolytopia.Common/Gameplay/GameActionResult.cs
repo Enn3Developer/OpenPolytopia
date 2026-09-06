@@ -109,5 +109,8 @@ public enum GameActionResult : byte {
   InvalidTroopType = 32,
 
   /// <summary>The tile isn't a valid capture target</summary>
-  NotACaptureTarget = 33
+  NotACaptureTarget = 33,
+
+  /// <summary>The request parameters do not match the current game state.</summary>
+  InvalidParameters = 34
 }

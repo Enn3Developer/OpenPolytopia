@@ -54,7 +54,7 @@ public class GameManager {
   /// <returns>the newly created, started and registered session</returns>
   /// <exception cref="ArgumentException">if the lobby doesn't have 2 to 16 players</exception>
   public async Task<GameSession> CreateGameAsync(LobbyData lobby, GameData data, int? seed = null,
-    IReadOnlyDictionary<uint, uint>? onlineConnections = null) {
+    IReadOnlyDictionary<uint, uint>? onlineConnections = null, DateTimeOffset? startedAt = null) {
     ArgumentNullException.ThrowIfNull(lobby);
     ArgumentNullException.ThrowIfNull(data);
 
@@ -88,7 +88,10 @@ public class GameManager {
       players);
     game.Start();
 
-    var session = new GameSession(lobby.Id, game, connections, names);
+    var session = new GameSession(lobby.Id, game, connections, names) {
+      Clock = new TurnClock((TurnTimerMode)lobby.TimerMode, game.Players.Select(p => p.Id))
+    };
+    session.Clock.Begin(game.CurrentPlayer, startedAt ?? DateTimeOffset.UtcNow);
     if (onlineConnections != null) {
       foreach (var connectionId in session.ConnectionIds.ToArray()) session.RemoveConnection(connectionId);
       foreach (var accountId in connections.Values) {

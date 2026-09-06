@@ -32,6 +32,13 @@ public partial class Lobby : Control {
   private Button _openButton = null!;
   private Button _closeButton = null!;
   private Button _resignButton = null!;
+  private Button _skipButton = null!;
+  private Button _kickButton = null!;
+  private ConfirmationDialog _kickDialog = null!;
+  private GameStatePacket? _viewState;
+  private uint _clockMode;
+  private ulong _pendingOverdueGameId;
+  private ResolveOverdueTurnPacket? _confirmedKick;
   private ConfirmationDialog _resignDialog = null!;
   private Label _statusLabel = null!;
   private Label _gameStatusLabel = null!;
@@ -183,6 +190,28 @@ public partial class Lobby : Control {
     _resignButton.Pressed += OnResignPressed;
     gamesBar.AddChild(_resignButton);
 
+    _skipButton = new Button { Text = "Skip overdue turn", Disabled = true };
+    _skipButton.Pressed += () => ResolveOverdue(false);
+    gamesBar.AddChild(_skipButton);
+    _kickButton = new Button { Text = "Kick overdue player", Disabled = true };
+    _kickButton.Pressed += () => {
+      if (!CanResolveOverdue() || _viewState == null) return;
+      _confirmedKick = new ResolveOverdueTurnPacket { GameId = _openGameId, ExpectedTurn = _viewState.Turn,
+        ExpectedPlayer = _viewState.CurrentPlayer, Kick = true };
+      _kickDialog.PopupCentered();
+    };
+    gamesBar.AddChild(_kickButton);
+    _kickDialog = new ConfirmationDialog {
+      Title = "Kick overdue player", DialogText = "Eliminate the player whose turn is overdue?", OkButtonText = "Kick"
+    };
+    _kickDialog.Confirmed += () => {
+      if (_confirmedKick is not { } request) return;
+      _pendingOverdueGameId = request.GameId;
+      _network.ResolveOverdueTurn(request.GameId, request.ExpectedTurn, request.ExpectedPlayer, true);
+      _confirmedKick = null;
+    };
+    AddChild(_kickDialog);
+
     _gameStatusLabel = new Label();
     gamesBar.AddChild(_gameStatusLabel);
 
@@ -234,6 +263,8 @@ public partial class Lobby : Control {
   /// </summary>
   private void ClearClock() {
     _hasClock = false;
+    _skipButton.Disabled = true;
+    _kickButton.Disabled = true;
     _clockLabel.Text = "";
   }
 
@@ -465,6 +496,7 @@ public partial class Lobby : Control {
     }
 
     _openGameId = packet.GameId;
+    _viewState = packet;
 
     // TODO: replace this with the game scene once the gameplay is implemented
     var me = packet.Players.FirstOrDefault(player => player.AccountId == _network.PlayerId);
@@ -488,6 +520,7 @@ public partial class Lobby : Control {
     }
 
     var left = _clockRemainingMs - (long)(Time.GetTicksMsec() - _clockReceivedAt);
+    _skipButton.Disabled = _kickButton.Disabled = !CanResolveOverdue();
     var who = _clockPlayerId == _myGamePlayerId ? "You have" : $"Player {_clockPlayerId} has";
     _clockLabel.Text = left <= 0 ? "Turn overdue" : $"{who} {TimeSpan.FromMilliseconds(left):hh\\:mm\\:ss} left";
   }
@@ -498,6 +531,7 @@ public partial class Lobby : Control {
     }
 
     // the deadline only means something next to the server clock it came with, the local one could be off by anything
+    _clockMode = packet.TimerMode;
     _clockRemainingMs = packet.DeadlineUnixMilliseconds - packet.ServerUnixMilliseconds;
     _clockReceivedAt = Time.GetTicksMsec();
     _clockPlayerId = packet.PlayerId;
@@ -511,7 +545,24 @@ public partial class Lobby : Control {
     }
   }
 
+  private bool CanResolveOverdue() => _hasClock && _clockMode == TIMER_DAILY &&
+    _viewState is { Over: false } state && state.GameId == _openGameId &&
+    state.CurrentPlayer != _myGamePlayerId && state.Players.Any(p => p.PlayerId == _myGamePlayerId && p.Alive) &&
+    _clockRemainingMs <= (long)(Time.GetTicksMsec() - _clockReceivedAt);
+
+  private void ResolveOverdue(bool kick) {
+    if (!CanResolveOverdue() || _viewState == null) return;
+    _pendingOverdueGameId = _openGameId;
+    _network.ResolveOverdueTurn(_openGameId, _viewState.Turn, _viewState.CurrentPlayer, kick);
+  }
+
   private void OnMembershipResult(MembershipResultPacket packet) {
+    if (packet.GameId == _pendingOverdueGameId) {
+      _pendingOverdueGameId = 0;
+      _gameStatusLabel.Text = packet.Result == GameActionResult.Ok ? "Overdue turn resolved" : $"Error: {packet.Result}";
+      _network.RequestGameState(packet.GameId);
+      return;
+    }
     // leaving and resigning share this response, only the client knows which one it asked for
     var resigned = packet.GameId == _resignGameId;
     _resignGameId = 0;

@@ -96,6 +96,8 @@ public partial class GameStatePacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class MoveTroopPacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>
@@ -168,6 +170,8 @@ public partial class TroopMovedPacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class AttackPacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>
@@ -270,6 +274,8 @@ public partial class CombatPacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class TrainTroopPacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>
@@ -342,6 +348,8 @@ public partial class TroopTrainedPacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class ResearchTechPacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>
@@ -402,6 +410,8 @@ public partial class TechResearchedPacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class BuildPacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>
@@ -474,6 +484,8 @@ public partial class BuildingBuiltPacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class CapturePacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>
@@ -546,6 +558,8 @@ public partial class CityCapturedPacket : IPacket {
 /// </summary>
 [GeneratedPacket]
 public partial class EndTurnPacket : IPacket {
+  /// <summary>Round shown when the action was issued; required for live games.</summary>
+  [PacketField] public uint ExpectedTurn;
   /// <summary>
   /// Id of the game, i.e. the id of the lobby it started from
   /// </summary>

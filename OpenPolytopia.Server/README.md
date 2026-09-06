@@ -43,3 +43,26 @@ Gameplay requests require an open view and remain subject to the engine's owners
 Successful state-changing responses are queued only after SQLite commits. Lobby ids, membership, full game
 state and results survive a restart. Transports are deliberately absent from snapshots: reconnecting clients
 must authenticate and open their games again.
+
+## Turn timers
+
+Lobby creation accepts `TimerMode = 0` for Live or `1` for 24-hour turns (the default).
+Live games start each player with a 60-second bank. Ending a turn adds 8 seconds plus 12 per owned city
+and 1 per owned unit to the unused balance. Only the current player's clock runs. Expiry skips the turn;
+three total live timeouts eliminate that player. Voluntary turns do not erase previous timeouts.
+These values follow the developer's [published Live rules](https://steamcommunity.com/games/874390/announcements/detail/3487503395165170265).
+
+Daily games grant 24 hours for each turn and keep accepting the current player's actions after expiry.
+Another living participant can send `ResolveOverdueTurnPacket` to skip or kick the overdue player.
+The request includes the expected turn and player to reject stale requests. Daily skips do not automatically
+eliminate players; kicking is an explicit action. The client provides both controls, with confirmation for kicks.
+
+`GameClockPacket` sends the absolute UTC deadline alongside the server's current UTC time. The client displays
+a countdown using elapsed local monotonic time. Banks, timeout counts and deadlines are persisted with the game.
+Leaving, disconnecting or restarting never resets a clock. On restart, overdue live turns are processed from
+the original deadlines until play catches up or the match ends. The server checks expiry before processing
+requests as well as once per second, so a late move or end-turn request cannot escape a timeout.
+
+Gameplay action packets carry `ExpectedTurn`. Live games require the current round number; mismatches are
+rejected so a delayed packet cannot act in a later round after several automatic skips. Daily games accept
+zero for clients that do not send a turn guard; a nonzero value must match in either mode.

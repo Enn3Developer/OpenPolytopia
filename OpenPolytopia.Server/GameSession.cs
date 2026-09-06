@@ -30,6 +30,9 @@ public class GameSession {
   /// </summary>
   public Game Game { get; }
 
+  /// <summary>The persistent turn clock, independent of connected clients.</summary>
+  public TurnClock? Clock { get; internal set; }
+
   /// <summary>
   /// Connection id of every player in the game, keyed by player id
   /// </summary>
