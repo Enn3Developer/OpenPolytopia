@@ -14,6 +14,7 @@ using OpenPolytopia.Common.Network.Packets;
 /// </remarks>
 public class GameSession {
   private readonly Dictionary<int, uint> _connections;
+  private readonly Dictionary<int, uint> _accounts;
   private readonly Dictionary<uint, int> _playerIdByConnection;
   private readonly Dictionary<int, string> _names;
   private readonly ulong[] _tileSnapshot;
@@ -49,7 +50,8 @@ public class GameSession {
   internal GameSession(ulong id, Game game, Dictionary<int, uint> connections, Dictionary<int, string> names) {
     Id = id;
     Game = game;
-    _connections = connections;
+    _connections = new(connections);
+    _accounts = new(connections);
     _names = names;
     _playerIdByConnection = connections.ToDictionary(pair => pair.Value, pair => pair.Key);
 
@@ -81,6 +83,29 @@ public class GameSession {
 
     _connections.Remove(playerId);
     return playerId;
+  }
+
+  /// <summary>Persistent account ids keyed by in-game player id.</summary>
+  public IReadOnlyDictionary<int, uint> Accounts => _accounts;
+
+  /// <summary>Names retained independently of active connections.</summary>
+  public IReadOnlyDictionary<int, string> Names => _names;
+
+  /// <summary>Resolves durable membership without requiring an open game view.</summary>
+  internal void Rename(uint accountId, string name) => _names[PlayerIdOfAccount(accountId)] = name;
+
+  public int PlayerIdOfAccount(uint accountId) =>
+    _accounts.FirstOrDefault(pair => pair.Value == accountId).Key;
+
+  /// <summary>Attaches a member to this game's updates. Never creates a new seat.</summary>
+  public bool Join(uint accountId, uint connectionId) {
+    var playerId = PlayerIdOfAccount(accountId);
+    if (playerId == 0) return false;
+    RemoveConnection(connectionId);
+    if (_connections.TryGetValue(playerId, out var oldConnection)) RemoveConnection(oldConnection);
+    _connections[playerId] = connectionId;
+    _playerIdByConnection[connectionId] = playerId;
+    return true;
   }
 
   /// <summary>
@@ -158,6 +183,7 @@ public class GameSession {
   /// <returns>the player's public state, ready to send over the network</returns>
   private GamePlayerData BuildPlayerData(PlayerState player) => new() {
     PlayerId = (uint)player.Id,
+    AccountId = _accounts.GetValueOrDefault(player.Id),
     Name = _names.GetValueOrDefault(player.Id, ""),
     Tribe = (uint)player.Tribe,
     Stars = player.Stars,

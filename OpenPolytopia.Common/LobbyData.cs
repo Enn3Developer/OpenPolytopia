@@ -65,6 +65,9 @@ public class LobbyData : INetworkSerializable {
   /// </summary>
   public bool Started;
 
+  /// <summary>Turn timer: 0 for Live, 1 for 24-hour turns.</summary>
+  public uint TimerMode = 1;
+
   /// <summary>
   /// If the game in the lobby is about to start (lobby full and all players ready)
   /// </summary>
@@ -96,6 +99,7 @@ public class LobbyData : INetworkSerializable {
     MaxPlayers.Serialize(bytes);
     WorldSize.Serialize(bytes);
     Started.Serialize(bytes);
+    TimerMode.Serialize(bytes);
     Starting.Serialize(bytes);
     Players.Serialize(bytes);
   }
@@ -105,6 +109,7 @@ public class LobbyData : INetworkSerializable {
     MaxPlayers.Deserialize(bytes, ref index);
     WorldSize.Deserialize(bytes, ref index);
     Started.Deserialize(bytes, ref index);
+    TimerMode.Deserialize(bytes, ref index);
     Starting.Deserialize(bytes, ref index);
     Players.Deserialize(bytes, ref index);
   }
