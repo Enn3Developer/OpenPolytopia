@@ -13,6 +13,19 @@ public class LobbyManager {
   private readonly Dictionary<ulong, LobbyData> _lobbies = new();
   private ulong _nextId;
 
+  /// <summary>Last allocated id, retained even after the last lobby is removed.</summary>
+  public ulong LastId => _nextId;
+
+  /// <summary>Restores durable lobby state before accepting connections.</summary>
+  public void Restore(ulong lastId, IEnumerable<LobbyData> lobbies) {
+    _lobbies.Clear();
+    _nextId = lastId;
+    foreach (var lobby in lobbies) {
+      if (lobby.Id == 0 || lobby.Id > lastId || !_lobbies.TryAdd(lobby.Id, lobby))
+        throw new InvalidDataException("Invalid persisted lobby id");
+    }
+  }
+
   /// <summary>
   /// All the lobbies on the server
   /// </summary>
@@ -41,14 +54,14 @@ public class LobbyManager {
   /// <param name="lobby">the new lobby, or <see langword="null"/> if it couldn't be created</param>
   /// <returns>the result of the operation</returns>
   public LobbyActionResult CreateLobby(uint maxPlayers, uint worldSize, LobbyPlayerData creator,
-    out LobbyData? lobby) {
-    if (!LobbyRules.IsValidLobby(maxPlayers, worldSize)) {
+    out LobbyData? lobby, uint timerMode = 1) {
+    if (!LobbyRules.IsValidLobby(maxPlayers, worldSize) || timerMode > 1) {
       lobby = null;
       return LobbyActionResult.InvalidParameters;
     }
 
     lobby = new LobbyData {
-      Id = ++_nextId, MaxPlayers = maxPlayers, WorldSize = worldSize, Players = [creator]
+      Id = ++_nextId, MaxPlayers = maxPlayers, WorldSize = worldSize, Players = [creator], TimerMode = timerMode
     };
     _lobbies[lobby.Id] = lobby;
     return LobbyActionResult.Ok;

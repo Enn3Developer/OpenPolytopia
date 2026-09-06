@@ -4,3 +4,8 @@ obj/
 riderModule.iml
 /_ReSharper.Caches/
 /.idea
+# Local server persistence and TLS credentials
+*.db
+*.db-wal
+*.db-shm
+*.pfx

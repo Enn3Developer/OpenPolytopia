@@ -49,14 +49,14 @@ public sealed record AuthResult(Account Account, string Token);
 /// SHA-256 hashes of 256 bits of cryptographically random data; neither can be recovered from the database
 /// </para>
 /// </remarks>
-public sealed class ServerStore : IDisposable {
+public sealed partial class ServerStore : IDisposable {
   /// <summary>
   /// Schema version this class knows how to read and write
   /// </summary>
   /// <remarks>
   /// A database with a higher version was written by a newer server and is rejected on open
   /// </remarks>
-  public const int SCHEMA_VERSION = 1;
+  public const int SCHEMA_VERSION = 2;
 
   /// <summary>
   /// Minimum length of a username
@@ -208,23 +208,25 @@ public sealed class ServerStore : IDisposable {
     }
 
     var normalized = username.ToLowerInvariant();
-
+    AccountRecord? record;
+    lock (_lock) {
+      ThrowIfDisposed();
+      using var read = _connection.BeginTransaction();
+      record = FindAccountByUsername(read, normalized);
+      read.Commit();
+    }
+    // Password work must not hold the database lock while gameplay commits are waiting.
+    var hash = Rfc2898DeriveBytes.Pbkdf2(password, record?.Salt ?? _dummySalt,
+      record?.Iterations ?? PBKDF2_ITERATIONS, HashAlgorithmName.SHA256, HASH_SIZE);
+    if (record is null || !CryptographicOperations.FixedTimeEquals(hash, record.Hash)) return null;
     lock (_lock) {
       ThrowIfDisposed();
       using var transaction = _connection.BeginTransaction();
-
-      var record = FindAccountByUsername(transaction, normalized);
-      var salt = record?.Salt ?? _dummySalt;
-      var iterations = record?.Iterations ?? PBKDF2_ITERATIONS;
-      var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, HASH_SIZE);
-
-      if (record is null || !CryptographicOperations.FixedTimeEquals(hash, record.Hash)) {
-        return null;
-      }
-
-      var token = CreateSession(transaction, record.Account.Id);
+      var current = FindAccountByUsername(transaction, normalized);
+      if (current == null || !CryptographicOperations.FixedTimeEquals(current.Hash, record.Hash)) return null;
+      var token = CreateSession(transaction, current.Account.Id);
       transaction.Commit();
-      return new AuthResult(record.Account, token);
+      return new AuthResult(current.Account, token);
     }
   }
 
@@ -321,8 +323,11 @@ public sealed class ServerStore : IDisposable {
   /// The store treats the snapshot as an opaque blob: what goes in it, and its format, are up to the caller
   /// </remarks>
   /// <param name="state">the JSON snapshot of the server state</param>
+  /// <param name="renamedAccounts">Display names committed with the snapshot.</param>
+  /// <param name="completedGames">Completed matches archived in the same transaction.</param>
   /// <exception cref="ArgumentNullException">if <paramref name="state"/> is <see langword="null"/></exception>
-  public void SaveState(string state) {
+  public void SaveState(string state, IReadOnlyDictionary<uint, string>? renamedAccounts = null,
+    IReadOnlyList<ArchivedGame>? completedGames = null) {
     ArgumentNullException.ThrowIfNull(state);
 
     lock (_lock) {
@@ -336,6 +341,18 @@ public sealed class ServerStore : IDisposable {
         """;
       command.Parameters.AddWithValue("$state", state);
       command.ExecuteNonQuery();
+      if (renamedAccounts != null) {
+        foreach (var (accountId, name) in renamedAccounts) {
+          if (name.Length is < 1 or > 32 || name.Any(char.IsControl)) throw new ArgumentException("Invalid display name");
+          using var rename = _connection.CreateCommand();
+          rename.Transaction = transaction;
+          rename.CommandText = "UPDATE accounts SET display_name = $name WHERE id = $id";
+          rename.Parameters.AddWithValue("$name", name);
+          rename.Parameters.AddWithValue("$id", accountId);
+          if (rename.ExecuteNonQuery() != 1) throw new ArgumentException("Unknown account");
+        }
+      }
+      SaveCompletedGames(transaction, completedGames);
       transaction.Commit();
     }
   }
@@ -375,31 +392,40 @@ public sealed class ServerStore : IDisposable {
 
     using var schema = _connection.CreateCommand();
     schema.Transaction = transaction;
-    schema.CommandText = $"""
-      CREATE TABLE accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        display_name TEXT NOT NULL,
-        salt BLOB NOT NULL,
-        hash BLOB NOT NULL,
-        iterations INTEGER NOT NULL
-      ) STRICT;
+    if (current == 0) {
+      schema.CommandText = """
+        CREATE TABLE accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL UNIQUE,
+          display_name TEXT NOT NULL,
+          salt BLOB NOT NULL,
+          hash BLOB NOT NULL,
+          iterations INTEGER NOT NULL
+        ) STRICT;
 
-      CREATE TABLE sessions (
-        token_hash BLOB PRIMARY KEY,
-        account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL
-      ) STRICT;
+        CREATE TABLE sessions (
+          token_hash BLOB PRIMARY KEY,
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          created_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL
+        ) STRICT;
 
-      CREATE INDEX sessions_account_id ON sessions(account_id);
+        CREATE INDEX sessions_account_id ON sessions(account_id);
 
-      CREATE TABLE server_state (
-        id INTEGER PRIMARY KEY CHECK (id = 0),
-        state TEXT NOT NULL
-      ) STRICT;
+        CREATE TABLE server_state (
+          id INTEGER PRIMARY KEY CHECK (id = 0),
+          state TEXT NOT NULL
+        ) STRICT;
 
-      PRAGMA user_version = {SCHEMA_VERSION};
+        PRAGMA user_version = 1;
+        """;
+      schema.ExecuteNonQuery();
+    }
+    schema.CommandText = """
+      CREATE TABLE completed_games (id TEXT PRIMARY KEY, state TEXT NOT NULL) STRICT;
+      CREATE TABLE completed_game_members (game_id TEXT NOT NULL REFERENCES completed_games(id),
+        account_id INTEGER NOT NULL, PRIMARY KEY(account_id, game_id)) STRICT;
+      PRAGMA user_version = 2;
       """;
     schema.ExecuteNonQuery();
     transaction.Commit();

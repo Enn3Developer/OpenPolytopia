@@ -7,7 +7,7 @@ public static class NetworkConstants {
   /// <remarks>
   /// The handshake fails if client and server have different versions
   /// </remarks>
-  public const string VERSION = "0.1.0";
+  public const string VERSION = "0.2.0";
 
   /// <summary>
   /// Default port the server listens on

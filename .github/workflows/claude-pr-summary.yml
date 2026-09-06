@@ -53,6 +53,6 @@ jobs:
 
             Keep it under 200 words. No code review, no praise, no findings.
           claude_args: >-
-            --max-turns 15
+            --max-turns 30
             --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh pr view:*),Bash(gh pr diff:*)"
             --disallowedTools "Edit,Write,MultiEdit,NotebookEdit"

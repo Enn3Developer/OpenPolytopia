@@ -26,6 +26,8 @@ public partial class GetLobbiesResponsePacket : IPacket {
 /// </remarks>
 [GeneratedPacket]
 public partial class CreateLobbyPacket : IPacket {
+  /// <summary>Turn timer: 0 for Live, 1 for 24-hour turns.</summary>
+  [PacketField] public uint TimerMode = 1;
   /// <summary>
   /// Number of max players that can join the lobby
   /// </summary>

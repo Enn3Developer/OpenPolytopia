@@ -84,6 +84,8 @@ public class GameSessionTest {
 
     var packet = RoundTrip(session.BuildState());
 
+    packet.Players[0].AccountId.ShouldBe(100u);
+    packet.Players[1].AccountId.ShouldBe(101u);
     packet.Result.ShouldBe(GameActionResult.Ok);
     packet.GameId.ShouldBe(session.Id);
     packet.WorldSize.ShouldBe(WORLD_SIZE);
