@@ -81,6 +81,18 @@ public class TransportSecurityTest {
   }
 
   [Fact]
+  public async Task TestTlsClientTimesOutWhenServerNeverCompletesHandshake() {
+    using var listener = new TcpListenerHolder();
+    using var client = new ClientConnection("127.0.0.1", listener.Port, true);
+    var connecting = client.ConnectAsync();
+    using var peer = await listener.Listener.AcceptTcpClientAsync().WaitAsync(_timeout);
+
+    // Keep TCP open without answering TLS: the client's own deadline must end the attempt.
+    await Should.ThrowAsync<OperationCanceledException>(connecting.WaitAsync(TimeSpan.FromSeconds(20)));
+    client.Connected.ShouldBeFalse();
+  }
+
+  [Fact]
   public async Task TestTlsConnectionRejectsAnUntrustedCertificate() {
     var port = FreePort();
     using var certificate = CreateSelfSignedCertificate();
